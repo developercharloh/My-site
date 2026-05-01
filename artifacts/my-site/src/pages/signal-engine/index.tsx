@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TrendingUp, TrendingDown, ChevronDown, Wifi, WifiOff, Loader2 } from 'lucide-react';
 import '../entry-zone/entry-zone.scss';
+import './signal-engine.scss';
 
 const DERIV_WS = 'wss://ws.binaryws.com/websockets/v3?app_id=1';
 const TICK_HISTORY = 1000;
@@ -63,7 +64,7 @@ function computeRanks(dist: number[]): number[] {
 }
 
 function circleSize(pct: number): number {
-    return Math.round(44 + (pct / 20) * 28);
+    return Math.round(28 + (pct / 20) * 16);
 }
 
 interface TickData {
@@ -398,7 +399,7 @@ const SignalEngine = () => {
     const selectedLabel = MARKETS.flatMap(g => g.items).find(m => m.symbol === symbol)?.label ?? symbol;
 
     return (
-        <div className='ez-root'>
+        <div className='ez-root se-root'>
             <div className='ez-header'>
                 <div className='ez-header__title-block'>
                     <span className='ez-header__title'>Signal Engine</span>
@@ -476,12 +477,6 @@ const SignalEngine = () => {
                 />
             </div>
 
-            <div className='ez-section'>
-                <span className='ez-section__title'>Recent digits</span>
-                <RecentStrip recentDigits={recentDigits} />
-            </div>
-
-            <Legend />
         </div>
     );
 };

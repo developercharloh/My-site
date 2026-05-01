@@ -397,7 +397,7 @@ const AppWrapper = observer(() => {
                 <TradingViewModal />
             </DesktopWrapper>
             <MobileWrapper>
-                {!is_open && active_tab !== DBOT_TABS.SPEED_BOTS && <RunPanel />}
+                {!is_open && active_tab !== DBOT_TABS.SPEED_BOTS && active_tab !== DBOT_TABS.ANALYSIS_TOOL && <RunPanel />}
             </MobileWrapper>
             <Dialog
                 cancel_button_text={cancel_button_text || localize('Cancel')}
