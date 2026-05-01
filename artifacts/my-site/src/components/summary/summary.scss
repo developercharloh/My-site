@@ -1,0 +1,120 @@
+@use 'components/shared/styles/constants' as *;
+@use 'components/shared/styles/mixins' as *;
+
+.summary {
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+    justify-content: center;
+    background: linear-gradient(180deg, var(--general-section-2) 0%, rgb(242 243 244 / 0%) 80%);
+    width: 100%;
+
+    @include desktop-screen {
+        height: inherit;
+    }
+
+    &--loading {
+        width: 100%;
+    }
+
+    &--delayed-loading {
+        justify-content: center;
+    }
+
+    &__tiles {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        margin: 24px 0;
+    }
+
+    &__tile {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        border-radius: $BORDER_RADIUS;
+        width: 32%;
+        max-width: 32%;
+        text-align: center;
+        background-color: var(--general-section-1);
+        padding: 8px 8px 0;
+        margin-bottom: 2%;
+        height: 56px;
+
+        &-title {
+            height: 18px;
+            margin-bottom: 4px;
+
+            @include typeface(--small-center-bold-black, none);
+        }
+
+        &-content {
+            height: 18px;
+            margin-bottom: 4px;
+
+            @include typeface(--small-center-normal-black, none);
+        }
+    }
+
+    &__amount {
+        @include typeface(--small-center-normal-black, none);
+
+        &--positive {
+            font-weight: bold;
+            color: var(--text-profit-success);
+        }
+
+        &--negative {
+            font-weight: bold;
+            color: var(--text-loss-danger);
+        }
+    }
+
+    &__virtual-phase-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        align-self: flex-start;
+        margin: 8px 0 4px 12px;
+        padding: 3px 10px 3px 8px;
+        border-radius: 12px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+
+        &--virtual {
+            background-color: rgba(255, 164, 0, 0.15);
+            color: #b36200;
+
+            .summary__virtual-phase-badge-dot {
+                background-color: #ff9800;
+            }
+        }
+
+        &--real {
+            background-color: rgba(0, 168, 73, 0.12);
+            color: #007a38;
+
+            .summary__virtual-phase-badge-dot {
+                background-color: #00a849;
+            }
+        }
+
+        &-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            animation: pulse-dot 1.4s ease-in-out infinite;
+        }
+
+        &-label {
+            white-space: nowrap;
+        }
+    }
+
+    @keyframes pulse-dot {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50%       { opacity: 0.6; transform: scale(0.85); }
+    }
+}

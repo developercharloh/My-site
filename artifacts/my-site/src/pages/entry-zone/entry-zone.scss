@@ -1,0 +1,389 @@
+.ez-root {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding: 1.25rem;
+    max-width: 680px;
+    margin: 0 auto;
+    font-family: inherit;
+}
+
+/* ── Header ── */
+.ez-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+
+    &__title-block {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+    }
+
+    &__title {
+        font-size: 1.4rem;
+        font-weight: 900;
+        letter-spacing: -0.01em;
+        color: var(--text-general, #1e293b);
+    }
+
+    &__sub {
+        font-size: 0.7rem;
+        color: var(--text-less-prominent, #94a3b8);
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+}
+
+/* ── Market selector ── */
+.ez-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+
+    &__label {
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-less-prominent, #94a3b8);
+    }
+
+    &__wrap {
+        position: relative;
+    }
+
+    &__select {
+        appearance: none;
+        padding: 0.45rem 2rem 0.45rem 0.75rem;
+        border-radius: 0.75rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        cursor: pointer;
+        outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        background: rgba(14, 165, 233, 0.08);
+        border: 1.5px solid rgba(14, 165, 233, 0.35);
+        color: #0ea5e9;
+        min-width: 210px;
+
+        &:focus {
+            border-color: rgba(14, 165, 233, 0.7);
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+        }
+
+        option, optgroup {
+            background: #1e293b;
+            color: #e2e8f0;
+        }
+    }
+
+    &__chevron {
+        position: absolute;
+        right: 0.6rem;
+        top: 50%;
+        transform: translateY(-50%);
+        pointer-events: none;
+        width: 13px;
+        height: 13px;
+        color: #0ea5e9;
+    }
+}
+
+/* ── Live price row ── */
+.ez-price-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding: 0.9rem 1.1rem;
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(14, 165, 233, 0.18);
+    backdrop-filter: blur(12px);
+}
+
+.ez-price {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+
+    &__status {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    &__status-text {
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-less-prominent, #94a3b8);
+    }
+
+    &__arrow {
+        width: 12px;
+        height: 12px;
+
+        &--up   { color: #10b981; }
+        &--down { color: #ef4444; }
+    }
+
+    &__value {
+        display: flex;
+        align-items: baseline;
+        gap: 0;
+        font-family: 'JetBrains Mono', 'Fira Code', monospace;
+        font-weight: 900;
+        line-height: 1;
+    }
+
+    &__prefix {
+        font-size: 1.6rem;
+        color: var(--text-general, #1e293b);
+    }
+
+    &__last-digit {
+        font-size: 2rem;
+        display: inline-block;
+    }
+}
+
+/* Status dots */
+.ez-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+
+    &--live        { background: #10b981; animation: ez-pulse 1.5s ease-in-out infinite; }
+    &--connecting  { background: #f59e0b; animation: ez-pulse 0.8s ease-in-out infinite; }
+    &--error       { background: #ef4444; }
+}
+
+@keyframes ez-pulse {
+    0%, 100% { opacity: 1;   transform: scale(1);   }
+    50%       { opacity: 0.5; transform: scale(0.75); }
+}
+
+/* Cursor tag (tracker badge) */
+.ez-cursor-tag {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+
+    &__arrow {
+        font-size: 0.9rem;
+        line-height: 1;
+    }
+
+    &__label {
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: var(--text-less-prominent, #94a3b8);
+    }
+
+    &__digit {
+        font-size: 1.3rem;
+        font-weight: 900;
+        font-family: 'JetBrains Mono', monospace;
+        line-height: 1;
+    }
+}
+
+.ez-spinner    { width: 16px; height: 16px; color: #f59e0b; animation: spin 1s linear infinite; }
+.ez-error-icon { width: 16px; height: 16px; color: #ef4444; }
+.ez-wifi-icon  { width: 16px; height: 16px; color: #10b981; }
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+/* ── Quadrants wrapper ── */
+.ez-quadrants {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+/* ── Quadrant ── */
+.ez-quadrant {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem;
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(100, 116, 139, 0.2);
+
+    &__label {
+        font-size: 0.65rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: var(--text-less-prominent, #94a3b8);
+        padding-bottom: 0.25rem;
+        border-bottom: 1px solid rgba(100, 116, 139, 0.15);
+    }
+}
+
+/* Cursor layer — positioned relative, cursor floats above circles */
+.ez-cursor-layer {
+    position: relative;
+    height: 20px;
+    pointer-events: none;
+}
+
+.ez-cursor {
+    position: absolute;
+    top: 0;
+    /* x is set via motion animate — translateX(-50%) centers it */
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    &__arrow {
+        font-size: 0.85rem;
+        line-height: 1;
+        color: #ef4444;
+        filter: drop-shadow(0 0 6px #ef444488);
+    }
+}
+
+/* Circles row */
+.ez-circles {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-around;
+    gap: 0.5rem;
+}
+
+.ez-circle-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    flex: 1;
+}
+
+.ez-rank-badge {
+    font-size: 0.55rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    min-height: 12px;
+}
+
+.ez-circle {
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 900;
+    font-size: 0.9rem;
+    cursor: default;
+    user-select: none;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s, color 0.3s;
+
+    &__pulse {
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+    }
+}
+
+.ez-bar-track {
+    width: 100%;
+    height: 5px;
+    border-radius: 99px;
+    background: rgba(100, 116, 139, 0.15);
+    overflow: hidden;
+}
+
+.ez-bar-fill {
+    height: 100%;
+    border-radius: 99px;
+}
+
+.ez-pct {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+/* ── Recent strip ── */
+.ez-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+
+    &__title {
+        font-size: 0.65rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: var(--text-less-prominent, #94a3b8);
+    }
+}
+
+.ez-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+
+    &__chip {
+        width: 20px;
+        height: 20px;
+        border-radius: 5px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.65rem;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        user-select: none;
+    }
+}
+
+/* ── Legend ── */
+.ez-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding-top: 0.25rem;
+    border-top: 1px solid rgba(100, 116, 139, 0.15);
+
+    &__item {
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-less-prominent, #94a3b8);
+    }
+
+    &__dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+}

@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en" translate="no" dir="auto">
+    <head>
+        <!-- Set skeleton theme color properties -->
+        <style>
+            :root {
+                --logo-loading-color: rgba(0, 0, 0, 0.8);
+                --header-footer-bg-color: rgba(0, 0, 0, 0.04);
+                --content-bg-color: #fff;
+                --general-main-1: #ffffff;
+                --general-section-1: #f2f3f4;
+                --text-prominent: #333333;
+                font-size: 62.5%;
+            }
+
+            #platform_name:after {
+                content: var(--app-shell-platform-name);
+                margin-left: 8px;
+            }
+
+            .deriv-app > .header__loading {
+                background-color: var(--general-main-1);
+                border-bottom: var(--general-main-1);
+            }
+
+            .deriv-app > .app-contents__loading {
+                background-color: var(--general-main-1);
+            }
+
+            .deriv-app > .footer__loading {
+                background-color: var(--general-main-1);
+                border-bottom: var(--general-main-1);
+            }
+
+            .initial-loader__loading {
+                background-color: var(--general-main-1);
+            }
+        </style>
+        <script type="text/javascript">
+            !(function () {
+                if ('PerformanceLongTaskTiming' in window) {
+                    var g = (window.__tti = { e: [] });
+                    g.o = new PerformanceObserver(function (l) {
+                        g.e = g.e.concat(l.getEntries());
+                    });
+                    g.o.observe({ entryTypes: ['longtask'] });
+                }
+            })();
+        </script>
+        <script type="text/javascript">
+            var ui_store = localStorage.getItem('ui_store');
+            var l = window.location;
+            var is_bot =
+                /^\/bot/.test(l.pathname) || (/^\/(br_)/.test(l.pathname) && l.pathname.split('/')[2] === 'bot');
+
+            if (ui_store && ui_store.length > 0) {
+                var is_dark_theme = false;
+                if (is_bot) {
+                    // TODO: [disable-dark-bot] Re-enable dark theme when Bot is ready
+                    is_dark_theme = false;
+                } else {
+                    is_dark_theme = JSON.parse(ui_store).is_dark_mode_on || false;
+                }
+
+                if (is_dark_theme) {
+                    // if dark theme, change the property colors for dark theme
+                    document.documentElement.style.setProperty('--header-footer-bg-color', '#0b0e18');
+                    document.documentElement.style.setProperty('--content-bg-color', '#101320');
+                    document.documentElement.style.setProperty('--logo-loading-color', '#fff');
+                    document.documentElement.style.setProperty('--general-main-1', '#0e0e0e');
+                    document.documentElement.style.setProperty('--general-section-1', '#151717');
+                    document.documentElement.style.setProperty('--text-prominent', '#ffffff');
+                }
+            }
+        </script>
+        <!-- End theme styles -->
+        <!-- Start Anti-Clickjack -->
+        <style id="antiClickjack">
+            body {
+                display: none !important;
+            }
+        </style>
+        <script type="text/javascript">
+            var __ac = document.getElementById('antiClickjack'); if (__ac && __ac.parentNode) __ac.parentNode.removeChild(__ac); /* Apollo: frame-buster disabled for /dtrader/ iframe */
+        </script>
+        <!-- End Anti-Clickjack -->
+
+        <noscript>Your browser does not support JavaScript!</noscript>
+
+        <!-- Start GTM Script -->
+        <script>
+            try {
+                var gtm_id = 'GTM-NF7884S';
+                if (window.location.hostname === 'deriv-app.binary.sx') gtm_id = 'GTM-TNX2ZKH';
+                (function (w, d, s, l, i) {
+                    w[l] = w[l] || [];
+                    w[l].push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
+                    var f = d.getElementsByTagName(s)[0],
+                        j = d.createElement(s),
+                        dl = l != 'dataLayer' ? '&l=' + l : '';
+                    j.defer = true;
+                    j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl;
+                    f.parentNode.insertBefore(j, f);
+                })(window, document, 'script', 'dataLayer', gtm_id);
+            } catch (err) {
+                console.log('Error inserting GTM script 1 ====>', err);
+            }
+        </script>
+        <!-- End GTM Script -->
+
+        <!-- Start URL Handler -->
+        <script type="text/javascript">
+            (function (l) {
+                if (l.search) {
+                    // Create object without prototype to prevent pollution
+                    var q = Object.create(null);
+
+                    l.search
+                        .slice(1)
+                        .split('&')
+                        .forEach(function (v) {
+                            var a = v.split('=');
+                            var key = a[0];
+
+                            // Security checks
+                            if (!key || key.length === 0) return;
+                            if (key.includes('__proto__')) return;
+                            if (key.includes('constructor')) return;
+                            if (key.includes('prototype')) return;
+
+                            var value = a.slice(1).join('=').replace(/~and~/g, '&');
+                            q[key] = value;
+                        });
+
+                    // Use hasOwnProperty equivalent for prototype-less object
+                    if (Object.prototype.hasOwnProperty.call(q, 'p')) {
+                        window.history.replaceState(
+                            null,
+                            null,
+                            l.pathname.slice(0, -1) +
+                                (q.p || '') +
+                                (Object.prototype.hasOwnProperty.call(q, 'q') ? '?' + q.q : '') +
+                                l.hash
+                        );
+                    }
+                }
+            })(window.location);
+        </script>
+        <!-- End URL Handler -->
+
+        <!-- Start Cookies script -->
+        <script src="https://static.deriv.com/scripts/cookie.js" async></script>
+        <!-- End Cookies script -->
+
+        <meta
+            name="description"
+            content=" Deriv gives everyone an easy way to participate in the financial markets. Trade with as little as $1 USD on major currencies, stocks, indices, and commodities."
+        />
+        <meta
+            name="keywords"
+            content=" digital options, forex, forex trading, online trading, financial trading, binary trading, index trading, trading indices, forex trades, trading commodities, digital options strategy, binary broker, binary bet, digital options trading platform, binary strategy, finance, stocks, investment, trading"
+        />
+        <meta name="author" content="Trader Charloh FX" />
+        <!-- TODO: iOS zoom bug for input elements means we'll get a lower user accessibility score since we're not allowing app.deriv.com to be scalable on mobile -->
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
+        <meta name="theme-color" content="#414652" />
+        <meta name="dcterms.rightsHolder" content="Deriv" />
+        <meta name="dcterms.rights" content="Deriv" />
+        <meta name="google-site-verification" content="g5u3TyEdmYJ_HKZ6EmpW1nlKwD4XPVeLMhN9leeMfuw" />
+        <meta
+            property="og:description"
+            content="Deriv gives everyone an easy way to participate in the financial markets. Trade with as little as $1 USD on major currencies, stocks, indices, and commodities."
+        />
+        <meta property="og:title" content="Trader Charloh FX | Best of bests for trading" />
+        <meta property="og:type" content="website" />
+        <meta
+            property="og:image"
+            content="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTR3qsyDtQ_1mlX1AoeV963gFP0UZBTcJOcdK0G802Vfg&s"
+        />
+        <meta name="google" content="notranslate" />
+        <meta name="referrer" content="origin" />
+
+        <link rel="preconnect" href="https://fonts.gstatic.com" />
+        <link rel="preconnect" href="https://www.googletagmanager.com" />
+        <link rel="preconnect" href="https://browser-update.org" />
+
+        <link rel="alternate" hreflang="en" href="https://app.deriv.com" />
+        <link rel="canonical" href="https://app.deriv.com" />
+
+        <title>Trader Charloh FX | Best of bests for trading</title>
+    <style>
+      /* Hide DTrader's own internal navigation tabs (Analysis/D Trader/Speedbots) */
+      /* Target the main tabs list header */
+      .dc-tabs__list--header--main__tabs,
+      .dc-tabs__list--header--main__tabs ~ .dc-tabs__active-line,
+      [class*="main__tabs"] [role="tablist"],
+      [class*="main__tabs"].dc-tabs__list { display: none !important; }
+      /* Forcefully hide the onboarding / bot-builder tour dialogs and their backdrop */
+      .tour-dialog,
+      .dc-dialog.tour-dialog { display: none !important; }
+      /* Hide the portal wrapper that contains the tour dialog (includes backdrop) */
+      .dc-dialog__wrapper--fixed:has(.tour-dialog) { display: none !important; }
+      /* Also hide via MutationObserver in script below */
+      /* Ensure trade form fills full height */
+      .app-contents { min-height: 100vh; }
+    </style>
+        <meta charset="UTF-8" />
+        <meta name="google-site-verification" content="g5u3TyEdmYJ_HKZ6EmpW1nlKwD4XPVeLMhN9leeMfuw" />
+    <script defer src="/dtrader/js/core.vendors-hooks_node_modules_js-cookie_src_js_cookie_js-hooks_node_modules_deriv-com_auth-clien-e56339.502d4464f18d8ec2894d.js"></script><script defer src="/dtrader/js/core.vendors-node_modules_cloudflare_stream-react_dist_stream-react_esm_js-node_modules_datadog_br-410582.502d4464f18d8ec2894d.js"></script><script defer src="/dtrader/js/core.vendors-node_modules_deriv-com_analytics_lib_index_js-node_modules_deriv_deriv-api_dist_Deriv-76040a.502d4464f18d8ec2894d.js"></script><script defer src="/dtrader/js/core.vendors-node_modules_deriv_quill-icons_dist_esm_index_js.502d4464f18d8ec2894d.js"></script><script defer src="/dtrader/js/core.vendors-node_modules_deriv_quill-icons_dist_esm_react_Illustration_DerivDark2faIcon_js-node_m-f8ecea.502d4464f18d8ec2894d.js"></script><script defer src="/dtrader/js/core.vendors-node_modules_deriv_quill-icons_dist_esm_react_Illustration_index_js.502d4464f18d8ec2894d.js"></script><script defer src="/dtrader/js/core.vendors-node_modules_deriv_quill-icons_dist_esm_react_Illustrative_index_js.502d4464f18d8ec2894d.js"></script><script defer src="/dtrader/js/core.vendors-node_modules_deriv_quill-icons_dist_esm_react_LabelPaired_LabelPairedAndroidCaptionIc-2f9d14.502d4464f18d8ec2894d.js"></script><script defer src="/dtrader/js/core.vendors-node_modules_deriv_quill-icons_dist_esm_react_LabelPaired_LabelPairedAtLgBoldIcon_js--0c750c.502d4464f18d8ec2894d.js"></script><script defer src="/dtrader/js/core.vendors-node_modules_deriv_quill-icons_dist_esm_react_LabelPaired_LabelPairedFaceViewfinderCa-2907ab.502d4464f18d8ec2894d.js"></script><script defer src="/dtrader/js/core.vendors-node_modules_deriv_quill-icons_dist_esm_react_LabelPaired_index_js-node_modules_deriv-ba92bc.502d4464f18d8ec2894d.js"></script><script defer src="/dtrader/js/core.vendors-node_modules_deriv_quill-icons_dist_esm_react_Logo_index_js-node_modules_deriv_quill--d93fe9.502d4464f18d8ec2894d.js"></script><script defer src="/dtrader/js/core.vendors-node_modules_deriv_quill-icons_dist_esm_react_Social_index_js-node_modules_deriv_quil-22f3d7.502d4464f18d8ec2894d.js"></script><script defer src="/dtrader/js/core.vendors-node_modules_embla-carousel-react_embla-carousel-react_esm_js-node_modules_es-errors_-b3d58a.502d4464f18d8ec2894d.js"></script><script defer src="/dtrader/js/core.vendors-node_modules_file-selector_dist_es5_index_js-node_modules_formik_dist_formik_esm_js-n-ed3846.502d4464f18d8ec2894d.js"></script><script defer src="/dtrader/js/core.vendors-node_modules_growthbook_growthbook_dist_cjs_index_js-node_modules_has-property-descri-bd8962.502d4464f18d8ec2894d.js"></script><script defer src="/dtrader/js/core.vendors-node_modules_mobx-react-lite_es_index_js-node_modules_mobx-utils_mobx-utils_module_js.502d4464f18d8ec2894d.js"></script><script defer src="/dtrader/js/core.vendors-node_modules_moment_moment_js-node_modules_object-keys_index_js-node_modules_object_f-e525c9.502d4464f18d8ec2894d.js"></script><script defer src="/dtrader/js/core.vendors-node_modules_ua-parser-js_src_ua-parser_js-node_modules_uuid_dist_commonjs-browser_in-def13a.502d4464f18d8ec2894d.js"></script><script defer src="/dtrader/js/core.vendors-shared_node_modules_js-cookie_src_js_cookie_js-utils_node_modules_deriv-com_auth-clie-57180e.502d4464f18d8ec2894d.js"></script><script defer src="/dtrader/js/core.main.502d4464f18d8ec2894d.js"></script><link href="/dtrader/manifest.json" rel="manifest" crossorigin="use-credentials"><link href="/dtrader/favicon.ico" rel="icon"><link href="/dtrader/public/images/favicons/favicon-16.png" rel="icon" sizes="16x16"><link href="/dtrader/public/images/favicons/favicon-32.png" rel="icon" sizes="32x32"><link href="/dtrader/public/images/favicons/favicon-96.png" rel="icon" sizes="96x96"><link href="/dtrader/public/images/favicons/favicon-160.png" rel="icon" sizes="160x160"><link href="/dtrader/public/images/favicons/favicon-192.png" rel="icon" sizes="192x192"><link href="/dtrader/public/images/favicons/apple-touch-icon-57.png" rel="apple-touch-icon" sizes="57x57"><link href="/dtrader/public/images/favicons/apple-touch-icon-60.png" rel="apple-touch-icon" sizes="60x60"><link href="/dtrader/public/images/favicons/apple-touch-icon-72.png" rel="apple-touch-icon" sizes="72x72"><link href="/dtrader/public/images/favicons/apple-touch-icon-76.png" rel="apple-touch-icon" sizes="76x76"><link href="/dtrader/public/images/favicons/apple-touch-icon-114.png" rel="apple-touch-icon" sizes="114x114"><link href="/dtrader/public/images/favicons/apple-touch-icon-120.png" rel="apple-touch-icon" sizes="120x120"><link href="/dtrader/public/images/favicons/apple-touch-icon-144.png" rel="apple-touch-icon" sizes="144x144"><link href="/dtrader/public/images/favicons/apple-touch-icon-152.png" rel="apple-touch-icon" sizes="152x152"><link href="/dtrader/public/images/favicons/apple-touch-icon-180.png" rel="apple-touch-icon" sizes="180x180"><link href="/dtrader/css/core.main.bbf79253a7132656ebde.main.css" rel="stylesheet"><link as="style" href="/dtrader/css/core.main.bbf79253a7132656ebde.main.css" rel="preload">    <script>window.__webpack_public_path__ = '/dtrader/'; var __webpack_public_path__ = '/dtrader/';</script>
+                                        <script>/* __APOLLO_OAUTH_STUB__ */(function(){
+// Unregister any pre-existing dtrader service worker (from earlier snapshots
+// that registered the un-neutralised SW). Old SWs may rewrite chunk URLs and
+// strip the /dtrader/ prefix, which causes ChunkLoadError.
+if(navigator.serviceWorker&&navigator.serviceWorker.getRegistrations){
+  navigator.serviceWorker.getRegistrations().then(function(rs){
+    rs.forEach(function(r){if(r.scope.indexOf('/dtrader')>-1){console.log('[ApolloStub] unregistering old SW:',r.scope);r.unregister();}});
+  }).catch(function(){});
+}
+// Block future SW registrations that target /dtrader/ — the vendored SW is
+// neutralised, but DTrader's main code may still try to register it on boot.
+if(navigator.serviceWorker){
+  var _reg=navigator.serviceWorker.register;
+  navigator.serviceWorker.register=function(url,opts){
+    if(typeof url==='string'&&url.indexOf('dtrader')>-1){console.log('[ApolloStub] blocked SW register:',url);return Promise.reject(new Error('SW disabled by Apollo'));}
+    return _reg.apply(this,arguments);
+  };
+}
+var _f=window.fetch;
+window.fetch=function(input,init){
+  try{
+    var u=typeof input==='string'?input:(input&&input.url)||'';
+    if(u.indexOf('oauth.deriv.com')>-1||u.indexOf('/oauth2/sessions/active')>-1){
+      console.log('[ApolloStub] STUBBED OAuth call:',u);
+      return Promise.resolve(new Response(JSON.stringify({active:0,tokens:[],sessions:[]}),{status:200,headers:{'Content-Type':'application/json'}}));
+    }
+    var p=_f.apply(this,arguments);
+    p.catch(function(e){console.warn('[ApolloDebug] fetch FAILED:',u,e&&e.message);});
+    return p;
+  }catch(e){return _f.apply(this,arguments);}
+};
+// Force DTrader tab (6) and suppress first-run onboarding tour.
+// IMPORTANT: localStorage is shared (same origin) between the outer Apollo
+// app and this iframe. We MUST NOT write 'active_tab' directly, because the
+// outer app reads the same key for its OWN tab index and would then navigate
+// to ANALYSIS_TOOL (index 6 there) instead of MANUAL_TRADER (index 5).
+//
+// Solution: monkey-patch the iframe's own window.localStorage accessor so
+// that reads of 'active_tab' always see '6' (DBOT_TABS.DTRADER inside the
+// DTrader bundle) while the shared storage is NOT touched.  Writes of
+// 'active_tab' are silently dropped so the DTrader never persists a value
+// that would confuse the outer app on a hard-refresh.
+try{
+  var _origGetItem = localStorage.getItem.bind(localStorage);
+  var _origSetItem = localStorage.setItem.bind(localStorage);
+  localStorage.getItem = function(key){
+    if(key==='active_tab') return '6';      // DBOT_TABS.DTRADER = 6
+    if(key==='onboard_tour_token') return String(Date.now()); // suppress tour
+    if(key==='bot_tour_token') return String(Date.now());
+    return _origGetItem(key);
+  };
+  localStorage.setItem = function(key, val){
+    if(key==='active_tab') return;          // never persist; prevent stomping outer app
+    _origSetItem(key, val);
+  };
+}catch(_){}
+window.addEventListener('error',function(e){console.error('[ApolloDebug] GlobalError:',e.message,'@',e.filename+':'+e.lineno+':'+e.colno,e.error&&e.error.stack);});
+window.addEventListener('unhandledrejection',function(e){var r=e.reason;console.error('[ApolloDebug] UnhandledRejection:',r&&(r.message||r),r&&r.stack);});
+// Tee console.error so we don't lose any errors after log truncation in screenshots
+try{var _ce=console.error.bind(console);console.error=function(){try{_ce.apply(null,arguments);}catch(_){}window.__apolloErrors=window.__apolloErrors||[];window.__apolloErrors.push(Array.prototype.slice.call(arguments).map(function(a){try{return typeof a==='string'?a:JSON.stringify(a);}catch(_){return String(a);}}).join(' ').slice(0,500));};}catch(e){}
+// DOM overlay for WS message history - visible in screenshots
+var __wsLog=[];var __uiStatus='booting';
+function __wsPanel(){
+  var d=document.getElementById('__ws_panel');
+  if(!d){d=document.createElement('div');d.id='__ws_panel';d.style.cssText='position:fixed;bottom:0;right:0;z-index:999999;background:rgba(0,0,0,0.82);color:#0f0;font:10px/1.3 monospace;padding:4px 6px;max-width:360px;max-height:240px;overflow:auto;pointer-events:none;';document.body&&document.body.appendChild(d);}
+  // Also detect DOM-rendered trade form
+  var tradeForm=document.querySelector('.trade-container__fieldset-wrapper,.contract-type-widget__display,.trade-types');
+  if(tradeForm){__uiStatus='TRADE-FORM-RENDERED ✓';}
+  var tradeSkeleton=document.querySelector('.dc-skeleton-rect');
+  var statusLine='UI: '+__uiStatus+(tradeSkeleton?'  skeletons:'+document.querySelectorAll('.dc-skeleton-rect').length:'');
+  d.innerHTML=statusLine+'<br>'+__wsLog.slice(-18).join('<br>');
+}
+setInterval(function(){__wsPanel();var es=window.__apolloErrors||[];if(es.length){console.log('[ApolloDebug] errors:',es.length,'last:',es.slice(-1)[0]);}},1000);
+// Hide DTrader's internal nav tabs when they appear (Analysis/D Trader/Speedbots)
+(function(){
+  var __dtraderTabActivated=false;
+  function hideNavTabs(){
+    // Step 1: Navigate to DTrader tab (DBOT_TABS.DTRADER=6) by clicking its button.
+    // Do this BEFORE hiding the tab bar so the click is registered.
+    if(!__dtraderTabActivated){
+      // The DTrader tab button controls the panel with id="id-dtrader"
+      var dtraderBtn=document.querySelector('[aria-controls="id-dtrader"]');
+      if(dtraderBtn){
+        dtraderBtn.click();
+        __dtraderTabActivated=true;
+        console.log('[Apollo] Clicked DTrader tab button');
+      }
+    }
+    // Step 2: Hide the inner navigation tabs so the user stays on DTrader
+    var targets=['id-analysis','id-dtrader','id-speedbots','id-free-bots'];
+    targets.forEach(function(id){
+      var el=document.getElementById(id);
+      if(el){
+        // Walk up to find the tablist container (ul[role=tablist] or .dc-tabs__list)
+        var p=el.parentElement;
+        while(p&&p!==document.body){
+          if(p.getAttribute('role')==='tablist'||p.classList.contains('dc-tabs__list')){
+            p.style.display='none';
+            // Also hide the active-line indicator sibling
+            var sib=p.nextElementSibling;
+            while(sib){if(sib.classList.contains('dc-tabs__active-line')||sib.classList.contains('dc-tabs__active-line--bottom')){sib.style.display='none';}sib=sib.nextElementSibling;}
+            return;
+          }
+          p=p.parentElement;
+        }
+      }
+    });
+    // Ensure app_contents exists for portal target
+    if(!document.getElementById('app_contents')){
+      var d=document.createElement('div');
+      d.id='app_contents';d.className='app-contents';
+      var root=document.getElementById('deriv_app');
+      if(root)root.insertBefore(d,root.firstChild);
+    }
+    // Remove any tour dialogs from the DOM (belt-and-suspenders for cache)
+    var tourDialogs=document.querySelectorAll('.tour-dialog');
+    tourDialogs.forEach(function(el){
+      // Walk up to find and remove the portal/backdrop wrapper
+      var w=el;
+      while(w&&w!==document.body){
+        if(w.classList.contains('dc-dialog__wrapper')||w.classList.contains('dc-dialog__wrapper--fixed')){
+          w.remove(); return;
+        }
+        w=w.parentElement;
+      }
+      el.remove();
+    });
+    // Also navigate to DTrader tab (6) if still on Dashboard (0)
+    if(window.__apolloDashboardStore&&window.__apolloDashboardStore.active_tab===0){
+      window.__apolloDashboardStore.setActiveTab(6);
+    }
+  }
+  var obs=new MutationObserver(hideNavTabs);
+  obs.observe(document.documentElement,{childList:true,subtree:true});
+  hideNavTabs();
+})();
+// WS instrumentation - log connect/send/recv summaries to debug trader-store data flow
+try{var _WS=window.WebSocket;window.WebSocket=function(u,p){u=u.replace(/wss:\/\/(blue|green)\.derivws\.com/,'wss://ws.derivws.com');u=u.replace(/app_id=\d+/,'app_id=128695');__wsLog.push('CON '+u.split('?')[0]);console.log('[ApolloWS] connect',u);var s=p?new _WS(u,p):new _WS(u);s.addEventListener('open',function(){__wsLog.push('OPN');console.log('[ApolloWS] OPEN',u);});s.addEventListener('error',function(e){__wsLog.push('ERR '+e.message);console.warn('[ApolloWS] ERROR',u,e&&e.message);});s.addEventListener('close',function(e){__wsLog.push('CLS '+e.code);console.warn('[ApolloWS] CLOSE',u,e.code,e.reason);});var _s=s.send;s.send=function(d){try{var j=typeof d==='string'?JSON.parse(d):null;if(j){var k=Object.keys(j).filter(function(k){return k!=='req_id'&&k!=='passthrough';}).join(',');__wsLog.push('SND '+k+'#'+j.req_id);console.log('[ApolloWS] >>>',k,j.req_id);}}catch(_){}return _s.apply(s,arguments);};s.addEventListener('message',function(ev){try{var j=JSON.parse(ev.data);var e=j.error?('ERR:'+j.error.code):'OK';__wsLog.push('RCV '+j.msg_type+'#'+j.req_id+' '+e);console.log('[ApolloWS] <<<',j.msg_type,j.req_id,j.error?('ERR:'+j.error.code):'');}catch(_){}});return s;};window.WebSocket.prototype=_WS.prototype;}catch(e){console.warn('[ApolloWS] instrument failed',e);}
+})();</script>
+    </head>
+
+    <body class="body theme">
+        <!-- Start GTM NoScript -->
+        <noscript
+            ><iframe
+                src="https://www.googletagmanager.com/ns.html?id=GTM-NF7884S"
+                height="0"
+                width="0"
+                style="display: none; visibility: hidden"
+            ></iframe
+        ></noscript>
+        <!-- End GTM NoScript -->
+        <!-- Start GTM NoScript of GTM Test Environment -->
+        <noscript
+            ><iframe
+                src="https://www.googletagmanager.com/ns.html?id=GTM-TNX2ZKH"
+                height="0"
+                width="0"
+                style="display: none; visibility: hidden"
+            ></iframe
+        ></noscript>
+        <!-- End GTM NoScript of GTM Test Environment -->
+
+        <!-- TODO: Display shell platform icon and text based on route -->
+
+        <div id="deriv_app" class="deriv-app"></div><div id="wallets_modal_root" class="modal-root"></div>
+        <div id="v2_modal_root" class="modal-root"></div>
+        <div id="effortless_modal_root" class="modal-root"></div>
+        <div id="modal_root" class="modal-root"></div>
+        <div id="modal_root_absolute" class="modal-root modal-root--absolute"></div>
+        <!-- modal_root has background color. So, it cannot be used for toast messages. For those cases popup_root is used -->
+        <div id="popup_root" class="popup-root"></div>
+        <!-- LiveChat script -->
+        <script type="text/javascript">
+            window.__lc = window.__lc || {};
+            window.__lc.license = 12049137;
+            window.__lc.asyncInit = true;
+            (function (n, t, c) {
+                function i(n) {
+                    return e._h ? e._h.apply(null, n) : e._q.push(n);
+                }
+                var e = {
+                    _q: [],
+                    _h: null,
+                    _v: '2.0',
+                    on: function () {
+                        i(['on', c.call(arguments)]);
+                    },
+                    once: function () {
+                        i(['once', c.call(arguments)]);
+                    },
+                    off: function () {
+                        i(['off', c.call(arguments)]);
+                    },
+                    get: function () {
+                        if (!e._h) throw new Error('[LiveChatWidget] You can’t use getters before load.');
+                        return i(['get', c.call(arguments)]);
+                    },
+                    call: function () {
+                        i(['call', c.call(arguments)]);
+                    },
+                    init: function () {
+                        var n = t.createElement('script');
+                        (n.async = !0),
+                            (n.type = 'text/javascript'),
+                            (n.src = 'https://cdn.livechatinc.com/tracking.js'),
+                            t.head.appendChild(n);
+                    },
+                };
+                !n.__lc.asyncInit && e.init(), (n.LiveChatWidget = n.LiveChatWidget || e);
+            })(window, document, [].slice);
+        </script>
+        <!-- End LiveChat script -->
+    </body>
+</html>
