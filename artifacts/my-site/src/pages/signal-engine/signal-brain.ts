@@ -25,9 +25,9 @@ interface Vote { model: string; market: MarketType; direction: string; confidenc
 // Detection : ratio > 0.56  →  model casts a vote
 // Confidence: clamp((ratio - 0.50) × 500)
 //   0.56 → 30 %   0.60 → 50 %   0.62 → 60 %   0.65 → 75 %   0.70 → 100 %
-// A signal fires when ≥ 3 models agree on the SAME direction AND avg conf ≥ 60 %
+// A signal fires when ≥ 3 models agree on the SAME direction AND avg conf ≥ 55 %
 const MIN_AGREE = 3;
-const MIN_CONF  = 60;
+const MIN_CONF  = 55;
 
 // ─── Math helpers ─────────────────────────────────────────────────────────────
 
@@ -258,30 +258,33 @@ function modelStreak(digits: number[]): Vote[] {
     const last = d30[d30.length - 1];
     const votes: Vote[] = [];
 
-    // High/Low streak → reversal signal
+    // High/Low streak → CONTINUATION (supports same direction as Statistical/Bayesian)
     const hlStrk = streakOf(d30, x => (x >= 5) === (last >= 5));
     if (hlStrk >= 4) {
         if (last >= 5) {
             votes.push({ model: 'Streak/Pattern', market: 'over_under',
-                direction: `UNDER ${selectUnderBarrier(d100)}`, confidence: clamp(50 + hlStrk * 7) });
+                direction: `OVER ${selectOverBarrier(d100)}`, confidence: clamp(50 + hlStrk * 7) });
         } else {
             votes.push({ model: 'Streak/Pattern', market: 'over_under',
-                direction: `OVER ${selectOverBarrier(d100)}`, confidence: clamp(50 + hlStrk * 7) });
+                direction: `UNDER ${selectUnderBarrier(d100)}`, confidence: clamp(50 + hlStrk * 7) });
         }
     }
 
-    // Even/Odd streak → reversal signal
+    // Even/Odd streak → CONTINUATION
     const eoStrk = streakOf(d30, x => (x % 2 === 0) === (last % 2 === 0));
     if (eoStrk >= 4) {
         votes.push({ model: 'Streak/Pattern', market: 'even_odd',
-            direction: last % 2 === 0 ? 'ODD' : 'EVEN', confidence: clamp(50 + eoStrk * 7) });
+            direction: last % 2 === 0 ? 'EVEN' : 'ODD', confidence: clamp(50 + eoStrk * 7) });
     }
 
-    // Repeating digit in last 5 → DIFFERS that digit
+    // Repeating digit in last 5 → MATCHES that dominant digit (continuation)
     const last5 = digits.slice(-5);
     if (last5.length === 5 && new Set(last5).size <= 2) {
+        const cntL5 = Array(10).fill(0) as number[];
+        last5.forEach(d => cntL5[d]++);
+        const topL5 = cntL5.indexOf(Math.max(...cntL5));
         votes.push({ model: 'Streak/Pattern', market: 'matches_differs',
-            direction: `DIFFERS ${last5[last5.length - 1]}`, confidence: 72 });
+            direction: `MATCHES ${topL5}`, confidence: 72 });
     }
 
     // Very mixed last 10 → MATCHES most common digit in d100
