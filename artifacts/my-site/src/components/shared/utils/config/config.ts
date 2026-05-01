@@ -33,6 +33,7 @@ export const domain_app_ids = {
     'd6283760-d554-4d31-b49e-285652e3aa2e-00-2l0of81nhm4qy.riker.replit.dev': APP_IDS.MY_SITE,
     'my-site--charlozwebsite.replit.app': APP_IDS.MY_SITE,
     'workspace--charlozwebsite.replit.app': APP_IDS.MY_SITE,
+    'git-hub-importer--charlozwebsite.replit.app': APP_IDS.MY_SITE,
 };
 
 export const getCurrentProductionDomain = () =>
