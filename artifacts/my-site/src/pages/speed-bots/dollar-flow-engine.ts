@@ -610,7 +610,7 @@ export class DollarFlowEngine {
         }
 
         this.log(
-            `[${market}] ${is_win ? 'WIN' : 'LOSS'} ${tx.contract_label} profit ${profit.toFixed(2)} | total ${this.total_profit.toFixed(2)}`,
+            `[${market}] ${is_win ? 'WIN' : 'LOSS'} ${existing?.contract_label ?? contractLabel(poc.contract_type, barrier)} profit ${profit.toFixed(2)} | total ${this.total_profit.toFixed(2)}`,
             is_win ? 'success' : 'error'
         );
         this.playBeep(is_win ? 'win' : 'loss');
