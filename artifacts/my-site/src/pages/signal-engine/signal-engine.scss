@@ -1,0 +1,44 @@
+.se-root {
+    .ez-quadrants {
+        gap: 0.1rem;
+    }
+
+    .ez-quadrant {
+        padding: 0.5rem 0.6rem;
+        gap: 0.3rem;
+    }
+
+    .ez-cursor-layer {
+        height: 14px;
+    }
+
+    .ez-circles {
+        gap: 0.18rem;
+        justify-content: space-between;
+    }
+
+    .ez-circle-col {
+        gap: 0.2rem;
+    }
+
+    .ez-circle {
+        font-size: 0.75rem;
+    }
+
+    .ez-rank-badge {
+        font-size: 0.5rem;
+        min-height: 10px;
+    }
+
+    .ez-pct {
+        font-size: 0.58rem;
+    }
+
+    .ez-bar-track {
+        height: 3px;
+    }
+
+    .ez-cursor__arrow {
+        font-size: 0.7rem;
+    }
+}
