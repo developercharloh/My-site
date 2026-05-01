@@ -1,19 +1,24 @@
 import ReactDOM from 'react-dom/client';
 import { AuthWrapper } from './app/AuthWrapper';
-import { domain_app_ids } from './components/shared/utils/config/config';
+import { APP_IDS, domain_app_ids } from './components/shared/utils/config/config';
 import { AnalyticsInitializer } from './utils/analytics';
 import { registerPWA } from './utils/pwa-utils';
 import './styles/index.scss';
 
-// Seed `config.app_id` in localStorage for known production domains so the
-// @deriv-com/auth-client OIDC library uses the correct Deriv app_id. The
-// library has its own internal getAppId() fallback that returns "36300"
-// (Deriv's localhost test app) for unrecognised hostnames, which would
-// otherwise redirect OAuth to https://localhost:8443/ after login.
+// Seed `config.app_id` in localStorage so the @deriv-com/auth-client OIDC
+// library uses the correct Deriv app_id.
+// - For known Deriv-official domains (deriv.com/be/me) use the mapped ID.
+// - For every other host (Replit, Render, localhost, any future domain) always
+//   use MY_SITE (128695) so OAuth never falls back to Deriv's own production
+//   app (65555) which redirects back to dbot.deriv.com after login.
 if (typeof window !== 'undefined') {
-    const known_app_id = domain_app_ids[window.location.hostname as keyof typeof domain_app_ids];
+    const host = window.location.hostname;
+    const known_app_id = domain_app_ids[host as keyof typeof domain_app_ids];
+    const is_official_deriv = /deriv\.(com|be|me)$/.test(host);
     if (known_app_id) {
         window.localStorage.setItem('config.app_id', String(known_app_id));
+    } else if (!is_official_deriv) {
+        window.localStorage.setItem('config.app_id', String(APP_IDS.MY_SITE));
     }
 }
 

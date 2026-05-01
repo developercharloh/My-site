@@ -109,6 +109,8 @@ export const getAppId = () => {
         app_id = APP_IDS.STAGING;
     } else if (isTestLink()) {
         app_id = APP_IDS.LOCALHOST;
+    } else if (isThirdPartyAppDomain()) {
+        app_id = domain_app_ids[current_domain as keyof typeof domain_app_ids] ?? APP_IDS.MY_SITE;
     } else {
         app_id = domain_app_ids[current_domain as keyof typeof domain_app_ids] ?? APP_IDS.PRODUCTION;
     }
