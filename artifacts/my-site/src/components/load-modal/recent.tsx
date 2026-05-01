@@ -2,7 +2,7 @@ import React from 'react';
 import classnames from 'classnames';
 import { observer } from 'mobx-react-lite';
 import { useStore } from '@/hooks/useStore';
-import { DerivLightDeclinedPoaIcon } from '@deriv/quill-icons';
+import { DerivLightDeclinedPoaIcon } from '@/mocks/quill-icons-illustration';
 import { Localize } from '@deriv-com/translations';
 import RecentWorkspace from './recent-workspace';
 import WorkspaceControl from './workspace-control';

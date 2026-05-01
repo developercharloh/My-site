@@ -45,12 +45,14 @@ export default defineConfig({
         alias: {
             react: path.resolve('./node_modules/react'),
             'react-dom': path.resolve('./node_modules/react-dom'),
+            '@deriv/quill-icons/Illustration': path.resolve(__dirname, './src/mocks/quill-icons-illustration.tsx'),
             '@/external': path.resolve(__dirname, './src/external'),
             '@/components': path.resolve(__dirname, './src/components'),
             '@/hooks': path.resolve(__dirname, './src/hooks'),
             '@/utils': path.resolve(__dirname, './src/utils'),
             '@/constants': path.resolve(__dirname, './src/constants'),
             '@/stores': path.resolve(__dirname, './src/stores'),
+            '@/mocks': path.resolve(__dirname, './src/mocks'),
         },
     },
     output: {
@@ -234,6 +236,11 @@ export default defineConfig({
                         test: /\.xml$/,
                         exclude: /node_modules/,
                         type: 'asset/source',
+                    },
+                    {
+                        test: /node_modules[\\/]@deriv-com[\\/]translations[\\/]dist[\\/].+\.js$/,
+                        enforce: 'pre',
+                        loader: path.resolve(__dirname, './scripts/translations-patcher-loader.cjs'),
                     },
                 ],
             },
