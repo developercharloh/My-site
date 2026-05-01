@@ -8,41 +8,43 @@ import {
     initialMLWeights, type Signal, type MarketType, type MLWeights,
 } from './signal-brain';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── All 13 volatility symbols ────────────────────────────────────────────────
 
-const DERIV_WS    = 'wss://ws.binaryws.com/websockets/v3?app_id=1';
-const TICK_HISTORY = 1000;
-const SIGNAL_TTL   = 120_000; // 2 minutes
-
-const MARKETS = [
-    {
-        group: 'Volatility (1s) Indices',
-        items: [
-            { symbol: '1HZ10V',  label: 'Volatility 10 (1s) Index'  },
-            { symbol: '1HZ15V',  label: 'Volatility 15 (1s) Index'  },
-            { symbol: '1HZ25V',  label: 'Volatility 25 (1s) Index'  },
-            { symbol: '1HZ30V',  label: 'Volatility 30 (1s) Index'  },
-            { symbol: '1HZ50V',  label: 'Volatility 50 (1s) Index'  },
-            { symbol: '1HZ75V',  label: 'Volatility 75 (1s) Index'  },
-            { symbol: '1HZ90V',  label: 'Volatility 90 (1s) Index'  },
-            { symbol: '1HZ100V', label: 'Volatility 100 (1s) Index' },
-        ],
-    },
-    {
-        group: 'Volatility Indices',
-        items: [
-            { symbol: 'R_10',  label: 'Volatility 10 Index'  },
-            { symbol: 'R_25',  label: 'Volatility 25 Index'  },
-            { symbol: 'R_50',  label: 'Volatility 50 Index'  },
-            { symbol: 'R_75',  label: 'Volatility 75 Index'  },
-            { symbol: 'R_100', label: 'Volatility 100 Index' },
-        ],
-    },
+const ALL_SYMBOLS = [
+    '1HZ10V','1HZ25V','1HZ50V','1HZ75V','1HZ100V',
+    '1HZ15V','1HZ30V','1HZ90V',
+    'R_10','R_25','R_50','R_75','R_100',
 ] as const;
+type Sym = typeof ALL_SYMBOLS[number];
 
-type MarketSymbol = typeof MARKETS[number]['items'][number]['symbol'];
+const SYM_SHORT: Record<string, string> = {
+    '1HZ10V':'V10s', '1HZ15V':'V15s', '1HZ25V':'V25s', '1HZ30V':'V30s',
+    '1HZ50V':'V50s', '1HZ75V':'V75s', '1HZ90V':'V90s', '1HZ100V':'V100s',
+    'R_10':'V10',    'R_25':'V25',    'R_50':'V50',
+    'R_75':'V75',    'R_100':'V100',
+};
+const SYM_LONG: Record<string, string> = {
+    '1HZ10V':'Volatility 10 (1s) Index',   '1HZ15V':'Volatility 15 (1s) Index',
+    '1HZ25V':'Volatility 25 (1s) Index',   '1HZ30V':'Volatility 30 (1s) Index',
+    '1HZ50V':'Volatility 50 (1s) Index',   '1HZ75V':'Volatility 75 (1s) Index',
+    '1HZ90V':'Volatility 90 (1s) Index',   '1HZ100V':'Volatility 100 (1s) Index',
+    'R_10':'Volatility 10 Index',   'R_25':'Volatility 25 Index',
+    'R_50':'Volatility 50 Index',   'R_75':'Volatility 75 Index',
+    'R_100':'Volatility 100 Index',
+};
 
-// ─── Color helpers ────────────────────────────────────────────────────────────
+const DERIV_WS  = 'wss://ws.binaryws.com/websockets/v3?app_id=1';
+const BUF_SIZE  = 300;
+const SIGNAL_TTL = 120_000;
+
+const DISPLAY_MARKETS = [
+    { group: 'Volatility (1s) Indices', items: [
+        '1HZ10V','1HZ15V','1HZ25V','1HZ30V','1HZ50V','1HZ75V','1HZ90V','1HZ100V',
+    ] },
+    { group: 'Volatility Indices', items: ['R_10','R_25','R_50','R_75','R_100'] },
+];
+
+// ─── Colour helpers ───────────────────────────────────────────────────────────
 
 function getRankColor(rank: number): string {
     if (rank === 1)  return '#10b981';
@@ -51,7 +53,6 @@ function getRankColor(rank: number): string {
     if (rank === 9)  return '#eab308';
     return '#64748b';
 }
-
 function getRankLabel(rank: number): string {
     if (rank === 1)  return 'Most';
     if (rank === 2)  return '2nd';
@@ -59,49 +60,20 @@ function getRankLabel(rank: number): string {
     if (rank === 9)  return '2nd↓';
     return '';
 }
-
 function computeRanks(dist: number[]): number[] {
     const indexed = dist.map((v, i) => ({ v, i })).sort((a, b) => b.v - a.v);
     const ranks   = new Array(10).fill(0);
     indexed.forEach(({ i }, pos) => { ranks[i] = pos + 1; });
     return ranks;
 }
+function circleSize(p: number): number { return Math.round(28 + (p / 20) * 16); }
+const D_COLORS = ['#6366f1','#8b5cf6','#0ea5e9','#10b981','#eab308','#f97316','#ef4444','#ec4899','#14b8a6','#84cc16'];
 
-function circleSize(pct: number): number {
-    return Math.round(28 + (pct / 20) * 16);
-}
-
-const D_COLORS = [
-    '#6366f1','#8b5cf6','#0ea5e9','#10b981','#eab308',
-    '#f97316','#ef4444','#ec4899','#14b8a6','#84cc16',
-];
-
-// ─── Tick WebSocket hook ──────────────────────────────────────────────────────
-
-interface TickData {
-    distribution: number[];
-    liveDigit:    number | null;
-    livePrice:    number | null;
-    prevPrice:    number | null;
-    pipSize:      number;
-    tickCount:    number;
-    status:       'connecting' | 'live' | 'error';
-    recentDigits: number[];
-    allDigits:    number[];        // full rolling buffer (up to TICK_HISTORY)
-    tickTimestamps: number[];      // JS timestamps per tick (last 50)
-}
-
-const INITIAL: TickData = {
-    distribution: Array(10).fill(0),
-    liveDigit:    null, livePrice: null, prevPrice: null,
-    pipSize: 2, tickCount: 0, status: 'connecting',
-    recentDigits: [], allDigits: [], tickTimestamps: [],
-};
+// ─── Tick helpers ─────────────────────────────────────────────────────────────
 
 function lastDigit(price: number, pip: number): number {
     return Math.abs(Math.round(price * Math.pow(10, pip))) % 10;
 }
-
 function buildDist(digits: number[]): number[] {
     const counts = Array(10).fill(0);
     for (const d of digits) counts[d]++;
@@ -109,84 +81,156 @@ function buildDist(digits: number[]): number[] {
     return counts.map(c => Math.round((c / n) * 1000) / 10);
 }
 
-function useDerivDigits(symbol: string): TickData {
-    const [data, setData]  = useState<TickData>(INITIAL);
-    const wsRef            = useRef<WebSocket | null>(null);
-    const symRef           = useRef(symbol); symRef.current = symbol;
-    const bufRef           = useRef<number[]>([]);
-    const tsRef            = useRef<number[]>([]);   // timestamps
-    const pipRef           = useRef(2);
+// ─── Per-symbol buffer (stored in refs — never causes re-renders) ─────────────
 
-    const connect = useCallback(() => {
-        if (wsRef.current) {
-            const ws = wsRef.current;
+interface SymBuf {
+    digits:     number[];
+    ts:         number[];   // tick timestamps (last 50)
+    pip:        number;
+    liveDigit:  number | null;
+    livePrice:  number | null;
+    prevPrice:  number | null;
+    distribution: number[];
+    tickCount:  number;
+    status:     'connecting' | 'live' | 'error';
+}
+function makeBuf(): SymBuf {
+    return { digits:[], ts:[], pip:2, liveDigit:null, livePrice:null, prevPrice:null,
+             distribution: Array(10).fill(0), tickCount:0, status:'connecting' };
+}
+
+// ─── Display snapshot (for the selected symbol) ───────────────────────────────
+
+interface DisplaySnap {
+    distribution: number[];
+    liveDigit:    number | null;
+    livePrice:    number | null;
+    prevPrice:    number | null;
+    pipSize:      number;
+    tickCount:    number;
+    status:       'connecting' | 'live' | 'error';
+}
+const INIT_SNAP: DisplaySnap = {
+    distribution: Array(10).fill(0), liveDigit:null, livePrice:null,
+    prevPrice:null, pipSize:2, tickCount:0, status:'connecting',
+};
+
+// ─── Multi-market hook ────────────────────────────────────────────────────────
+
+interface TickEvent { sym: string; tc: number; }
+interface MultiMarketHook {
+    snap:       DisplaySnap;
+    scanStatus: Record<string, 'connecting'|'live'|'error'>;
+    tickEvent:  TickEvent | null;
+    bufsRef:    React.MutableRefObject<Map<string, SymBuf>>;
+}
+
+function useMultiMarket(selectedSym: string): MultiMarketHook {
+    const bufsRef    = useRef<Map<string, SymBuf>>(new Map(ALL_SYMBOLS.map(s => [s, makeBuf()])));
+    const [snap, setSnap]         = useState<DisplaySnap>(INIT_SNAP);
+    const [scanStatus, setScan]   = useState<Record<string, 'connecting'|'live'|'error'>>(
+        Object.fromEntries(ALL_SYMBOLS.map(s => [s, 'connecting' as const])));
+    const [tickEvent, setTickEvt] = useState<TickEvent | null>(null);
+    const selectedRef             = useRef(selectedSym); selectedRef.current = selectedSym;
+
+    // Snapshot helper — reads buf and triggers a display state update
+    const pushSnap = useCallback((sym: string) => {
+        if (sym !== selectedRef.current) return;
+        const buf = bufsRef.current.get(sym)!;
+        setSnap({ distribution: [...buf.distribution], liveDigit: buf.liveDigit,
+            livePrice: buf.livePrice, prevPrice: buf.prevPrice,
+            pipSize: buf.pip, tickCount: buf.tickCount, status: buf.status });
+    }, []);
+
+    // Open all 13 connections once
+    useEffect(() => {
+        const wsList: WebSocket[] = [];
+
+        ALL_SYMBOLS.forEach((sym, idx) => {
+            // Stagger connections by 150 ms to avoid rate limits
+            const timer = setTimeout(() => {
+                const ws = new WebSocket(DERIV_WS);
+                wsList.push(ws);
+
+                ws.onopen = () => ws.send(JSON.stringify({
+                    ticks_history: sym, count: BUF_SIZE, end: 'latest',
+                    style: 'ticks', subscribe: 1,
+                }));
+
+                ws.onmessage = (ev: MessageEvent) => {
+                    const msg = JSON.parse(ev.data as string);
+                    if (msg.error) {
+                        bufsRef.current.get(sym)!.status = 'error';
+                        setScan(s => ({ ...s, [sym]: 'error' }));
+                        return;
+                    }
+
+                    const buf = bufsRef.current.get(sym)!;
+
+                    if (msg.msg_type === 'history') {
+                        const prices: number[] = msg.history?.prices ?? [];
+                        const pip = msg.pip_size ?? 2;
+                        const digs = prices.map((p: number) => lastDigit(p, pip));
+                        buf.pip    = pip;
+                        buf.digits = digs.slice(-BUF_SIZE);
+                        buf.ts     = digs.map((_, i) => Date.now() - (digs.length - 1 - i) * 1000).slice(-50);
+                        buf.tickCount    = buf.digits.length;
+                        buf.liveDigit    = digs[digs.length - 1] ?? null;
+                        buf.livePrice    = prices[prices.length - 1] ?? null;
+                        buf.prevPrice    = null;
+                        buf.distribution = buildDist(buf.digits);
+                        buf.status       = 'live';
+                        setScan(s => ({ ...s, [sym]: 'live' }));
+                        pushSnap(sym);
+                    }
+
+                    if (msg.msg_type === 'tick' && msg.tick) {
+                        const { quote, pip_size } = msg.tick;
+                        const pip = pip_size ?? buf.pip;
+                        const dig = lastDigit(quote, pip);
+                        buf.pip       = pip;
+                        buf.prevPrice = buf.livePrice;
+                        buf.digits    = [...buf.digits.slice(-(BUF_SIZE - 1)), dig];
+                        buf.ts        = [...buf.ts.slice(-49), Date.now()];
+                        buf.tickCount++;
+                        buf.liveDigit    = dig;
+                        buf.livePrice    = quote;
+                        buf.distribution = buildDist(buf.digits);
+                        buf.status       = 'live';
+                        pushSnap(sym);
+                        // Trigger analysis every 10 ticks
+                        if (buf.tickCount % 10 === 0) {
+                            setTickEvt({ sym, tc: buf.tickCount });
+                        }
+                    }
+                };
+
+                ws.onerror = () => {
+                    bufsRef.current.get(sym)!.status = 'error';
+                    setScan(s => ({ ...s, [sym]: 'error' }));
+                };
+            }, idx * 150);
+
+            return () => clearTimeout(timer);
+        });
+
+        return () => wsList.forEach(ws => {
             ws.onopen = ws.onmessage = ws.onerror = ws.onclose = null;
             ws.close();
-        }
-        bufRef.current = []; tsRef.current = [];
-        setData({ ...INITIAL });
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
-        const ws = new WebSocket(DERIV_WS);
-        wsRef.current = ws;
-
-        ws.onopen = () => ws.send(JSON.stringify({
-            ticks_history: symRef.current, count: TICK_HISTORY,
-            end: 'latest', style: 'ticks', subscribe: 1,
-        }));
-
-        ws.onmessage = ev => {
-            const msg = JSON.parse(ev.data as string);
-            if (msg.error) { setData(s => ({ ...s, status: 'error' })); return; }
-
-            if (msg.msg_type === 'history') {
-                const prices: number[] = msg.history?.prices ?? [];
-                const pip = msg.pip_size ?? 2; pipRef.current = pip;
-                const digs = prices.map(p => lastDigit(p, pip));
-                bufRef.current = digs.slice(-TICK_HISTORY);
-                const now = Date.now();
-                tsRef.current = digs.map((_, i) => now - (digs.length - 1 - i) * 1000).slice(-50);
-                const last = prices[prices.length - 1] ?? null;
-                setData({
-                    distribution: buildDist(bufRef.current),
-                    liveDigit:    last !== null ? lastDigit(last, pip) : null,
-                    livePrice:    last, prevPrice: null, pipSize: pip,
-                    tickCount:    bufRef.current.length, status: 'live',
-                    recentDigits: digs.slice(-40),
-                    allDigits:    [...bufRef.current],
-                    tickTimestamps: [...tsRef.current],
-                });
-            }
-
-            if (msg.msg_type === 'tick' && msg.tick) {
-                const { quote, pip_size } = msg.tick;
-                const pip = pip_size ?? pipRef.current; pipRef.current = pip;
-                const dig = lastDigit(quote, pip);
-                bufRef.current = [...bufRef.current.slice(-(TICK_HISTORY - 1)), dig];
-                tsRef.current  = [...tsRef.current.slice(-49), Date.now()];
-                setData(s => ({
-                    distribution:   buildDist(bufRef.current),
-                    liveDigit:      dig, livePrice: quote, prevPrice: s.livePrice,
-                    pipSize:        pip, tickCount: bufRef.current.length, status: 'live',
-                    recentDigits:   [...s.recentDigits.slice(-39), dig],
-                    allDigits:      [...bufRef.current],
-                    tickTimestamps: [...tsRef.current],
-                }));
-            }
-        };
-
-        ws.onerror = () => setData(s => ({ ...s, status: 'error' }));
-        ws.onclose = () => { setTimeout(() => { if (symRef.current === symbol) connect(); }, 3000); };
-    }, [symbol]);
-
+    // When selected symbol changes, refresh display from its buffer
     useEffect(() => {
-        connect();
-        return () => {
-            const ws = wsRef.current;
-            if (ws) { ws.onopen = ws.onmessage = ws.onerror = ws.onclose = null; ws.close(); }
-        };
-    }, [connect]);
+        const buf = bufsRef.current.get(selectedSym);
+        if (!buf || buf.digits.length === 0) { setSnap(INIT_SNAP); return; }
+        setSnap({ distribution: [...buf.distribution], liveDigit: buf.liveDigit,
+            livePrice: buf.livePrice, prevPrice: null, pipSize: buf.pip,
+            tickCount: buf.tickCount, status: buf.status });
+    }, [selectedSym]);
 
-    return data;
+    return { snap, scanStatus, tickEvent, bufsRef };
 }
 
 // ─── Countdown hook ───────────────────────────────────────────────────────────
@@ -196,14 +240,13 @@ function useNow(ms = 1000): number {
     useEffect(() => { const id = setInterval(() => setNow(Date.now()), ms); return () => clearInterval(id); }, [ms]);
     return now;
 }
-
 function fmtCountdown(ms: number): string {
     if (ms <= 0) return '0:00';
     const s = Math.ceil(ms / 1000);
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── QuadrantRow ──────────────────────────────────────────────────────────────
 
 function QuadrantRow({ digits, distribution, ranks, liveDigit }: {
     digits: number[]; distribution: number[]; ranks: number[]; liveDigit: number | null;
@@ -238,8 +281,8 @@ function QuadrantRow({ digits, distribution, ranks, liveDigit }: {
             </div>
             <div className='ez-circles'>
                 {digits.map((d, i) => {
-                    const rank = ranks[d]; const color = getRankColor(rank);
-                    const p    = distribution[d] ?? 0; const size = circleSize(p);
+                    const rank  = ranks[d]; const color = getRankColor(rank);
+                    const p     = distribution[d] ?? 0; const size = circleSize(p);
                     const isLive = liveDigit === d; const isHigh = rank <= 2 || rank >= 9;
                     return (
                         <div key={d} className='ez-circle-col'>
@@ -247,19 +290,19 @@ function QuadrantRow({ digits, distribution, ranks, liveDigit }: {
                             <motion.div
                                 ref={el => { circleRefs.current[i] = el; }}
                                 className='ez-circle'
-                                animate={{ width: size, height: size, ...(isLive ? { boxShadow: [`0 0 0px ${color}00`, `0 0 32px ${color}cc`, `0 0 12px ${color}66`], scale: [1, 1.2, 1] } : {}) }}
+                                animate={{ width: size, height: size, ...(isLive ? { boxShadow:[`0 0 0px ${color}00`,`0 0 32px ${color}cc`,`0 0 12px ${color}66`], scale:[1,1.2,1] } : {}) }}
                                 transition={{ duration: 0.45, ease: 'easeOut' }}
                                 style={{ background: isHigh ? color : `${color}20`, border: `2px solid ${color}`, color: isHigh ? '#fff' : color, boxShadow: isLive ? `0 0 16px ${color}` : isHigh ? `0 0 6px ${color}44` : 'none' }}
                             >
                                 {d}
                                 {isLive && (
                                     <motion.div className='ez-circle__pulse'
-                                        animate={{ scale: [1, 1.8], opacity: [0.5, 0] }}
-                                        transition={{ duration: 0.7, ease: 'easeOut' }}
+                                        animate={{ scale:[1,1.8], opacity:[0.5,0] }}
+                                        transition={{ duration:0.7, ease:'easeOut' }}
                                         style={{ background: color }} />
                                 )}
                             </motion.div>
-                            <div className='ez-bar-track'><motion.div className='ez-bar-fill' style={{ background: color }} animate={{ width: `${Math.min(100, p * 7)}%` }} transition={{ duration: 0.6, ease: 'easeOut' }} /></div>
+                            <div className='ez-bar-track'><motion.div className='ez-bar-fill' style={{ background: color }} animate={{ width:`${Math.min(100,p*7)}%` }} transition={{ duration:0.6,ease:'easeOut' }} /></div>
                             <span className='ez-pct' style={{ color }}>{p.toFixed(1)}%</span>
                         </div>
                     );
@@ -269,9 +312,10 @@ function QuadrantRow({ digits, distribution, ranks, liveDigit }: {
     );
 }
 
+// ─── LivePriceDisplay ─────────────────────────────────────────────────────────
+
 function LivePriceDisplay({ livePrice, prevPrice, liveDigit, pipSize, status }: {
-    livePrice: number | null; prevPrice: number | null;
-    liveDigit: number | null; pipSize: number; status: string;
+    livePrice:number|null; prevPrice:number|null; liveDigit:number|null; pipSize:number; status:string;
 }) {
     const dir      = livePrice !== null && prevPrice !== null ? livePrice > prevPrice ? 'up' : livePrice < prevPrice ? 'down' : 'flat' : 'flat';
     const priceStr = livePrice !== null ? livePrice.toFixed(pipSize) : '—';
@@ -281,16 +325,18 @@ function LivePriceDisplay({ livePrice, prevPrice, liveDigit, pipSize, status }: 
     return (
         <div className='ez-price'>
             <div className='ez-price__status'>
-                {status === 'live' ? <span className='ez-dot ez-dot--live' /> : status === 'connecting' ? <span className='ez-dot ez-dot--connecting' /> : <span className='ez-dot ez-dot--error' />}
-                <span className='ez-price__status-text'>{status === 'live' ? 'Live' : status === 'connecting' ? 'Connecting…' : 'Connection error'}</span>
-                {dir === 'up'   && <TrendingUp   className='ez-price__arrow ez-price__arrow--up'   />}
-                {dir === 'down' && <TrendingDown  className='ez-price__arrow ez-price__arrow--down' />}
+                {status==='live'        ? <span className='ez-dot ez-dot--live'/>        : null}
+                {status==='connecting'  ? <span className='ez-dot ez-dot--connecting'/>  : null}
+                {status==='error'       ? <span className='ez-dot ez-dot--error'/>       : null}
+                <span className='ez-price__status-text'>{status==='live'?'Live':status==='connecting'?'Connecting…':'Error'}</span>
+                {dir==='up'   && <TrendingUp   className='ez-price__arrow ez-price__arrow--up'/>}
+                {dir==='down' && <TrendingDown  className='ez-price__arrow ez-price__arrow--down'/>}
             </div>
             <div className='ez-price__value'>
                 <span className='ez-price__prefix'>{prefix}</span>
                 <AnimatePresence mode='wait'>
-                    <motion.span key={lastChar} className='ez-price__last-digit' style={{ color: dc, textShadow: `0 0 16px ${dc}80` }}
-                        initial={{ y: -18, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 18, opacity: 0 }} transition={{ duration: 0.2 }}>
+                    <motion.span key={lastChar} className='ez-price__last-digit' style={{ color:dc, textShadow:`0 0 16px ${dc}80` }}
+                        initial={{ y:-18, opacity:0 }} animate={{ y:0, opacity:1 }} exit={{ y:18, opacity:0 }} transition={{ duration:0.2 }}>
                         {lastChar}
                     </motion.span>
                 </AnimatePresence>
@@ -299,18 +345,31 @@ function LivePriceDisplay({ livePrice, prevPrice, liveDigit, pipSize, status }: 
     );
 }
 
+// ─── Scan status row ──────────────────────────────────────────────────────────
+
+function ScanStatusRow({ statuses }: { statuses: Record<string, 'connecting'|'live'|'error'> }) {
+    const liveCount = ALL_SYMBOLS.filter(s => statuses[s] === 'live').length;
+    return (
+        <div className='se-scan-row'>
+            <span className='se-scan-row__label'>
+                {liveCount}/{ALL_SYMBOLS.length} markets live
+            </span>
+            <div className='se-scan-row__dots'>
+                {ALL_SYMBOLS.map(sym => (
+                    <span key={sym} className={`se-scan-dot se-scan-dot--${statuses[sym] ?? 'connecting'}`} title={SYM_SHORT[sym]} />
+                ))}
+            </div>
+        </div>
+    );
+}
+
 // ─── Signal Card ──────────────────────────────────────────────────────────────
 
 const MARKET_LABEL: Record<MarketType, string> = {
-    over_under:       'OVER / UNDER',
-    even_odd:         'EVEN / ODD',
-    matches_differs:  'MATCH / DIFFER',
+    over_under:'OVER / UNDER', even_odd:'EVEN / ODD', matches_differs:'MATCH / DIFFER',
 };
-
 const MARKET_COLOR: Record<MarketType, string> = {
-    over_under:       '#6366f1',
-    even_odd:         '#10b981',
-    matches_differs:  '#f59e0b',
+    over_under:'#6366f1', even_odd:'#10b981', matches_differs:'#f59e0b',
 };
 
 function SignalCard({ signal, now }: { signal: Signal; now: number }) {
@@ -321,15 +380,12 @@ function SignalCard({ signal, now }: { signal: Signal; now: number }) {
 
     return (
         <motion.div className='se-signal-card'
-            initial={{ opacity: 0, y: 12, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.95 }}
-            transition={{ duration: 0.3 }}
-            style={{ '--sig-color': color } as React.CSSProperties}
-        >
-            {/* Header row */}
+            initial={{ opacity:0, y:12, scale:0.97 }} animate={{ opacity:1, y:0, scale:1 }}
+            exit={{ opacity:0, y:-10, scale:0.95 }} transition={{ duration:0.3 }}
+            style={{ '--sig-color': color } as React.CSSProperties}>
+
             <div className='se-signal-card__head'>
-                <span className='se-signal-card__badge' style={{ background: `${color}22`, color }}>
+                <span className='se-signal-card__badge' style={{ background:`${color}22`, color }}>
                     {MARKET_LABEL[signal.market]}
                 </span>
                 <span className={`se-signal-card__timer ${urgent ? 'se-signal-card__timer--urgent' : ''}`}>
@@ -337,113 +393,112 @@ function SignalCard({ signal, now }: { signal: Signal; now: number }) {
                 </span>
             </div>
 
-            {/* Direction */}
-            <div className='se-signal-card__direction' style={{ color }}>
-                {signal.direction}
+            <div className='se-signal-card__direction' style={{ color }}>{signal.direction}</div>
+
+            <div className='se-signal-card__symbol'>
+                <span className='se-signal-card__sym-badge'>{SYM_SHORT[signal.symbol] ?? signal.symbol}</span>
+                {signal.symbolLabel}
             </div>
 
-            {/* Symbol */}
-            <div className='se-signal-card__symbol'>{signal.symbolLabel}</div>
-
-            {/* Models */}
             <div className='se-signal-card__models'>
                 {signal.modelsAgreeing.map(m => (
                     <span key={m} className='se-signal-card__model-chip'>{m}</span>
                 ))}
             </div>
 
-            {/* Confidence bar */}
             <div className='se-signal-card__conf-row'>
                 <span className='se-signal-card__conf-label'>Confidence</span>
                 <span className='se-signal-card__conf-val' style={{ color }}>{signal.confidence}%</span>
             </div>
             <div className='se-signal-card__conf-track'>
-                <motion.div className='se-signal-card__conf-fill'
-                    style={{ background: color }}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${signal.confidence}%` }}
-                    transition={{ duration: 0.6, ease: 'easeOut' }}
-                />
+                <motion.div className='se-signal-card__conf-fill' style={{ background:color }}
+                    initial={{ width:0 }} animate={{ width:`${signal.confidence}%` }}
+                    transition={{ duration:0.6, ease:'easeOut' }} />
             </div>
 
-            {/* Entry point */}
             <div className='se-signal-card__entry'>{signal.entryPoint}</div>
 
-            {/* Countdown bar */}
             <div className='se-signal-card__ttl-track'>
                 <motion.div className='se-signal-card__ttl-fill'
                     style={{ background: urgent ? '#ef4444' : color }}
-                    animate={{ width: `${pct * 100}%` }}
-                    transition={{ duration: 0.9, ease: 'linear' }}
-                />
+                    animate={{ width:`${pct*100}%` }} transition={{ duration:0.9, ease:'linear' }} />
             </div>
         </motion.div>
     );
 }
 
-// ─── Volatility status badge ──────────────────────────────────────────────────
+// ─── Volatility badge (for selected symbol) ───────────────────────────────────
 
 function VolBadge({ digits, tickTimes }: { digits: number[]; tickTimes: number[] }) {
     const { status, reason } = modelVolatility(digits, tickTimes);
     return (
         <div className={`se-vol-badge se-vol-badge--${status.toLowerCase()}`}>
             <span className='se-vol-badge__dot' />
-            <span>{status === 'ALLOW' ? 'Market Stable' : `Blocked: ${reason}`}</span>
+            <span>{status === 'ALLOW' ? 'Stable' : reason}</span>
         </div>
     );
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-const DEFAULT_SYMBOL: MarketSymbol = '1HZ10V';
-
 const SignalEngine = () => {
-    const [symbol, setSymbol]       = useState<string>(DEFAULT_SYMBOL);
-    const data                      = useDerivDigits(symbol);
-    const { distribution, liveDigit, livePrice, prevPrice, pipSize, tickCount, status, allDigits, tickTimestamps } = data;
-    const ranks                     = computeRanks(distribution);
-    const selectedLabel             = MARKETS.flatMap(g => g.items).find(m => m.symbol === symbol)?.label ?? symbol;
+    const [selectedSym, setSelectedSym] = useState<string>('1HZ10V');
+    const { snap, scanStatus, tickEvent, bufsRef } = useMultiMarket(selectedSym);
 
-    // Signal engine state
+    const { distribution, liveDigit, livePrice, prevPrice, pipSize, tickCount, status } = snap;
+    const ranks = computeRanks(distribution);
+
+    // Signal state
     const [signals,   setSignals]   = useState<Signal[]>([]);
-    const [mlWeights, setMlWeights] = useState<MLWeights>(initialMLWeights);
-    const tickCountRef              = useRef(0);
+    const mlWeightsRef              = useRef<MLWeights>(initialMLWeights());
     const now                       = useNow(1000);
 
-    // Expire stale signals every second
+    // Expire signals every second
     useEffect(() => {
         setSignals(prev => prev.filter(s => s.expiresAt > now));
     }, [now]);
 
-    // Run analysis on each new tick
+    // Run analysis whenever any symbol hits its 10-tick mark
     useEffect(() => {
-        if (allDigits.length === 0) return;
-        tickCountRef.current++;
-        const tc = tickCountRef.current;
+        if (!tickEvent) return;
+        const { sym, tc } = tickEvent;
+        const buf = bufsRef.current.get(sym);
+        if (!buf || buf.digits.length < 50) return;
 
-        // Retrain ML every 50 ticks
-        if (tc % 50 === 0) {
-            setMlWeights(prev => trainMLWeights(allDigits, prev));
+        // Retrain ML every 50 ticks on the selected symbol's data
+        if (sym === selectedSym && tc % 50 === 0) {
+            mlWeightsRef.current = trainMLWeights(buf.digits, mlWeightsRef.current);
         }
 
-        // Analyze every 10 ticks
-        if (tc % 10 !== 0) return;
+        const symLabel = SYM_LONG[sym] ?? sym;
 
         setSignals(prev => {
-            const active       = prev.filter(s => s.expiresAt > Date.now());
-            const activeMarkets = new Set(active.map(s => s.market)) as Set<MarketType>;
-            const newSigs      = analyzeSignals(allDigits, tickTimestamps, symbol, selectedLabel, mlWeights, activeMarkets);
+            const nowT        = Date.now();
+            const active      = prev.filter(s => s.expiresAt > nowT);
+            const activeMarkets = new Set(
+                active.filter(s => s.symbol === sym).map(s => s.market)
+            ) as Set<MarketType>;
+
+            const newSigs = analyzeSignals(
+                buf.digits, buf.ts, sym, symLabel,
+                mlWeightsRef.current, activeMarkets,
+            );
             return newSigs.length > 0 ? [...active, ...newSigs] : active;
         });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [liveDigit]);
+    }, [tickEvent]);
 
-    // Reset signals when symbol changes
-    useEffect(() => {
-        setSignals([]);
-        tickCountRef.current = 0;
-        setMlWeights(initialMLWeights());
-    }, [symbol]);
+    // Sort signals: highest confidence first, cap display at 6
+    const displaySignals = [...signals]
+        .sort((a, b) => b.confidence - a.confidence || b.createdAt - a.createdAt)
+        .slice(0, 6);
+
+    const liveCount = ALL_SYMBOLS.filter(s => scanStatus[s] === 'live').length;
+
+    // Buffer data for selected symbol (for VolBadge)
+    const selBuf    = bufsRef.current.get(selectedSym);
+    const selDigits = selBuf?.digits ?? [];
+    const selTs     = selBuf?.ts     ?? [];
 
     return (
         <div className='ez-root se-root'>
@@ -451,15 +506,17 @@ const SignalEngine = () => {
             <div className='ez-header'>
                 <div className='ez-header__title-block'>
                     <span className='ez-header__title'>Signal Engine</span>
-                    <span className='ez-header__sub'>Last {tickCount} / {TICK_HISTORY} ticks · {selectedLabel}</span>
+                    <span className='ez-header__sub'>
+                        Scanning all 13 volatility indices · {tickCount} ticks
+                    </span>
                 </div>
                 <div className='ez-selector'>
-                    <label className='ez-selector__label'>Market</label>
+                    <label className='ez-selector__label'>Display</label>
                     <div className='ez-selector__wrap'>
-                        <select className='ez-selector__select' value={symbol} onChange={e => setSymbol(e.target.value)}>
-                            {MARKETS.map(g => (
+                        <select className='ez-selector__select' value={selectedSym} onChange={e => setSelectedSym(e.target.value)}>
+                            {DISPLAY_MARKETS.map(g => (
                                 <optgroup key={g.group} label={g.group}>
-                                    {g.items.map(m => <option key={m.symbol} value={m.symbol}>{m.label}</option>)}
+                                    {g.items.map(s => <option key={s} value={s}>{SYM_LONG[s]}</option>)}
                                 </optgroup>
                             ))}
                         </select>
@@ -468,60 +525,66 @@ const SignalEngine = () => {
                 </div>
             </div>
 
-            {/* ── Live price ── */}
+            {/* ── Scan status row ── */}
+            <ScanStatusRow statuses={scanStatus} />
+
+            {/* ── Live price for selected symbol ── */}
             <div className='ez-price-row'>
                 <LivePriceDisplay livePrice={livePrice} prevPrice={prevPrice} liveDigit={liveDigit} pipSize={pipSize} status={status} />
                 <div className='ez-cursor-tag'>
-                    {liveDigit !== null && (
-                        <>
-                            <span className='ez-cursor-tag__arrow' style={{ color: '#ef4444' }}>▼</span>
-                            <span className='ez-cursor-tag__label'>Digit</span>
-                            <AnimatePresence mode='wait'>
-                                <motion.span key={liveDigit} className='ez-cursor-tag__digit' style={{ color: D_COLORS[liveDigit] }}
-                                    initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.5, opacity: 0 }}
-                                    transition={{ type: 'spring', stiffness: 500, damping: 22 }}>
-                                    {liveDigit}
-                                </motion.span>
-                            </AnimatePresence>
-                        </>
-                    )}
-                    {status === 'connecting' && <Loader2 className='ez-spinner' />}
-                    {status === 'error'      && <WifiOff className='ez-error-icon' />}
-                    {status === 'live' && liveDigit === null && <Wifi className='ez-wifi-icon' />}
+                    {liveDigit !== null && (<>
+                        <span className='ez-cursor-tag__arrow' style={{ color:'#ef4444' }}>▼</span>
+                        <span className='ez-cursor-tag__label'>Digit</span>
+                        <AnimatePresence mode='wait'>
+                            <motion.span key={liveDigit} className='ez-cursor-tag__digit' style={{ color:D_COLORS[liveDigit] }}
+                                initial={{ scale:0.5, opacity:0 }} animate={{ scale:1, opacity:1 }} exit={{ scale:0.5, opacity:0 }}
+                                transition={{ type:'spring', stiffness:500, damping:22 }}>
+                                {liveDigit}
+                            </motion.span>
+                        </AnimatePresence>
+                    </>)}
+                    {status === 'connecting' && <Loader2 className='ez-spinner'/>}
+                    {status === 'error'      && <WifiOff className='ez-error-icon'/>}
+                    {status === 'live' && liveDigit === null && <Wifi className='ez-wifi-icon'/>}
                 </div>
             </div>
 
-            {/* ── Quadrants ── */}
+            {/* ── Digit circles for selected symbol ── */}
             <div className='ez-quadrants'>
-                <QuadrantRow digits={[0, 1, 2, 3, 4]} distribution={distribution} ranks={ranks} liveDigit={liveDigit} />
-                <QuadrantRow digits={[5, 6, 7, 8, 9]} distribution={distribution} ranks={ranks} liveDigit={liveDigit} />
+                <QuadrantRow digits={[0,1,2,3,4]} distribution={distribution} ranks={ranks} liveDigit={liveDigit} />
+                <QuadrantRow digits={[5,6,7,8,9]} distribution={distribution} ranks={ranks} liveDigit={liveDigit} />
             </div>
 
             {/* ── Signals Card ── */}
             <div className='se-signals-card'>
                 <div className='se-signals-card__header'>
-                    <span className='se-signals-card__title'>⚡ Signals</span>
-                    {allDigits.length > 0 && (
-                        <VolBadge digits={allDigits} tickTimes={tickTimestamps} />
-                    )}
+                    <span className='se-signals-card__title'>
+                        ⚡ Signals
+                        {signals.length > 0 && (
+                            <span className='se-signals-card__count'>{signals.length}</span>
+                        )}
+                    </span>
+                    <div className='se-signals-card__header-right'>
+                        {selDigits.length > 0 && <VolBadge digits={selDigits} tickTimes={selTs} />}
+                    </div>
                 </div>
                 <div className='se-signals-card__body'>
-                    {signals.length === 0 ? (
+                    {displaySignals.length === 0 ? (
                         <div className='se-signals-card__empty'>
                             <span className='se-signals-card__empty-icon'>
-                                {status === 'connecting' ? '🔌' : allDigits.length < 50 ? '📡' : '🔍'}
+                                {liveCount === 0 ? '🔌' : liveCount < 13 ? '📡' : '🔍'}
                             </span>
                             <span className='se-signals-card__empty-text'>
-                                {status === 'connecting'
-                                    ? 'Connecting to market…'
-                                    : allDigits.length < 50
-                                    ? `Collecting data… (${allDigits.length}/50 ticks)`
-                                    : 'Scanning for high-confidence signals…'}
+                                {liveCount === 0
+                                    ? 'Connecting to markets…'
+                                    : liveCount < 13
+                                    ? `Connected ${liveCount}/13 markets — collecting data…`
+                                    : 'All 13 markets live — scanning for high-confidence signals…'}
                             </span>
                         </div>
                     ) : (
                         <AnimatePresence>
-                            {signals.map(sig => (
+                            {displaySignals.map(sig => (
                                 <SignalCard key={sig.id} signal={sig} now={now} />
                             ))}
                         </AnimatePresence>

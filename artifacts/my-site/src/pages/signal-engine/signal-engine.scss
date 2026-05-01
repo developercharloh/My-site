@@ -1,3 +1,82 @@
+// ─── Scan status row ──────────────────────────────────────────────────────────
+.se-scan-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.3rem 0.6rem;
+    border-radius: 0.6rem;
+    background: rgba(100, 116, 139, 0.06);
+    border: 1px solid rgba(100, 116, 139, 0.1);
+
+    &__label {
+        font-size: 0.6rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-less-prominent, #94a3b8);
+    }
+
+    &__dots {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+}
+
+.se-scan-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    cursor: default;
+    transition: background 0.3s;
+
+    &--live        { background: #10b981; }
+    &--connecting  { background: #eab308; animation: se-pulse 1.2s ease-in-out infinite; }
+    &--error       { background: #ef4444; }
+}
+
+// ─── Signal count badge ────────────────────────────────────────────────────────
+.se-signals-card {
+    &__count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #6366f1;
+        color: #fff;
+        font-size: 0.55rem;
+        font-weight: 900;
+        margin-left: 0.35rem;
+        vertical-align: middle;
+    }
+
+    &__header-right {
+        display: flex;
+        align-items: center;
+    }
+}
+
+// ─── Symbol badge inside signal card ─────────────────────────────────────────
+.se-signal-card {
+    &__sym-badge {
+        display: inline-block;
+        font-size: 0.55rem;
+        font-weight: 800;
+        padding: 0.12rem 0.4rem;
+        border-radius: 4px;
+        background: rgba(100, 116, 139, 0.15);
+        color: var(--text-less-prominent, #94a3b8);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-right: 0.35rem;
+        font-family: 'JetBrains Mono', monospace;
+    }
+}
+
 // ─── Volatility badge ──────────────────────────────────────────────────────────
 .se-vol-badge {
     display: flex;
