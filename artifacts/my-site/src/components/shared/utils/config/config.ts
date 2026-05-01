@@ -30,6 +30,7 @@ export const domain_app_ids = {
     'my-site--mywebapp824.replit.app': APP_IDS.MY_SITE,
     '7731a07f-d426-4cc0-8319-6b9edbf43980-00-1y5memhdqf1d.riker.replit.dev': APP_IDS.MY_SITE,
     'e15cfa82-cbbd-4411-9655-c17b650dbf65-00-1scip3skechxe.spock.replit.dev': APP_IDS.MY_SITE,
+    'd6283760-d554-4d31-b49e-285652e3aa2e-00-2l0of81nhm4qy.riker.replit.dev': APP_IDS.MY_SITE,
 };
 
 export const getCurrentProductionDomain = () =>
