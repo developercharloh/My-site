@@ -1121,7 +1121,6 @@ const SpeedBots: React.FC = () => {
                                     {filteredTransactions.map(tx => {
                                         const entry = tx.entry_spot;
                                         const exit = tx.exit_spot;
-                                        const pip = engine.pip_size;
                                         const running = runningById.get(tx.id) ?? 0;
                                         return (
                                             <tr key={tx.id} className={tx.status === 'pending' ? 'sb-tx__row-pending' : tx.is_virtual ? 'sb-tx__row-virtual' : ''}>
@@ -1136,10 +1135,10 @@ const SpeedBots: React.FC = () => {
                                                 </td>
                                                 <td className='ar'>{tx.buy_price.toFixed(2)}</td>
                                                 <td className='ar mono'>
-                                                    {entry !== undefined ? entry.toFixed(pip) : '—'}
+                                                    {entry ?? '—'}
                                                 </td>
                                                 <td className='ar mono'>
-                                                    {exit !== undefined ? exit.toFixed(pip) : '—'}
+                                                    {exit ?? '—'}
                                                 </td>
                                                 <td>
                                                     {tx.status === 'pending' ? (

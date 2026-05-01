@@ -82,8 +82,8 @@ export type Transaction = {
     is_virtual: boolean;
     status: 'pending' | 'won' | 'lost';
     barrier?: string;
-    entry_spot?: number;
-    exit_spot?: number;
+    entry_spot?: string | null;
+    exit_spot?: string | null;
     time: number;
 };
 
@@ -954,13 +954,13 @@ class ApolloEngine {
                 is_win: wouldWin,
                 is_virtual: true,
                 status: wouldWin ? 'won' : 'lost',
-                entry_spot: this.last_quote ?? undefined,
-                exit_spot: this.last_quote ?? undefined,
+                entry_spot: this.last_quote != null ? this.last_quote.toFixed(this.pip_size) : null,
+                exit_spot: this.last_quote != null ? this.last_quote.toFixed(this.pip_size) : null,
                 time: Date.now(),
             });
             this.addJournal(
                 `Virtual ${formatContractLabel(prevChoice)} ${wouldWin ? 'WIN' : 'LOSS'} (vL ${this.virtual_loss_count}/${this.settings.vh_max_steps})`,
-                wouldWin ? 'info' : 'info'
+                wouldWin ? 'success' : 'warn'
             );
         }
 
@@ -1263,8 +1263,8 @@ class ApolloEngine {
             is_virtual: false,
             status: is_win ? 'won' : 'lost',
             barrier,
-            entry_spot: poc.entry_spot ? Number(poc.entry_spot) : undefined,
-            exit_spot: poc.exit_spot ? Number(poc.exit_spot) : undefined,
+            entry_spot: poc.entry_tick_display_value ?? poc.entry_spot_display_value ?? null,
+            exit_spot: poc.exit_tick_display_value  ?? poc.exit_spot_display_value  ?? null,
             time: (poc.purchase_time || Math.floor(Date.now() / 1000)) * 1000,
         };
         this.addTransaction(tx);
