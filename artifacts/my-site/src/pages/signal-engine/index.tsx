@@ -477,6 +477,16 @@ const SignalEngine = () => {
                 />
             </div>
 
+            {/* ── Signals Card ── */}
+            <div className='se-signals-card'>
+                <div className='se-signals-card__header'>
+                    <span className='se-signals-card__title'>⚡ Signals</span>
+                </div>
+                <div className='se-signals-card__body'>
+                    <span className='se-signals-card__soon'>🚧 Signals coming soon</span>
+                </div>
+            </div>
+
         </div>
     );
 };

@@ -1,3 +1,41 @@
+/* ── Signals Card ── */
+.se-signals-card {
+    border-radius: 1rem;
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    background: rgba(99, 102, 241, 0.05);
+    overflow: hidden;
+
+    &__header {
+        display: flex;
+        align-items: center;
+        padding: 0.55rem 0.9rem;
+        border-bottom: 1px solid rgba(99, 102, 241, 0.15);
+        background: rgba(99, 102, 241, 0.08);
+    }
+
+    &__title {
+        font-size: 0.72rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: #6366f1;
+    }
+
+    &__body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.4rem 1rem;
+    }
+
+    &__soon {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: var(--text-less-prominent, #94a3b8);
+        letter-spacing: 0.03em;
+    }
+}
+
 .se-root {
     .ez-quadrants {
         gap: 0.1rem;
