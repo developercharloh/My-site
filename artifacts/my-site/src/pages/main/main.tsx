@@ -29,13 +29,6 @@ import './main.scss';
 
 const ChartWrapper = lazy(() => import('../chart/chart-wrapper'));
 const FreeBots = lazy(() => import('../free-bots'));
-// NOTE: Manual Trader is intentionally NOT lazy-loaded. It is rendered as a
-// persistent iframe at the root of the main view (see <ManualTraderHost/>
-// below) so the heavy DTrader bundle (~10 MB compressed) starts downloading
-// the moment Apollo mounts, instead of when the user clicks the tab. By the
-// time the user opens Manual Trader the iframe is already booted, so the tab
-// switch feels instant and there is no internal splash to wait through.
-import ManualTraderHost from '../manual-trader/host';
 const AnalysisTool = lazy(() => import('../analysis-tool'));
 const EntryZone = lazy(() => import('../entry-zone'));
 const SpeedBots = lazy(() => import('../speed-bots/speed-bots'));
@@ -70,7 +63,7 @@ const AppWrapper = observer(() => {
     const { clear } = summary_card;
     const { DASHBOARD, BOT_BUILDER } = DBOT_TABS;
     const init_render = React.useRef(true);
-    const hash = ['dashboard', 'bot_builder', 'chart', 'tutorial', 'free_bots', 'manual_trader', 'analysis_tool', 'entry_zone'];
+    const hash = ['dashboard', 'bot_builder', 'chart', 'tutorial', 'free_bots', 'analysis_tool', 'entry_zone'];
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();
@@ -355,17 +348,6 @@ const AppWrapper = observer(() => {
                             <div
                                 label={
                                     <>
-                                        <span className='tab-emoji' role='img' aria-hidden='true'>📱</span>
-                                        <Localize i18n_default_text='Manual Trader' />
-                                    </>
-                                }
-                                id='id-manual-trader'
-                            >
-                                <ManualTraderHost active={true} />
-                            </div>
-                            <div
-                                label={
-                                    <>
                                         <span className='tab-emoji' role='img' aria-hidden='true'>🔍📊</span>
                                         <Localize i18n_default_text='Analysis Tool' />
                                     </>
@@ -407,20 +389,15 @@ const AppWrapper = observer(() => {
                 </div>
             </div>
             <DesktopWrapper>
-                {active_tab !== DBOT_TABS.MANUAL_TRADER && (
-                    <div className='main__run-strategy-wrapper'>
-                        <RunStrategy />
-                        <RunPanel />
-                    </div>
-                )}
+                <div className='main__run-strategy-wrapper'>
+                    <RunStrategy />
+                    <RunPanel />
+                </div>
                 <ChartModal />
                 <TradingViewModal />
             </DesktopWrapper>
             <MobileWrapper>
-                {!is_open
-                    && active_tab !== DBOT_TABS.SPEED_BOTS
-                    && active_tab !== DBOT_TABS.MANUAL_TRADER
-                    && <RunPanel />}
+                {!is_open && active_tab !== DBOT_TABS.SPEED_BOTS && <RunPanel />}
             </MobileWrapper>
             <Dialog
                 cancel_button_text={cancel_button_text || localize('Cancel')}
