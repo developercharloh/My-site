@@ -1,20 +1,58 @@
-/* ── Signals Card ── */
+// ─── Volatility badge ──────────────────────────────────────────────────────────
+.se-vol-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0.2rem 0.5rem;
+    border-radius: 999px;
+
+    &--allow {
+        background: rgba(16, 185, 129, 0.12);
+        color: #10b981;
+        .se-vol-badge__dot { background: #10b981; }
+    }
+    &--block {
+        background: rgba(239, 68, 68, 0.12);
+        color: #ef4444;
+        .se-vol-badge__dot { background: #ef4444; }
+    }
+
+    &__dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        animation: se-pulse 1.5s ease-in-out infinite;
+    }
+}
+
+@keyframes se-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.5; transform: scale(0.8); }
+}
+
+// ─── Signals card ─────────────────────────────────────────────────────────────
 .se-signals-card {
     border-radius: 1rem;
-    border: 1px solid rgba(99, 102, 241, 0.25);
-    background: rgba(99, 102, 241, 0.05);
+    border: 1px solid rgba(99, 102, 241, 0.22);
+    background: rgba(99, 102, 241, 0.04);
     overflow: hidden;
 
     &__header {
         display: flex;
         align-items: center;
-        padding: 0.55rem 0.9rem;
-        border-bottom: 1px solid rgba(99, 102, 241, 0.15);
-        background: rgba(99, 102, 241, 0.08);
+        justify-content: space-between;
+        padding: 0.5rem 0.9rem;
+        border-bottom: 1px solid rgba(99, 102, 241, 0.12);
+        background: rgba(99, 102, 241, 0.07);
     }
 
     &__title {
-        font-size: 0.72rem;
+        font-size: 0.7rem;
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.07em;
@@ -23,60 +61,167 @@
 
     &__body {
         display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 1.4rem 1rem;
+        flex-direction: column;
+        gap: 0.5rem;
+        padding: 0.6rem;
+        min-height: 80px;
     }
 
-    &__soon {
-        font-size: 0.8rem;
-        font-weight: 700;
+    &__empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        padding: 1rem;
+    }
+
+    &__empty-icon { font-size: 1.4rem; }
+
+    &__empty-text {
+        font-size: 0.72rem;
+        font-weight: 600;
         color: var(--text-less-prominent, #94a3b8);
-        letter-spacing: 0.03em;
+        text-align: center;
     }
 }
 
-.se-root {
-    .ez-quadrants {
-        gap: 0.1rem;
-    }
+// ─── Individual signal card ────────────────────────────────────────────────────
+.se-signal-card {
+    border-radius: 0.8rem;
+    border: 1px solid rgba(var(--sig-color, #6366f1), 0.25);
+    background: rgba(255, 255, 255, 0.04);
+    padding: 0.7rem 0.85rem 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
 
-    .ez-quadrant {
-        padding: 0.5rem 0.6rem;
-        gap: 0.3rem;
-    }
-
-    .ez-cursor-layer {
-        height: 14px;
-    }
-
-    .ez-circles {
-        gap: 0.18rem;
+    &__head {
+        display: flex;
+        align-items: center;
         justify-content: space-between;
+        gap: 0.5rem;
     }
 
-    .ez-circle-col {
-        gap: 0.2rem;
-    }
-
-    .ez-circle {
-        font-size: 0.75rem;
-    }
-
-    .ez-rank-badge {
-        font-size: 0.5rem;
-        min-height: 10px;
-    }
-
-    .ez-pct {
+    &__badge {
         font-size: 0.58rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        padding: 0.18rem 0.55rem;
+        border-radius: 999px;
     }
 
-    .ez-bar-track {
-        height: 3px;
+    &__timer {
+        font-size: 0.62rem;
+        font-weight: 700;
+        font-family: 'JetBrains Mono', monospace;
+        color: var(--text-less-prominent, #94a3b8);
+
+        &--urgent { color: #ef4444; animation: se-pulse 0.8s ease-in-out infinite; }
     }
 
-    .ez-cursor__arrow {
+    &__direction {
+        font-size: 1.35rem;
+        font-weight: 900;
+        font-family: 'JetBrains Mono', monospace;
+        line-height: 1.1;
+        letter-spacing: -0.01em;
+    }
+
+    &__symbol {
+        font-size: 0.62rem;
+        font-weight: 600;
+        color: var(--text-less-prominent, #94a3b8);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    &__models {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+    }
+
+    &__model-chip {
+        font-size: 0.56rem;
+        font-weight: 700;
+        padding: 0.15rem 0.45rem;
+        border-radius: 999px;
+        background: rgba(100, 116, 139, 0.12);
+        color: var(--text-less-prominent, #94a3b8);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    &__conf-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-top: 0.1rem;
+    }
+
+    &__conf-label {
+        font-size: 0.58rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-less-prominent, #94a3b8);
+    }
+
+    &__conf-val {
         font-size: 0.7rem;
+        font-weight: 900;
+        font-family: 'JetBrains Mono', monospace;
     }
+
+    &__conf-track {
+        height: 5px;
+        border-radius: 99px;
+        background: rgba(100, 116, 139, 0.15);
+        overflow: hidden;
+    }
+
+    &__conf-fill {
+        height: 100%;
+        border-radius: 99px;
+    }
+
+    &__entry {
+        font-size: 0.65rem;
+        font-weight: 600;
+        color: var(--text-general, #334155);
+        padding: 0.3rem 0.5rem;
+        border-radius: 0.4rem;
+        background: rgba(100, 116, 139, 0.07);
+        font-family: 'JetBrains Mono', monospace;
+    }
+
+    &__ttl-track {
+        height: 3px;
+        border-radius: 99px;
+        background: rgba(100, 116, 139, 0.12);
+        overflow: hidden;
+        margin-top: 0.1rem;
+    }
+
+    &__ttl-fill {
+        height: 100%;
+        border-radius: 99px;
+        transition: background 0.4s;
+    }
+}
+
+// ─── Circle size overrides (smaller than entry-zone) ─────────────────────────
+.se-root {
+    .ez-quadrants  { gap: 0.1rem; }
+    .ez-quadrant   { padding: 0.5rem 0.6rem; gap: 0.3rem; }
+    .ez-cursor-layer { height: 14px; }
+    .ez-circles    { gap: 0.18rem; justify-content: space-between; }
+    .ez-circle-col { gap: 0.2rem; }
+    .ez-circle     { font-size: 0.75rem; }
+    .ez-rank-badge { font-size: 0.5rem; min-height: 10px; }
+    .ez-pct        { font-size: 0.58rem; }
+    .ez-bar-track  { height: 3px; }
+    .ez-cursor__arrow { font-size: 0.7rem; }
 }
