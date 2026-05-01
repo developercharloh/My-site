@@ -67,7 +67,12 @@ export default defineConfig({
             { from: 'node_modules/@deriv/deriv-charts/dist/chart/assets/*', to: 'assets/[name][ext]' },
             { from: 'node_modules/@deriv/deriv-charts/dist/chart/assets/fonts/*', to: 'assets/fonts/[name][ext]' },
             { from: 'node_modules/@deriv/deriv-charts/dist/chart/assets/shaders/*', to: 'assets/shaders/[name][ext]' },
-            { from: path.join(__dirname, 'public') },
+            {
+                from: path.join(__dirname, 'public'),
+                globOptions: {
+                    ignore: ['**/dtrader/**'],
+                },
+            },
         ],
         // Ensure service worker is not cached by the browser
         filename: {
@@ -89,14 +94,14 @@ export default defineConfig({
                         test: /[\\/]node_modules[\\/]blockly[\\/]/,
                         name: 'lib-blockly',
                         priority: 30,
-                        chunks: 'all',
+                        chunks: 'async',
                         reuseExistingChunk: true,
                     },
                     derivCharts: {
                         test: /[\\/]node_modules[\\/]@deriv[\\/]deriv-charts[\\/]/,
                         name: 'lib-deriv-charts',
                         priority: 28,
-                        chunks: 'all',
+                        chunks: 'async',
                         reuseExistingChunk: true,
                     },
                     derivApi: {
@@ -117,7 +122,7 @@ export default defineConfig({
                         test: /[\\/]node_modules[\\/]@deriv[\\/]quill-icons[\\/]/,
                         name: 'lib-quill-icons',
                         priority: 22,
-                        chunks: 'all',
+                        chunks: 'async',
                         reuseExistingChunk: true,
                     },
                     mobx: {
@@ -131,14 +136,14 @@ export default defineConfig({
                         test: /[\\/]node_modules[\\/](@datadog|trackjs)[\\/]/,
                         name: 'lib-monitoring',
                         priority: 18,
-                        chunks: 'all',
+                        chunks: 'async',
                         reuseExistingChunk: true,
                     },
                     framerMotion: {
                         test: /[\\/]node_modules[\\/]framer-motion[\\/]/,
                         name: 'lib-framer-motion',
                         priority: 16,
-                        chunks: 'all',
+                        chunks: 'async',
                         reuseExistingChunk: true,
                     },
                 },

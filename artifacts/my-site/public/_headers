@@ -1,6 +1,31 @@
-# Cloudflare Pages headers configuration
-# This file sets HTTP headers for all routes
+# HTTP headers for all routes
 
 /*
   Cross-Origin-Opener-Policy: unsafe-none
   Cross-Origin-Embedder-Policy: unsafe-none
+
+# Hashed JS/CSS bundles — safe to cache forever (content hash changes on update)
+/static/js/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/static/css/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Smartcharts JS — large files, content-addressed by build
+/js/smartcharts/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Static assets (icons, fonts, images, shaders) — long-lived
+/assets/*
+  Cache-Control: public, max-age=604800
+
+# Service worker and manifest must always be fresh
+/sw.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/manifest.json
+  Cache-Control: no-store, no-cache, must-revalidate
+
+# HTML entry points — always revalidate
+/*.html
+  Cache-Control: no-store, no-cache, must-revalidate
