@@ -29,6 +29,7 @@ import './main.scss';
 
 const ChartWrapper = lazy(() => import('../chart/chart-wrapper'));
 const FreeBots = lazy(() => import('../free-bots'));
+const SignalEngine = lazy(() => import('../signal-engine'));
 const EntryZone = lazy(() => import('../entry-zone'));
 const SpeedBots = lazy(() => import('../speed-bots/speed-bots'));
 
@@ -348,15 +349,19 @@ const AppWrapper = observer(() => {
                                 label={
                                     <>
                                         <span className='tab-emoji' role='img' aria-hidden='true'>🔍📊</span>
-                                        <Localize i18n_default_text='Analysis Tool' />
+                                        <Localize i18n_default_text='Signal Engine' />
                                     </>
                                 }
                                 id='id-analysis-tool'
                             >
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: '16px', color: 'var(--text-general, #333)' }}>
-                                    <span style={{ fontSize: '48px' }}>🚧</span>
-                                    <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 700 }}>Coming Soon</h2>
-                                    <p style={{ margin: 0, fontSize: '15px', opacity: 0.6 }}>The Analysis Tool is under construction. Check back soon!</p>
+                                <div className='analysis-tool-wrapper'>
+                                    <Suspense
+                                        fallback={
+                                            <ChunkLoader message={localize('Please wait, loading Signal Engine...')} />
+                                        }
+                                    >
+                                        <SignalEngine />
+                                    </Suspense>
                                 </div>
                             </div>
                             <div
