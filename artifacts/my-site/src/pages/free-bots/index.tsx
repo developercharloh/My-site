@@ -24,15 +24,15 @@ const BOTS: BotConfig[] = [
         name: 'Matches Bot',
         emoji: '🎯',
         description:
-            'Trades Digit Matches on Volatility 75 (1s) Index. Predicts the last digit will be exactly 4. Flat stake, stops after 6 consecutive losses or when Take Profit is hit.',
+            'Trades Digit Matches on Volatility 75 (1s) Index. Scans every tick — enters only when last digit equals entry point 4, then bets the digit matches exactly. Stops after 6 consecutive losses or Take Profit.',
         market: 'Volatility 75 (1s) Index (1HZ75V)',
-        strategy: 'Digit Matches · Flat Stake',
+        strategy: 'Digit Matches · Entry Point Scanner',
         params: [
+            { label: 'Entry Point', value: 'Digit 4' },
+            { label: 'Prediction', value: 'Digit 4' },
             { label: 'Stake', value: '$10' },
             { label: 'Take Profit', value: '$15' },
-            { label: 'Prediction', value: 'Digit 4' },
             { label: 'Max Losses', value: '6' },
-            { label: 'Martingale', value: '1×' },
         ],
         xmlPath: '/bots/Matches_Signal_Bot.xml',
         gradient: 'linear-gradient(135deg, #1a0533 0%, #3b0764 50%, #7c3aed 100%)',
@@ -60,10 +60,11 @@ const BOTS: BotConfig[] = [
         name: 'Even Odd Entry Scanner Bot',
         emoji: '⚡',
         description:
-            'Trades Digit Even/Odd on Volatility 100 Index. AI-powered entry scanner detects Even/Odd direction before placing trades. Multi-level recovery system on losses with Target Profit and Max Loss protection.',
+            'Trades Digit Even/Odd on Volatility 100 Index. Scans every tick — enters only when last digit equals entry point 0, then the AI confirms direction (2 consecutive Even → buy ODD, 2 consecutive Odd → buy EVEN). Multi-level recovery on losses.',
         market: 'Volatility 100 Index (R_100)',
-        strategy: 'Digit Even / Odd · AI Entry Scanner · Multi-Level Recovery',
+        strategy: 'Digit Even / Odd · Entry Point Scanner · AI Direction',
         params: [
+            { label: 'Entry Point', value: 'Digit 0' },
             { label: 'Stake', value: '$0.55' },
             { label: 'Target Profit', value: '$10' },
             { label: 'Max Loss', value: '$100' },
