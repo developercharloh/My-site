@@ -410,11 +410,6 @@ function SignalSettingsModal({ signal, rank, onClose }: {
     const [errMsg,   setErrMsg]   = useState('');
     const color = MARKET_COLOR[signal.market];
 
-    function parseDigitFrom(str: string): number {
-        const m = str.match(/\d+/);
-        return m ? parseInt(m[0], 10) : 0;
-    }
-
     async function handleRun() {
         localStorage.setItem(storageKey, JSON.stringify(cfg));
         setRunState('launching');
@@ -432,44 +427,11 @@ function SignalSettingsModal({ signal, rank, onClose }: {
             const stopLoss   = parseFloat(cfg.stopLoss)   || 30;
             const martingale = parseFloat(cfg.martingale) || 2;
 
-            let xmlText: string;
+            // Resolve to the same real XML file used in Free Bots section
+            const botId = botIdFromSignal(signal);
+            const doc   = await fetchAndPatchBot(botId, signal, stake, takeProfit, stopLoss, martingale);
 
-            if (signal.market === 'matches_differs') {
-                const contract = signal.direction.toUpperCase().startsWith('MATCHES')
-                    ? 'DIGITMATCH' : 'DIGITDIFF';
-                // prediction digit comes from the direction string: "MATCHES 4" → 4, "DIFFERS 9" → 9
-                const prediction     = parseDigitFrom(signal.direction);
-                const martingaleLevel = Math.max(3, Math.min(10, Math.round(stopLoss / stake)));
-                xmlText = generateMatchesDiffersXml({
-                    symbol: signal.symbol,
-                    contract,
-                    prediction,
-                    stake,
-                    takeProfit,
-                    martingale,
-                    martingaleLevel,
-                });
-            } else {
-                // even_odd — entryDigit comes from entryPoint ("Digit 4" → 4)
-                const entryDigit = parseDigitFrom(signal.entryPoint);
-                xmlText = generateEvenOddXml({
-                    symbol:     signal.symbol,
-                    direction:  signal.direction.toUpperCase() === 'ODD' ? 'ODD' : 'EVEN',
-                    entryDigit,
-                    stake,
-                    takeProfit,
-                    stopLoss,
-                    martingale,
-                });
-            }
-
-            // Use native DOMParser to avoid Blockly's textToDom null-check throwing
-            const parsed = new DOMParser().parseFromString(xmlText, 'text/xml');
-            const parseError = parsed.querySelector('parsererror');
-            if (parseError) throw new Error('XML parse error: ' + parseError.textContent);
-            const dom = parsed.documentElement;
-
-            Blockly.Xml.clearWorkspaceAndLoadFromXml(dom, Blockly.derivWorkspace);
+            Blockly.Xml.clearWorkspaceAndLoadFromXml(doc.documentElement, Blockly.derivWorkspace);
             Blockly.derivWorkspace.cleanUp();
             Blockly.derivWorkspace.clearUndo();
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useStore } from '@/hooks/useStore';
 import { DBOT_TABS } from '@/constants/bot-contents';
-import { parseDigitFrom, patchBotXml, getBotPatches, type BlockPatch, type BotSignal } from '@/utils/bot-patch';
+import { parseDigitFrom, fetchAndPatchBot, type BotSignal } from '@/utils/bot-patch';
 import './free-bots.scss';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -68,7 +68,7 @@ function confColor(conf: number): string {
     return conf >= 70 ? '#10b981' : conf >= 60 ? '#eab308' : '#ef4444';
 }
 
-// ─── BOTS config ──────────────────────────────────────────────────────────────
+// ─── BOTS config ─────────────────────────────────────────────────────────────
 
 const BOTS: BotConfig[] = [
     {
@@ -205,16 +205,8 @@ const SignalTradeModal: React.FC<{
             const stopLoss   = parseFloat(cfg.stopLoss)   || 30;
             const martingale = parseFloat(cfg.martingale) || 2;
 
-            // Fetch the real static bot XML
-            const res = await fetch(xmlPath);
-            if (!res.ok) throw new Error(`HTTP ${res.status} fetching bot XML.`);
-            const rawXml = await res.text();
-
-            // Patch symbol + all financial parameters directly in the DOM
-            const patches = getBotPatches(botId, signal, stake, takeProfit, stopLoss, martingale);
-            const doc     = patchBotXml(rawXml, signal.symbol, patches);
-
-            if (doc.querySelector('parsererror')) throw new Error('Bot XML parse error — check the bot file.');
+            // Fetch and patch the real bot XML (same file as Free Bots section)
+            const doc = await fetchAndPatchBot(botId, signal, stake, takeProfit, stopLoss, martingale);
 
             Blockly.Xml.clearWorkspaceAndLoadFromXml(doc.documentElement, Blockly.derivWorkspace);
             Blockly.derivWorkspace.cleanUp();
