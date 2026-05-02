@@ -501,9 +501,21 @@ const FreeBots = observer(() => {
         try { return (localStorage.getItem(ENGINE_KEY) as EngineMode) || 'v1'; } catch { return 'v1'; }
     });
 
+    // Sync with header engine selector via storage events
+    useEffect(() => {
+        const handler = (e: StorageEvent) => {
+            if (e.key === ENGINE_KEY && (e.newValue === 'v1' || e.newValue === 'v2')) {
+                setEngineMode(e.newValue as EngineMode);
+            }
+        };
+        window.addEventListener('storage', handler);
+        return () => window.removeEventListener('storage', handler);
+    }, []);
+
     const handleModeChange = (m: EngineMode) => {
         setEngineMode(m);
         try { localStorage.setItem(ENGINE_KEY, m); } catch { /* ignore */ }
+        window.dispatchEvent(new StorageEvent('storage', { key: ENGINE_KEY, newValue: m }));
     };
 
     return (

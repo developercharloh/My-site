@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { observer } from 'mobx-react-lite';
 import PWAInstallButton from '@/components/pwa-install-button';
@@ -24,6 +24,74 @@ import MenuItems from './menu-items';
 import MobileMenu from './mobile-menu';
 import PlatformSwitcher from './platform-switcher';
 import './header.scss';
+
+// ─── Engine selector ──────────────────────────────────────────────────────────
+
+const ENGINE_KEY = 'free_bots_engine_mode';
+
+const HeaderEngineSelector = () => {
+    const [mode, setMode]   = useState<'v1' | 'v2'>(() => {
+        try { return (localStorage.getItem(ENGINE_KEY) as 'v1' | 'v2') || 'v1'; } catch { return 'v1'; }
+    });
+    const [open, setOpen]   = useState(false);
+    const ref               = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    const select = (m: 'v1' | 'v2') => {
+        setMode(m);
+        try { localStorage.setItem(ENGINE_KEY, m); } catch { /* ignore */ }
+        // Dispatch storage event so free-bots page reacts instantly
+        window.dispatchEvent(new StorageEvent('storage', { key: ENGINE_KEY, newValue: m }));
+        setOpen(false);
+    };
+
+    return (
+        <div className='hdr-engine' ref={ref}>
+            <button
+                className={`hdr-engine__btn hdr-engine__btn--${mode}`}
+                onClick={() => setOpen(p => !p)}
+                title='Switch trading engine'
+            >
+                {mode === 'v1' ? '⚙️ V1' : '⚡ V2'}
+                <span className='hdr-engine__arrow'>{open ? '▲' : '▼'}</span>
+            </button>
+
+            {open && (
+                <div className='hdr-engine__dropdown'>
+                    <button
+                        className={`hdr-engine__option ${mode === 'v1' ? 'hdr-engine__option--active' : ''}`}
+                        onClick={() => select('v1')}
+                    >
+                        <span className='hdr-engine__opt-icon'>⚙️</span>
+                        <span>
+                            <strong>Classic V1</strong>
+                            <span className='hdr-engine__opt-sub'>Deriv DBot engine</span>
+                        </span>
+                    </button>
+                    <button
+                        className={`hdr-engine__option ${mode === 'v2' ? 'hdr-engine__option--active' : ''}`}
+                        onClick={() => select('v2')}
+                    >
+                        <span className='hdr-engine__opt-icon'>⚡</span>
+                        <span>
+                            <strong>Advanced V2</strong>
+                            <span className='hdr-engine__opt-sub'>Direct API · Zero overhead</span>
+                        </span>
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// ─── App header ───────────────────────────────────────────────────────────────
 
 type TAppHeaderProps = {
     isAuthenticating?: boolean;
@@ -248,6 +316,7 @@ const AppHeader = observer(({ isAuthenticating }: TAppHeaderProps) => {
                 >
                     ↺
                 </button>
+                <HeaderEngineSelector />
                 {!isDesktop && <PWAInstallButton variant='primary' size='medium' />}
                 {renderAccountSection()}
             </Wrapper>
