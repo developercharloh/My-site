@@ -196,7 +196,15 @@
                   </block>
                 </statement>
                 <statement name="ELSE">
-                  <block type="trade_again" id="ta_win_d"></block>
+                  <block type="variables_set" id="reset_tm_win_d">
+                    <field name="VAR" id="tm_differ_id">trading mode</field>
+                    <value name="VALUE">
+                      <block type="math_number" id="r_tm_win_d2"><field name="NUM">0</field></block>
+                    </value>
+                    <next>
+                      <block type="trade_again" id="ta_win_d"></block>
+                    </next>
+                  </block>
                 </statement>
               </block>
             </next>

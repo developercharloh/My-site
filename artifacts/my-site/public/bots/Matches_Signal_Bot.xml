@@ -250,6 +250,14 @@
                         <field name="NUM">1</field>
                       </block>
                     </value>
+                    <next>
+                      <block type="variables_set" id="reset_tm_win_matches">
+                        <field name="VAR" id="tm_matches_id">trading mode</field>
+                        <value name="VALUE">
+                          <block type="math_number" id="r_tm_win_m"><field name="NUM">0</field></block>
+                        </value>
+                      </block>
+                    </next>
                   </block>
                 </next>
               </block>
