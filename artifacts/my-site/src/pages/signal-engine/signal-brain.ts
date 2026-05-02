@@ -29,24 +29,29 @@ interface Vote { model: string; market: MarketType; direction: string; confidenc
 // OVER  barriers: checked 6→1 (tightest first)
 // UNDER barriers: checked 3→8 (tightest first)
 //
-// Per-market thresholds — matches/differs is held to a much stricter bar
-// because digit-level predictions are statistically harder than parity/range.
-// Over/Under and Even/Odd: fire when ≥ 3 of 5 models agree, avg conf ≥ 52 %.
-// Matches/Differs:         fire when ≥ 5 of 5 models agree, avg conf ≥ 70 %.
+// Per-prefix thresholds — each direction has its own bar.
+//   MATCHES (digit-level): strictest — 5/6 models, ≥ 70 % conf.
+//   DIFFERS (digit-level): lenient   — 3/6 models, ≥ 60 % conf  (≈ 90 % baseline win rate).
+//   EVEN / ODD            : medium    — 4/6 models, ≥ 60 % conf.
+//   OVER / UNDER          : medium    — 3/6 models, ≥ 55 % conf  (only safe barriers used).
 // Recency gate: last 20 ticks must also confirm direction.
 // TTL: 60 s for 1HZ* (1-second) indices, 120 s for R_* (standard) indices.
-const MIN_AGREE_MAP: Record<MarketType, number> = {
-    over_under:      3,
-    even_odd:        3,
-    matches_differs: 5,
-};
-const MIN_CONF_MAP: Record<MarketType, number> = {
-    over_under:      52,
-    even_odd:        52,
-    matches_differs: 70,
-};
+function getThresholds(market: MarketType, prefix: string): { minAgree: number; minConf: number } {
+    if (market === 'matches_differs') {
+        if (prefix === 'MATCHES') return { minAgree: 5, minConf: 70 };
+        return { minAgree: 3, minConf: 60 }; // DIFFERS
+    }
+    if (market === 'even_odd') return { minAgree: 4, minConf: 60 };
+    return { minAgree: 3, minConf: 55 };     // over_under
+}
 const EDGE_PCT     = 0.06;       // 6 pp above expected = model detection threshold
 const RECENCY_EDGE = 0.06;       // lowered 0.10 → 0.06 — recency gate was killing valid signals
+// Safe barrier sets — only barriers with ≥ 60 % expected baseline win rate.
+//   OVER  1..3  → wins on 8/7/6 of 10 digits (80 / 70 / 60 % expected)
+//   UNDER 6..8  → wins on 6/7/8 of 10 digits (60 / 70 / 80 % expected)
+// Excludes risky barriers like OVER 5 (40 %) or UNDER 4 (40 %).
+const SAFE_OVER_BARRIERS  = [3, 2, 1] as const;   // tightest first
+const SAFE_UNDER_BARRIERS = [6, 7, 8] as const;   // tightest first
 
 // ─── Math helpers ─────────────────────────────────────────────────────────────
 
@@ -114,52 +119,106 @@ function checkRecency(digits: number[], direction: string, market: MarketType): 
 
 interface BarrierHit { barrier: number; ratio: number; conf: number; }
 
+// Confidence threshold used inside the barrier scanners themselves — kept low
+// here because the FINAL gate (per-prefix MIN_CONF + multi-model consensus)
+// is the real filter.  Was previously the global MIN_CONF constant.
+const BARRIER_DETECT_CONF = 50;
+
 function bestOverBarrier(d: number[]): BarrierHit | null {
     const n = d.length || 1;
-    for (let b = 6; b >= 1; b--) {
+    for (const b of SAFE_OVER_BARRIERS) {           // tightest first: 3 → 2 → 1
         const expected = (9 - b) / 10;
         const r        = d.filter(x => x > b).length / n;
         const conf     = barrierConf(r, expected);
-        if (conf >= MIN_CONF) return { barrier: b, ratio: r, conf };
+        if (conf >= BARRIER_DETECT_CONF) return { barrier: b, ratio: r, conf };
     }
     return null;
 }
 
 function bestUnderBarrier(d: number[]): BarrierHit | null {
     const n = d.length || 1;
-    for (let b = 3; b <= 8; b++) {
+    for (const b of SAFE_UNDER_BARRIERS) {          // tightest first: 6 → 7 → 8
         const expected = b / 10;
         const r        = d.filter(x => x < b).length / n;
         const conf     = barrierConf(r, expected);
-        if (conf >= MIN_CONF) return { barrier: b, ratio: r, conf };
+        if (conf >= BARRIER_DETECT_CONF) return { barrier: b, ratio: r, conf };
     }
     return null;
 }
 
 function bayesOverBarrier(d: number[]): BarrierHit | null {
     const n = d.length || 1;
-    for (let b = 6; b >= 1; b--) {
+    for (const b of SAFE_OVER_BARRIERS) {
         const expected = (9 - b) / 10;
         const PRIOR    = expected * 8;
         const rawCount = d.filter(x => x > b).length;
         const post     = (rawCount + PRIOR) / (n + 8);
         const conf     = barrierConf(post, expected);
-        if (conf >= MIN_CONF) return { barrier: b, ratio: post, conf };
+        if (conf >= BARRIER_DETECT_CONF) return { barrier: b, ratio: post, conf };
     }
     return null;
 }
 
 function bayesUnderBarrier(d: number[]): BarrierHit | null {
     const n = d.length || 1;
-    for (let b = 3; b <= 8; b++) {
+    for (const b of SAFE_UNDER_BARRIERS) {
         const expected = b / 10;
         const PRIOR    = expected * 8;
         const rawCount = d.filter(x => x < b).length;
         const post     = (rawCount + PRIOR) / (n + 8);
         const conf     = barrierConf(post, expected);
-        if (conf >= MIN_CONF) return { barrier: b, ratio: post, conf };
+        if (conf >= BARRIER_DETECT_CONF) return { barrier: b, ratio: post, conf };
     }
     return null;
+}
+
+// ─── Conditional Probability (Anchor Digit) ───────────────────────────────────
+// For each anchor digit X (0..9), compute P(next digit ∈ winning_set | last digit = X)
+// across the recent history. Returns the anchor with the highest probability,
+// using the Wilson lower bound for a conservative estimate (penalises small samples).
+//
+// This integrates probability + statistical analysis into a single Markov-chain-
+// style model used across every market.
+
+interface AnchorResult { anchor: number | null; condProb: number; sampleSize: number; }
+
+function findAnchorDigit(
+    digits:    number[],
+    isWin:     (next: number) => boolean,
+    baseline:  number,
+    minSample: number = 8,
+): AnchorResult {
+    if (digits.length < 60) return { anchor: null, condProb: baseline, sampleSize: 0 };
+    const d       = digits.slice(-300);
+    const buckets = Array.from({ length: 10 }, () => ({ wins: 0, total: 0 }));
+    for (let i = 0; i < d.length - 1; i++) {
+        const cur = d[i];
+        const nxt = d[i + 1];
+        buckets[cur].total++;
+        if (isWin(nxt)) buckets[cur].wins++;
+    }
+
+    let bestAnchor: number | null = null;
+    let bestLower                 = baseline;
+    let bestSample                = 0;
+
+    for (let a = 0; a < 10; a++) {
+        const { wins, total } = buckets[a];
+        if (total < minSample) continue;
+        const p = wins / total;
+        // Wilson lower bound (z = 1.0 ≈ 84 % one-sided confidence)
+        const z      = 1.0;
+        const denom  = 1 + (z * z) / total;
+        const center = p + (z * z) / (2 * total);
+        const margin = z * Math.sqrt((p * (1 - p)) / total + (z * z) / (4 * total * total));
+        const lower  = (center - margin) / denom;
+        if (lower > bestLower) {
+            bestLower  = lower;
+            bestAnchor = a;
+            bestSample = total;
+        }
+    }
+    return { anchor: bestAnchor, condProb: bestLower, sampleSize: bestSample };
 }
 
 function topDigitOf(digits: number[]): number {
@@ -382,6 +441,71 @@ function modelFrequency(digits: number[]): Vote[] {
     return votes;
 }
 
+// ─── MODEL 6 — Conditional Probability (Anchor Digit / Markov) ───────────────
+// Scans 1st-order conditional distributions to detect anchor digits whose
+// FOLLOWING tick lands disproportionately on the prediction side. Voted across
+// every market (Over/Under, Even/Odd, Matches/Differs). The anchor itself is
+// surfaced in the entry instructions (see buildEntry below).
+
+function modelConditional(digits: number[]): Vote[] {
+    if (digits.length < 80) return [];
+    const votes: Vote[] = [];
+
+    // Over/Under — only safe barriers
+    for (const b of SAFE_OVER_BARRIERS) {
+        const baseline = (9 - b) / 10;
+        const r = findAnchorDigit(digits, n => n > b, baseline);
+        if (r.anchor !== null && r.condProb >= baseline + 0.08) {
+            votes.push({ model: 'Conditional Probability', market: 'over_under',
+                direction: `OVER ${b}`,
+                confidence: clamp(50 + (r.condProb - baseline) * 350) });
+        }
+    }
+    for (const b of SAFE_UNDER_BARRIERS) {
+        const baseline = b / 10;
+        const r = findAnchorDigit(digits, n => n < b, baseline);
+        if (r.anchor !== null && r.condProb >= baseline + 0.08) {
+            votes.push({ model: 'Conditional Probability', market: 'over_under',
+                direction: `UNDER ${b}`,
+                confidence: clamp(50 + (r.condProb - baseline) * 350) });
+        }
+    }
+
+    // Even / Odd
+    const rEven = findAnchorDigit(digits, n => n % 2 === 0, 0.5);
+    if (rEven.anchor !== null && rEven.condProb >= 0.58) {
+        votes.push({ model: 'Conditional Probability', market: 'even_odd',
+            direction: 'EVEN', confidence: clamp(50 + (rEven.condProb - 0.5) * 350) });
+    }
+    const rOdd = findAnchorDigit(digits, n => n % 2 !== 0, 0.5);
+    if (rOdd.anchor !== null && rOdd.condProb >= 0.58) {
+        votes.push({ model: 'Conditional Probability', market: 'even_odd',
+            direction: 'ODD', confidence: clamp(50 + (rOdd.condProb - 0.5) * 350) });
+    }
+
+    // Matches — for each candidate target digit X
+    for (let x = 0; x < 10; x++) {
+        const r = findAnchorDigit(digits, n => n === x, 0.10);
+        if (r.anchor !== null && r.condProb >= 0.18) { // ≥ 1.8× baseline
+            votes.push({ model: 'Conditional Probability', market: 'matches_differs',
+                direction: `MATCHES ${x}`,
+                confidence: clamp(50 + (r.condProb - 0.10) * 400) });
+        }
+    }
+
+    // Differs — for each candidate avoid digit X
+    for (let x = 0; x < 10; x++) {
+        const r = findAnchorDigit(digits, n => n !== x, 0.90);
+        if (r.anchor !== null && r.condProb >= 0.95) {
+            votes.push({ model: 'Conditional Probability', market: 'matches_differs',
+                direction: `DIFFERS ${x}`,
+                confidence: clamp(50 + (r.condProb - 0.90) * 600) });
+        }
+    }
+
+    return votes;
+}
+
 // ─── MODEL 4 — Streak & Pattern ───────────────────────────────────────────────
 // Streak minimum raised from 4 → 5 for both high/low and even/odd
 
@@ -481,12 +605,11 @@ function buildConsensus(votes: Vote[], volStatus: VolatilityStatus) {
     const results: Array<{ market: MarketType; direction: string; models: string[]; confidence: number }> = [];
 
     for (const market of MARKETS) {
-        const mv         = votes.filter(v => v.market === market);
-        const minAgree   = MIN_AGREE_MAP[market];
-        const minConf    = MIN_CONF_MAP[market];
+        const mv = votes.filter(v => v.market === market);
 
         if (market === 'over_under') {
             for (const prefix of ['OVER', 'UNDER'] as const) {
+                const { minAgree, minConf } = getThresholds(market, prefix);
                 const group = mv.filter(v => v.direction.startsWith(prefix));
                 if (group.length < minAgree) continue;
                 const dirCounts = new Map<string, Vote[]>();
@@ -518,6 +641,7 @@ function buildConsensus(votes: Vote[], volStatus: VolatilityStatus) {
             // lets DIFFERS actually fire even when models pick slightly different
             // rare digits, by counting per-digit consensus inside the prefix.
             for (const prefix of ['MATCHES', 'DIFFERS'] as const) {
+                const { minAgree, minConf } = getThresholds(market, prefix);
                 const group = mv.filter(v => v.direction.startsWith(prefix));
                 if (group.length < minAgree) continue;
                 const digCounts = new Map<string, Vote[]>();
@@ -539,7 +663,8 @@ function buildConsensus(votes: Vote[], volStatus: VolatilityStatus) {
             continue;
         }
 
-        // even_odd
+        // even_odd — single-prefix path
+        const { minAgree, minConf } = getThresholds(market, 'EVEN');
         const groups = new Map<string, Vote[]>();
         mv.forEach(v => { const g = groups.get(v.direction) ?? []; g.push(v); groups.set(v.direction, g); });
         let best: Vote[] = []; let bestDir = '';
@@ -555,24 +680,58 @@ function buildConsensus(votes: Vote[], volStatus: VolatilityStatus) {
 // ─── Entry Point builder ──────────────────────────────────────────────────────
 
 function buildEntry(market: MarketType, direction: string, digits: number[]): string {
+    // Try to find the anchor digit with the highest conditional win probability.
+    // The first integer in the returned string is consumed by parseDigitFrom() in
+    // the V2 engine as the entry-trigger digit, so the anchor MUST appear first.
     if (market === 'over_under') {
-        const b = Number(direction.split(' ')[1]);
+        const b        = Number(direction.split(' ')[1]);
+        const baseline = direction.startsWith('OVER') ? (9 - b) / 10 : b / 10;
+        const isWin    = direction.startsWith('OVER')
+            ? (n: number) => n > b
+            : (n: number) => n < b;
+        const r        = findAnchorDigit(digits, isWin, baseline);
+        const winSide  = direction.startsWith('OVER')
+            ? `${b + 1}–9 (${9 - b} digits)`
+            : `0–${b - 1} (${b} digits)`;
+        if (r.anchor !== null) {
+            return `Wait digit ${r.anchor} → P(win | ${r.anchor}) ≈ ${(r.condProb * 100).toFixed(0)}%  ·  wins on ${winSide}`;
+        }
         return direction.startsWith('OVER')
             ? `Last digit > ${b}  (wins on ${b + 1}–9,  ${9 - b} digits)`
             : `Last digit < ${b}  (wins on 0–${b - 1},  ${b} digits)`;
     }
+
     if (market === 'even_odd') {
+        const isEven = direction === 'EVEN';
+        const isWin  = isEven ? (n: number) => n % 2 === 0 : (n: number) => n % 2 !== 0;
+        const r      = findAnchorDigit(digits, isWin, 0.5);
+        if (r.anchor !== null) {
+            return `Wait digit ${r.anchor} → P(${isEven ? 'EVEN' : 'ODD'} | ${r.anchor}) ≈ ${(r.condProb * 100).toFixed(0)}%`;
+        }
+        // fallback: most-frequent digit of the target parity in last 100 ticks
         const d100       = digits.slice(-100);
-        const parityDigs = direction === 'EVEN' ? [0, 2, 4, 6, 8] : [1, 3, 5, 7, 9];
+        const parityDigs = isEven ? [0, 2, 4, 6, 8] : [1, 3, 5, 7, 9];
         const cnt        = Array(10).fill(0) as number[];
         d100.forEach(d => cnt[d]++);
         const entryDig   = parityDigs.reduce((best, d) => cnt[d] > cnt[best] ? d : best, parityDigs[0]);
         return `Entry digit: ${entryDig}`;
     }
-    const digit = direction.split(' ')[1];
-    return direction.startsWith('MATCHES')
-        ? `Entry digit: ${digit}`
-        : `Avoid digit ${digit}  (any other digit wins)`;
+
+    // matches_differs — anchor still helps trigger the trade after the right precursor
+    const targetDigit = Number(direction.split(' ')[1]);
+    if (direction.startsWith('MATCHES')) {
+        const r = findAnchorDigit(digits, n => n === targetDigit, 0.10);
+        if (r.anchor !== null) {
+            return `Wait digit ${r.anchor} → P(next = ${targetDigit} | ${r.anchor}) ≈ ${(r.condProb * 100).toFixed(0)}%`;
+        }
+        return `Entry digit: ${targetDigit}`;
+    }
+    // DIFFERS
+    const r = findAnchorDigit(digits, n => n !== targetDigit, 0.90);
+    if (r.anchor !== null) {
+        return `Wait digit ${r.anchor} → P(next ≠ ${targetDigit} | ${r.anchor}) ≈ ${(r.condProb * 100).toFixed(0)}%  ·  avoid ${targetDigit}`;
+    }
+    return `Avoid digit ${targetDigit}  (any other digit wins)`;
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -593,6 +752,7 @@ export function analyzeSignals(
         ...modelML(digits, weights),
         ...modelStreak(digits),
         ...modelFrequency(digits),
+        ...modelConditional(digits),
     ];
 
     const { status: volStatus } = modelVolatility(digits, tickTimes);
