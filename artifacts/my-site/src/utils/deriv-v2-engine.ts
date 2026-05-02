@@ -24,7 +24,7 @@ import { api_base } from '@/external/bot-skeleton/services/api/api-base';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type EngineLogType = 'scan' | 'info' | 'win' | 'loss' | 'error' | 'system';
-export interface EngineLog { time: string; message: string; type: EngineLogType; }
+export interface EngineLog { seq: number; time: string; message: string; type: EngineLogType; }
 
 export type EngineStatus =
     | 'idle' | 'connecting' | 'scanning' | 'trading' | 'stopped' | 'error';
@@ -48,6 +48,7 @@ export interface V2BotConfig {
     martingaleLevel: number;
     takeProfit:      number;
     stopLoss:        number;
+    currency?:       string;
 }
 
 export interface V2BoundStores {
@@ -77,6 +78,9 @@ interface ReadyProposal { id: string; price: number; }
 export class DerivV2Engine {
     private config:  V2BotConfig;
     private stores:  V2BoundStores | null = null;
+
+    // log sequence counter — gives each log entry a stable unique key
+    private logSeq: number = 0;
 
     // req namespace
     private reqBase:    number                  = (Math.floor(Date.now() / 1000) % 50000) * 1000;
@@ -330,7 +334,7 @@ export class DerivV2Engine {
             amount:        this.currentStake,
             basis:         'stake',
             contract_type: ct,
-            currency:      'USD',
+            currency:      this.config.currency ?? 'USD',
             duration:      1,
             duration_unit: 't',
             symbol:        this.config.symbol,
@@ -530,6 +534,6 @@ export class DerivV2Engine {
         const now  = new Date();
         const time = [now.getHours(), now.getMinutes(), now.getSeconds()]
             .map(n => n.toString().padStart(2, '0')).join(':');
-        this.onLog({ time, message, type });
+        this.onLog({ seq: ++this.logSeq, time, message, type });
     }
 }

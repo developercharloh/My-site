@@ -71,12 +71,15 @@ const TradeAnimation = observer(({ className, should_show_overlay }: TTradeAnima
         const cfg = readV2Config();
         if (!cfg) return;
 
+        // Fix #4: inject the live account currency so proposals use the right currency
+        const cfgWithCurrency = { ...cfg, currency: client.currency || 'USD' };
+
         // Reset panel state for fresh run
         setV2Logs([]);
         setV2Stats({ profit: 0, wins: 0, losses: 0, stake: cfg.initialStake });
         setV2Status('connecting');
 
-        const engine = new DerivV2Engine(cfg);
+        const engine = new DerivV2Engine(cfgWithCurrency);
         engine.bindStores({
             run_panel:    run_panel as any,
             transactions: (store as any).transactions,

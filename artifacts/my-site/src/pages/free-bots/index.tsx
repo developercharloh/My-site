@@ -236,11 +236,12 @@ const EngineSelector: React.FC<{
 // ─── Signal Trade Modal ───────────────────────────────────────────────────────
 
 const SignalTradeModal: React.FC<{
-    botId:   string;
-    xmlPath: string;
-    signal:  LiveSignal;
-    onClose: () => void;
-}> = ({ botId, xmlPath, signal, onClose }) => {
+    botId:      string;
+    xmlPath:    string;
+    signal:     LiveSignal;
+    engineMode: EngineMode;
+    onClose:    () => void;
+}> = ({ botId, xmlPath, signal, engineMode, onClose }) => {
     const store      = useStore();
     const storageKey = `fb_cfg_${botId}`;
 
@@ -260,18 +261,31 @@ const SignalTradeModal: React.FC<{
         setState('launching');
         setErrMsg('');
         try {
-            const Blockly = (window as any).Blockly;
-            if (!Blockly?.derivWorkspace) { setState('no-ws'); return; }
-
             const stake      = parseFloat(cfg.stake)      || 0.5;
             const takeProfit = parseFloat(cfg.takeProfit) || 10;
             const stopLoss   = parseFloat(cfg.stopLoss)   || 30;
             const martingale = parseFloat(cfg.martingale) || 2;
 
+            // Fetch and patch the bot XML with the signal settings
             const doc    = await fetchAndPatchBot(botId, signal, stake, takeProfit, stopLoss, martingale);
             const xmlStr = new XMLSerializer().serializeToString(doc.documentElement);
-            const dom    = Blockly.utils.xml.textToDom(xmlStr);
 
+            if (engineMode === 'v2') {
+                // Fix #1: V2 path — parse config, persist, fire autostart. Never touch Blockly.
+                const v2Cfg    = parseXmlV2Config(xmlStr);
+                const v2CfgStr = JSON.stringify(v2Cfg);
+                localStorage.setItem(V2_CONFIG_KEY, v2CfgStr);
+                window.dispatchEvent(new StorageEvent('storage', { key: V2_CONFIG_KEY, newValue: v2CfgStr }));
+                onClose();
+                setTimeout(() => window.dispatchEvent(new CustomEvent('deriv-v2-autostart')), 400);
+                return;
+            }
+
+            // V1 path — load into Blockly workspace and auto-run
+            const Blockly = (window as any).Blockly;
+            if (!Blockly?.derivWorkspace) { setState('no-ws'); return; }
+
+            const dom = Blockly.utils.xml.textToDom(xmlStr);
             Blockly.Xml.clearWorkspaceAndLoadFromXml(dom, Blockly.derivWorkspace);
             Blockly.derivWorkspace.cleanUp();
             Blockly.derivWorkspace.clearUndo();
@@ -306,6 +320,10 @@ const SignalTradeModal: React.FC<{
                     </div>
                     <button className='fb-modal__close' onClick={onClose}>✕</button>
                 </div>
+
+                {engineMode === 'v2' && (
+                    <div className='fb-modal__v2-badge'>⚡ V2 Engine — runs directly, results in V2 Panel</div>
+                )}
 
                 <div className='fb-modal__wire-summary'>
                     <span className='fb-modal__wire-item'>📡 Market: <strong>{injectedSymbol}</strong></span>
@@ -345,7 +363,7 @@ const SignalTradeModal: React.FC<{
                 <div className='fb-modal__footer'>
                     <button className='fb-modal__btn fb-modal__btn--cancel' onClick={onClose} disabled={state === 'launching'}>Cancel</button>
                     <button className='fb-modal__btn fb-modal__btn--run' onClick={handleRun} disabled={state === 'launching'}>
-                        {state === 'launching' ? '⏳ Launching…' : '🚀 Load Signal & Run'}
+                        {state === 'launching' ? '⏳ Launching…' : engineMode === 'v2' ? '⚡ Launch V2' : '🚀 Load Signal & Run'}
                     </button>
                 </div>
             </div>
@@ -388,6 +406,20 @@ const BotCard: React.FC<{ bot: BotConfig; engineMode: EngineMode }> = observer((
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const xmlText = await res.text();
 
+            if (engineMode === 'v2') {
+                // Fix #2 & #5: V2 path — parse config, persist, fire autostart.
+                // Do NOT load into Blockly — that arms DBot's engine and causes V1 to fire.
+                const v2Cfg    = parseXmlV2Config(xmlText);
+                const v2CfgStr = JSON.stringify(v2Cfg);
+                localStorage.setItem(V2_CONFIG_KEY, v2CfgStr);
+                window.dispatchEvent(new StorageEvent('storage', { key: V2_CONFIG_KEY, newValue: v2CfgStr }));
+                setStatus('loaded');
+                dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
+                setTimeout(() => window.dispatchEvent(new CustomEvent('deriv-v2-autostart')), 400);
+                return;
+            }
+
+            // V1 path — load into Blockly workspace
             const Blockly = (window as any).Blockly;
             if (!Blockly?.utils?.xml?.textToDom || !Blockly?.derivWorkspace) {
                 throw new Error('Blockly workspace not ready — switch to Bot Builder tab first, then try again.');
@@ -397,14 +429,6 @@ const BotCard: React.FC<{ bot: BotConfig; engineMode: EngineMode }> = observer((
             Blockly.Xml.clearWorkspaceAndLoadFromXml(dom, Blockly.derivWorkspace);
             Blockly.derivWorkspace.cleanUp();
             Blockly.derivWorkspace.clearUndo();
-
-            // V2 mode: parse XML and save config so bot builder can run with V2 engine
-            if (engineMode === 'v2') {
-                const v2Cfg = parseXmlV2Config(xmlText);
-                const v2CfgStr = JSON.stringify(v2Cfg);
-                localStorage.setItem(V2_CONFIG_KEY, v2CfgStr);
-                window.dispatchEvent(new StorageEvent('storage', { key: V2_CONFIG_KEY, newValue: v2CfgStr }));
-            }
 
             setStatus('loaded');
             dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
@@ -473,12 +497,13 @@ const BotCard: React.FC<{ bot: BotConfig; engineMode: EngineMode }> = observer((
                 </div>
             </div>
 
-            {/* Signal modal (V1 only) */}
+            {/* Signal modal — V1 and V2 aware */}
             {showSignal && signal && (
                 <SignalTradeModal
                     botId={bot.id}
                     xmlPath={bot.xmlPath}
                     signal={signal}
+                    engineMode={engineMode}
                     onClose={() => setShowSignal(false)}
                 />
             )}
@@ -529,13 +554,14 @@ const FreeBots = observer(() => {
                     <EngineSelector mode={engineMode} onChange={handleModeChange} />
                 </div>
 
+                {/* Fix #7: updated banner text to reflect actual V2 panel behaviour */}
                 {engineMode === 'v2' && (
                     <div className='free-bots__v2-banner'>
                         <span className='free-bots__v2-banner-icon'>⚡</span>
                         <div>
-                            <strong>V2 Engine active</strong> — click <strong>⚡ V2 Load</strong> to load your bot into
-                            the Bot Builder, then press <strong>⚡ Run V2</strong> in the builder to execute at full speed.
-                            Transactions and journal appear in the Run Panel — same as V1, but faster.
+                            <strong>V2 Engine active</strong> — click <strong>⚡ V2 Load</strong> or{' '}
+                            <strong>Load Signal →</strong> to start instantly. Live trades, P&amp;L, and logs
+                            stream in the <strong>V2 Panel</strong> on the right — no DBot engine involved.
                         </div>
                     </div>
                 )}

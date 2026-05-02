@@ -40,6 +40,23 @@ function varText(doc: Document, displayName: string): string | null {
     return null;
 }
 
+/** Try several display-name aliases and return the first match. Fix #9. */
+function varNumAny(doc: Document, ...names: string[]): number | null {
+    for (const name of names) {
+        const v = varNum(doc, name);
+        if (v !== null) return v;
+    }
+    return null;
+}
+
+function varTextAny(doc: Document, ...names: string[]): string | null {
+    for (const name of names) {
+        const v = varText(doc, name);
+        if (v !== null) return v;
+    }
+    return null;
+}
+
 // ── Contract kind mapping ─────────────────────────────────────────────────────
 
 function resolveKind(typeList: string, direction: TradeDirection): ContractKind {
@@ -67,23 +84,43 @@ export function parseXmlV2Config(xmlText: string): V2BotConfig {
     const parser = new DOMParser();
     const doc    = parser.parseFromString(xmlText, 'application/xml');
 
-    const symbol      = fieldText(doc, 'SYMBOL_LIST')     ?? 'R_100';
-    const typeList    = fieldText(doc, 'TYPE_LIST')        ?? 'DIGITMATCH';
-    const dirRaw      = varText(doc, 'Direction')          ?? 'OVER';
+    const symbol      = fieldText(doc, 'SYMBOL_LIST')  ?? 'R_100';
+    const typeList    = fieldText(doc, 'TYPE_LIST')     ?? 'DIGITMATCH';
+
+    const dirRaw      = varTextAny(doc, 'Direction', 'direction', 'dir') ?? 'OVER';
     const direction   = (['OVER','UNDER','EVEN','ODD'].includes(dirRaw.toUpperCase())
                          ? dirRaw.toUpperCase()
                          : 'OVER') as TradeDirection;
 
     const direction_kind = resolveKind(typeList, direction);
 
-    const prediction      = varNum(doc, 'Prediction')     ?? 4;
-    const barrier         = varNum(doc, 'Barrier')         ?? 5;
-    const entryPoint      = varNum(doc, 'entry point')     ?? prediction;
-    const initialStake    = varNum(doc, 'Stake')           ?? 1;
-    const takeProfit      = varNum(doc, 'TakeProfit')      ?? 10;
-    const stopLoss        = varNum(doc, 'StopLoss')        ?? 50;
-    const martingale      = varNum(doc, 'Martingale')      ?? 2;
-    const martingaleLevel = varNum(doc, 'MartingaleLevel') ?? 6;
+    const prediction      = varNumAny(doc, 'Prediction', 'prediction')                           ?? 4;
+    const barrier         = varNumAny(doc, 'Barrier',    'barrier')                               ?? 5;
+
+    // entry point: bots use varied names — try them all
+    const entryPoint      = varNumAny(doc,
+        'entry point', 'Entry Point', 'EntryPoint', 'entry_point', 'entrypoint'
+    ) ?? prediction;
+
+    const initialStake    = varNumAny(doc,
+        'Stake', 'stake', 'InitialStake', 'initial_stake'
+    ) ?? 1;
+
+    const takeProfit      = varNumAny(doc,
+        'TakeProfit', 'take_profit', 'TargetProfit', 'Target Profit', 'takeProfit', 'Take Profit'
+    ) ?? 10;
+
+    const stopLoss        = varNumAny(doc,
+        'StopLoss', 'stop_loss', 'MaxLoss', 'Max Loss', 'stopLoss', 'Stop Loss'
+    ) ?? 50;
+
+    const martingale      = varNumAny(doc,
+        'Martingale', 'martingale', 'martingale_factor', 'MartingaleFactor'
+    ) ?? 2;
+
+    const martingaleLevel = varNumAny(doc,
+        'MartingaleLevel', 'martingale_level', 'MaxLosses', 'Max Losses', 'maxLosses'
+    ) ?? 6;
 
     return {
         symbol,

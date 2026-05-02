@@ -46,7 +46,9 @@ const LOG_TYPE_CLASS: Record<string, string> = {
 };
 
 export const V2Panel = React.memo(({ status, logs, stats, onStop, onClear }: V2PanelProps) => {
-    const logEndRef = React.useRef<HTMLDivElement>(null);
+    // Fix #8: hide the panel entirely while idle (before any run has started)
+    if (status === 'idle') return null;
+
     const isActive  = status === 'scanning' || status === 'trading';
 
     const winRate = stats.wins + stats.losses > 0
@@ -59,9 +61,8 @@ export const V2Panel = React.memo(({ status, logs, stats, onStop, onClear }: V2P
                     : stats.profit < 0 ? 'v2p__stat-val--neg'
                     : '';
 
-    React.useEffect(() => {
-        logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [logs.length]);
+    // Fix #3: no scrollIntoView needed — flex-direction:column-reverse keeps
+    //         newest logs naturally at the visual top without any scroll.
 
     return (
         <div className='v2p'>
@@ -108,17 +109,17 @@ export const V2Panel = React.memo(({ status, logs, stats, onStop, onClear }: V2P
             </div>
 
             {/* ── Log ──────────────────────────────────────────── */}
+            {/* Fix #6: use log.seq (stable unique counter) as key, not array index */}
             <div className='v2p__log-wrap'>
                 {logs.length === 0 && (
                     <div className='v2p__log-empty'>No trades yet…</div>
                 )}
-                {logs.map((log, i) => (
-                    <div key={i} className={`v2p__log-row ${LOG_TYPE_CLASS[log.type] ?? ''}`}>
+                {logs.map(log => (
+                    <div key={log.seq} className={`v2p__log-row ${LOG_TYPE_CLASS[log.type] ?? ''}`}>
                         <span className='v2p__log-time'>{log.time}</span>
                         <span className='v2p__log-msg'>{log.message}</span>
                     </div>
                 ))}
-                <div ref={logEndRef} />
             </div>
         </div>
     );
