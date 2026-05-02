@@ -261,11 +261,6 @@ function QuadrantRow({ digits, distribution, ranks, liveDigit, quadrantLabel }: 
 
                     return (
                         <div key={d} className='ez-circle-col'>
-                            {/* Rank badge */}
-                            <div className='ez-rank-badge' style={{ color }}>
-                                {getRankLabel(rank)}
-                            </div>
-
                             {/* Circle */}
                             <motion.div
                                 ref={el => { circleRefs.current[i] = el; }}
@@ -514,17 +509,10 @@ const EntryZone = () => {
                 </div>
             </div>
 
-            {/* ── Quadrants ── */}
-            <div className='ez-quadrants'>
+            {/* ── Digit circles (single row, single cursor) ── */}
+            <div className='ez-quadrants ez-quadrants--single'>
                 <QuadrantRow
-                    digits={[0, 1, 2, 3, 4]}
-                    distribution={distribution}
-                    ranks={ranks}
-                    liveDigit={liveDigit}
-                    quadrantLabel=''
-                />
-                <QuadrantRow
-                    digits={[5, 6, 7, 8, 9]}
+                    digits={[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]}
                     distribution={distribution}
                     ranks={ranks}
                     liveDigit={liveDigit}

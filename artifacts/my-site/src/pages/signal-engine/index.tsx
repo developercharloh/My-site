@@ -309,7 +309,6 @@ function QuadrantRow({ digits, distribution, ranks, liveDigit }: {
                     const isLive = liveDigit === d; const isHigh = rank <= 2 || rank >= 9;
                     return (
                         <div key={d} className='ez-circle-col'>
-                            <div className='ez-rank-badge' style={{ color }}>{getRankLabel(rank)}</div>
                             <motion.div
                                 ref={el => { circleRefs.current[i] = el; }}
                                 className='ez-circle'
@@ -937,10 +936,9 @@ const SignalEngine = () => {
                 </div>
             </div>
 
-            {/* ── Digit circles ── */}
-            <div className='ez-quadrants'>
-                <QuadrantRow digits={[0,1,2,3,4]} distribution={distribution} ranks={ranks} liveDigit={liveDigit} />
-                <QuadrantRow digits={[5,6,7,8,9]} distribution={distribution} ranks={ranks} liveDigit={liveDigit} />
+            {/* ── Digit circles (single row, single cursor) ── */}
+            <div className='ez-quadrants ez-quadrants--single'>
+                <QuadrantRow digits={[0,1,2,3,4,5,6,7,8,9]} distribution={distribution} ranks={ranks} liveDigit={liveDigit} />
             </div>
 
             {/* ── Signals section ── */}
