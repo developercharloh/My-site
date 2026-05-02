@@ -80,7 +80,6 @@ const BOTS: BotConfig[] = [
         xmlPath: '/bots/Matches_Signal_Bot.xml',
         gradient: 'linear-gradient(135deg, #1a0533 0%, #3b0764 50%, #7c3aed 100%)',
         signalKey: 'fb_signal_matches',
-        v2Enabled: true,
     },
     {
         id: 'differ-v2',
@@ -100,7 +99,6 @@ const BOTS: BotConfig[] = [
         xmlPath: '/bots/BINARYTOOL@_DIFFER_V2.0_(1)_(1)_1765711647662.xml',
         gradient: 'linear-gradient(135deg, #0c1a33 0%, #1e3a5f 50%, #2563eb 100%)',
         signalKey: 'fb_signal_differs',
-        v2Enabled: true,
     },
     {
         id: 'even-odd-scanner',
@@ -119,7 +117,6 @@ const BOTS: BotConfig[] = [
         xmlPath: '/bots/BINARYTOOL@EVEN_ODD_THUNDER_AI_PRO_BOT_1765711647662.xml',
         gradient: 'linear-gradient(135deg, #1a1a0a 0%, #3d3d00 50%, #d4ac0d 100%)',
         signalKey: 'fb_signal_even_odd',
-        v2Enabled: true,
     },
     {
         id: 'over-under-signal',
@@ -139,7 +136,6 @@ const BOTS: BotConfig[] = [
         xmlPath: '/bots/OverUnder_Signal_Bot.xml',
         gradient: 'linear-gradient(135deg, #0f1f3d 0%, #1a3a6b 50%, #6366f1 100%)',
         signalKey: 'fb_signal_over_under',
-        v2Enabled: true,
     },
     {
         id: 'over-destroyer',
@@ -403,7 +399,7 @@ const BotCard: React.FC<{ bot: BotConfig; engineMode: EngineMode }> = observer((
             Blockly.derivWorkspace.clearUndo();
 
             // V2 mode: parse XML and save config so bot builder can run with V2 engine
-            if (engineMode === 'v2' && bot.v2Enabled) {
+            if (engineMode === 'v2') {
                 const v2Cfg = parseXmlV2Config(xmlText);
                 const v2CfgStr = JSON.stringify(v2Cfg);
                 localStorage.setItem(V2_CONFIG_KEY, v2CfgStr);
@@ -418,7 +414,7 @@ const BotCard: React.FC<{ bot: BotConfig; engineMode: EngineMode }> = observer((
         }
     };
 
-    const isV2Mode = engineMode === 'v2' && bot.v2Enabled;
+    const isV2Mode = engineMode === 'v2';
 
     return (
         <>
@@ -443,21 +439,15 @@ const BotCard: React.FC<{ bot: BotConfig; engineMode: EngineMode }> = observer((
                     )}
 
                     <div className='free-bots__card-actions'>
-                        {/* V2 mode: same Load-into-builder flow, just saves parsed config too */}
-                        {engineMode === 'v2' && (
-                            bot.v2Enabled ? (
-                                <button
-                                    className={`free-bots__card-btn free-bots__card-btn--v2 ${status === 'loading' ? 'free-bots__card-btn--busy' : ''}`}
-                                    onClick={loadBot}
-                                    disabled={status === 'loading'}
-                                >
-                                    {status === 'loading' ? '⏳ Loading…' : status === 'loaded' ? '✅ Loaded — Run V2 in Builder' : '⚡ V2 Load'}
-                                </button>
-                            ) : (
-                                <button className='free-bots__card-btn free-bots__card-btn--v2soon' disabled>
-                                    ⚡ V2 Coming Soon
-                                </button>
-                            )
+                        {/* V2 mode: same Load-into-builder flow, also saves parsed config */}
+                        {isV2Mode && (
+                            <button
+                                className={`free-bots__card-btn free-bots__card-btn--v2 ${status === 'loading' ? 'free-bots__card-btn--busy' : ''}`}
+                                onClick={loadBot}
+                                disabled={status === 'loading'}
+                            >
+                                {status === 'loading' ? '⏳ Loading…' : status === 'loaded' ? '✅ Loaded — Run V2 in Builder' : '⚡ V2 Load'}
+                            </button>
                         )}
 
                         {/* V1 mode: normal Load Bot button */}

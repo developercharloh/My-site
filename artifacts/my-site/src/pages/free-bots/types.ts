@@ -9,5 +9,6 @@ export type BotConfig = {
     xmlPath:     string;
     gradient:    string;
     signalKey?:  string;
-    v2Enabled?:  boolean;
+    // V2 mode is universal — no per-bot flag needed.
+    // Every bot that has an xmlPath automatically supports V2 execution.
 };

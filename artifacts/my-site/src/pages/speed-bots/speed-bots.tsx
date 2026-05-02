@@ -1,5 +1,6 @@
 import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { apolloEngine, ApolloSettings, DEFAULT_SETTINGS, ScanResult } from './apollo-engine';
+import XmlBotsSection from './xml-bots-section';
 import './speed-bots.scss';
 
 const DollarFlowBot = lazy(() => import('./dollar-flow-bot'));
@@ -128,13 +129,14 @@ const STRATEGIES = {
 } as const;
 type StrategyKey = keyof typeof STRATEGIES;
 
-type BotKey = 'vh' | 'df' | 'ou' | 'tri';
+type BotKey = 'vh' | 'df' | 'ou' | 'tri' | 'xml';
 
 const BOT_PILLS: { key: BotKey; icon: string; label: string; badge: string }[] = [
     { key: 'vh',  icon: '🎯', label: 'VH Pro',      badge: '★ LIVE' },
     { key: 'df',  icon: '💵', label: 'Dollar Flow',  badge: '★ NEW' },
     { key: 'ou',  icon: '🔄', label: 'O2U7',         badge: '⚡' },
     { key: 'tri', icon: '⚡', label: 'Tri-Market',   badge: '🔀 NEW' },
+    { key: 'xml', icon: '📂', label: 'XML Bots',     badge: '⚡ V2' },
 ];
 
 const BotLauncherCard: React.FC<{ onOpenVH: () => void; onOpenDF: () => void; onOpenOU: () => void; onOpenTri: () => void }> = ({ onOpenVH, onOpenDF, onOpenOU, onOpenTri }) => {
@@ -271,6 +273,9 @@ const BotLauncherCard: React.FC<{ onOpenVH: () => void; onOpenDF: () => void; on
                     </button>
                 </div>
             )}
+
+            {/* ── XML Bots — load into Bot Builder with automatic V2 support ── */}
+            {selected === 'xml' && <XmlBotsSection />}
         </div>
     );
 };
