@@ -139,6 +139,57 @@ const BOT_PILLS: { key: BotKey; icon: string; label: string; badge: string }[] =
     { key: 'xml', icon: '📂', label: 'XML Bots',     badge: '⚡ V2' },
 ];
 
+const SB_ENGINE_KEY = 'free_bots_engine_mode';
+
+const SpeedBotsEngineSelector: React.FC = () => {
+    const [mode, setMode] = React.useState<'v1' | 'v2'>(() => {
+        try { return (localStorage.getItem(SB_ENGINE_KEY) as 'v1' | 'v2') || 'v1'; } catch { return 'v1'; }
+    });
+
+    React.useEffect(() => {
+        const handler = (e: StorageEvent) => {
+            if (e.key === SB_ENGINE_KEY) setMode(e.newValue === 'v2' ? 'v2' : 'v1');
+        };
+        window.addEventListener('storage', handler);
+        return () => window.removeEventListener('storage', handler);
+    }, []);
+
+    const select = (m: 'v1' | 'v2') => {
+        setMode(m);
+        try { localStorage.setItem(SB_ENGINE_KEY, m); } catch { /* ignore */ }
+        window.dispatchEvent(new StorageEvent('storage', { key: SB_ENGINE_KEY, newValue: m }));
+    };
+
+    return (
+        <div className='sb-engine-selector'>
+            <span className='sb-engine-selector__label'>⚙️ Engine:</span>
+            <div className='sb-engine-selector__group'>
+                <button
+                    type='button'
+                    className={`sb-engine-selector__opt ${mode === 'v1' ? 'sb-engine-selector__opt--active' : ''}`}
+                    onClick={() => select('v1')}
+                    title='Classic Deriv DBot engine'
+                >
+                    ⚙️ V1 Classic
+                </button>
+                <button
+                    type='button'
+                    className={`sb-engine-selector__opt sb-engine-selector__opt--v2 ${mode === 'v2' ? 'sb-engine-selector__opt--active' : ''}`}
+                    onClick={() => select('v2')}
+                    title='Advanced direct-API engine'
+                >
+                    ⚡ V2 Advanced
+                </button>
+            </div>
+            <span className='sb-engine-selector__hint'>
+                {mode === 'v2'
+                    ? 'XML Bots will run on V2 (custom Speed Bots use their own engine).'
+                    : 'XML Bots will run on V1 Classic (custom Speed Bots use their own engine).'}
+            </span>
+        </div>
+    );
+};
+
 const BotLauncherCard: React.FC<{ onOpenVH: () => void; onOpenDF: () => void; onOpenOU: () => void; onOpenTri: () => void }> = ({ onOpenVH, onOpenDF, onOpenOU, onOpenTri }) => {
     const [strategyOpen, setStrategyOpen] = React.useState<StrategyKey | null>(null);
     const [selected, setSelected] = React.useState<BotKey>('vh');
@@ -169,6 +220,9 @@ const BotLauncherCard: React.FC<{ onOpenVH: () => void; onOpenDF: () => void; on
             )}
 
             <h2 className='sb-launcher__hub-title'>⚡ Speed Bots</h2>
+
+            {/* ── Engine selector (always visible) ───────────── */}
+            <SpeedBotsEngineSelector />
 
             {/* ── Horizontal pill selector ───────────────────── */}
             <div className='sb-pill-strip'>

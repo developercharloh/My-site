@@ -1606,6 +1606,56 @@
     &--xml { &.sb-pill--active { background: rgba(56,189,248,0.18); border-color: rgba(56,189,248,0.5);  color: #38bdf8; } }
 }
 
+/* ── Engine Selector (always visible above bot pills) ─────────────────────── */
+.sb-engine-selector {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+    margin: 4px 0 14px;
+    padding: 10px 14px;
+    background: rgba(15, 23, 42, 0.45);
+    border: 1px solid rgba(56, 189, 248, 0.18);
+    border-radius: 12px;
+
+    &__label {
+        font-size: 0.78rem; font-weight: 700; color: #cbd5e1;
+        white-space: nowrap;
+    }
+    &__group {
+        display: inline-flex;
+        background: rgba(0, 0, 0, 0.25);
+        border-radius: 999px;
+        padding: 3px;
+        gap: 2px;
+    }
+    &__opt {
+        font-family: inherit;
+        background: transparent;
+        border: none;
+        color: #94a3b8;
+        font-size: 0.76rem; font-weight: 700;
+        padding: 6px 14px;
+        border-radius: 999px;
+        cursor: pointer;
+        transition: all 0.18s ease;
+        &:hover { color: #e2e8f0; }
+        &--active {
+            background: rgba(255, 255, 255, 0.08);
+            color: #f1f5f9;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+        }
+        &--v2.sb-engine-selector__opt--active {
+            background: linear-gradient(135deg, #0ea5e9, #38bdf8);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(56, 189, 248, 0.4);
+        }
+    }
+    &__hint {
+        flex: 1 1 100%;
+        font-size: 0.72rem;
+        color: #64748b;
+        line-height: 1.4;
+    }
+}
+
 /* ── XML Bots Section ─────────────────────────────────────────────────────── */
 .sb-xml-section {
     width: 100%;
