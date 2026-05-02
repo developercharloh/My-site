@@ -57,7 +57,23 @@
     &__header-right {
         display: flex;
         align-items: center;
+        gap: 0.4rem;
     }
+}
+
+// ─── Win rate pill ─────────────────────────────────────────────────────────────
+.se-win-rate {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.58rem;
+    font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 0.18rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
 }
 
 // ─── Symbol badge inside signal card ─────────────────────────────────────────
@@ -74,6 +90,46 @@
         letter-spacing: 0.04em;
         margin-right: 0.35rem;
         font-family: 'JetBrains Mono', monospace;
+    }
+
+    &__head-right {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    // Win / Loss result badge
+    &__result {
+        font-size: 0.56rem;
+        font-weight: 800;
+        padding: 0.12rem 0.4rem;
+        border-radius: 999px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-family: 'JetBrains Mono', monospace;
+
+        &--win  { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+        &--loss { background: rgba(239, 68, 68, 0.15);  color: #ef4444; }
+    }
+
+    // Sample size + recency row
+    &__meta {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+    }
+
+    &__meta-pill {
+        font-size: 0.56rem;
+        font-weight: 700;
+        font-family: 'JetBrains Mono', monospace;
+        color: var(--text-less-prominent, #94a3b8);
+        background: rgba(100, 116, 139, 0.08);
+        padding: 0.1rem 0.4rem;
+        border-radius: 999px;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
     }
 }
 

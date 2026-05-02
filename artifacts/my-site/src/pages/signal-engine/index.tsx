@@ -33,9 +33,8 @@ const SYM_LONG: Record<string, string> = {
     'R_100':'Volatility 100 Index',
 };
 
-const DERIV_WS  = 'wss://ws.binaryws.com/websockets/v3?app_id=1';
-const BUF_SIZE  = 300;
-const SIGNAL_TTL = 120_000;
+const DERIV_WS = 'wss://ws.binaryws.com/websockets/v3?app_id=1';
+const BUF_SIZE = 300;
 
 const DISPLAY_MARKETS = [
     { group: 'Volatility (1s) Indices', items: [
@@ -43,6 +42,29 @@ const DISPLAY_MARKETS = [
     ] },
     { group: 'Volatility Indices', items: ['R_10','R_25','R_50','R_75','R_100'] },
 ];
+
+// ─── Win rate tracking ────────────────────────────────────────────────────────
+
+interface WinRecord {
+    id:        string;
+    symbol:    string;
+    direction: string;
+    market:    MarketType;
+    resolved:  boolean;
+    won:       boolean;
+}
+
+function resolveSignal(market: MarketType, direction: string, digit: number): boolean {
+    if (market === 'over_under') {
+        const b = Number(direction.split(' ')[1]);
+        return direction.startsWith('OVER') ? digit > b : digit < b;
+    }
+    if (market === 'even_odd') {
+        return direction === 'EVEN' ? digit % 2 === 0 : digit % 2 !== 0;
+    }
+    const d = Number(direction.split(' ')[1]);
+    return direction.startsWith('MATCHES') ? digit === d : digit !== d;
+}
 
 // ─── Colour helpers ───────────────────────────────────────────────────────────
 
@@ -81,25 +103,25 @@ function buildDist(digits: number[]): number[] {
     return counts.map(c => Math.round((c / n) * 1000) / 10);
 }
 
-// ─── Per-symbol buffer (stored in refs — never causes re-renders) ─────────────
+// ─── Per-symbol buffer ────────────────────────────────────────────────────────
 
 interface SymBuf {
-    digits:     number[];
-    ts:         number[];   // tick timestamps (last 50)
-    pip:        number;
-    liveDigit:  number | null;
-    livePrice:  number | null;
-    prevPrice:  number | null;
+    digits:       number[];
+    ts:           number[];
+    pip:          number;
+    liveDigit:    number | null;
+    livePrice:    number | null;
+    prevPrice:    number | null;
     distribution: number[];
-    tickCount:  number;
-    status:     'connecting' | 'live' | 'error';
+    tickCount:    number;
+    status:       'connecting' | 'live' | 'error';
 }
 function makeBuf(): SymBuf {
     return { digits:[], ts:[], pip:2, liveDigit:null, livePrice:null, prevPrice:null,
              distribution: Array(10).fill(0), tickCount:0, status:'connecting' };
 }
 
-// ─── Display snapshot (for the selected symbol) ───────────────────────────────
+// ─── Display snapshot ─────────────────────────────────────────────────────────
 
 interface DisplaySnap {
     distribution: number[];
@@ -133,7 +155,6 @@ function useMultiMarket(selectedSym: string): MultiMarketHook {
     const [tickEvent, setTickEvt] = useState<TickEvent | null>(null);
     const selectedRef             = useRef(selectedSym); selectedRef.current = selectedSym;
 
-    // Snapshot helper — reads buf and triggers a display state update
     const pushSnap = useCallback((sym: string) => {
         if (sym !== selectedRef.current) return;
         const buf = bufsRef.current.get(sym)!;
@@ -142,12 +163,10 @@ function useMultiMarket(selectedSym: string): MultiMarketHook {
             pipSize: buf.pip, tickCount: buf.tickCount, status: buf.status });
     }, []);
 
-    // Open all 13 connections once
     useEffect(() => {
         const wsList: WebSocket[] = [];
 
         ALL_SYMBOLS.forEach((sym, idx) => {
-            // Stagger connections by 150 ms to avoid rate limits
             const timer = setTimeout(() => {
                 const ws = new WebSocket(DERIV_WS);
                 wsList.push(ws);
@@ -169,11 +188,11 @@ function useMultiMarket(selectedSym: string): MultiMarketHook {
 
                     if (msg.msg_type === 'history') {
                         const prices: number[] = msg.history?.prices ?? [];
-                        const pip = msg.pip_size ?? 2;
+                        const pip  = msg.pip_size ?? 2;
                         const digs = prices.map((p: number) => lastDigit(p, pip));
-                        buf.pip    = pip;
-                        buf.digits = digs.slice(-BUF_SIZE);
-                        buf.ts     = digs.map((_, i) => Date.now() - (digs.length - 1 - i) * 1000).slice(-50);
+                        buf.pip          = pip;
+                        buf.digits       = digs.slice(-BUF_SIZE);
+                        buf.ts           = digs.map((_, i) => Date.now() - (digs.length - 1 - i) * 1000).slice(-50);
                         buf.tickCount    = buf.digits.length;
                         buf.liveDigit    = digs[digs.length - 1] ?? null;
                         buf.livePrice    = prices[prices.length - 1] ?? null;
@@ -188,17 +207,16 @@ function useMultiMarket(selectedSym: string): MultiMarketHook {
                         const { quote, pip_size } = msg.tick;
                         const pip = pip_size ?? buf.pip;
                         const dig = lastDigit(quote, pip);
-                        buf.pip       = pip;
-                        buf.prevPrice = buf.livePrice;
-                        buf.digits    = [...buf.digits.slice(-(BUF_SIZE - 1)), dig];
-                        buf.ts        = [...buf.ts.slice(-49), Date.now()];
+                        buf.pip          = pip;
+                        buf.prevPrice    = buf.livePrice;
+                        buf.digits       = [...buf.digits.slice(-(BUF_SIZE - 1)), dig];
+                        buf.ts           = [...buf.ts.slice(-49), Date.now()];
                         buf.tickCount++;
                         buf.liveDigit    = dig;
                         buf.livePrice    = quote;
                         buf.distribution = buildDist(buf.digits);
                         buf.status       = 'live';
                         pushSnap(sym);
-                        // Trigger analysis every 10 ticks
                         if (buf.tickCount % 10 === 0) {
                             setTickEvt({ sym, tc: buf.tickCount });
                         }
@@ -221,7 +239,6 @@ function useMultiMarket(selectedSym: string): MultiMarketHook {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // When selected symbol changes, refresh display from its buffer
     useEffect(() => {
         const buf = bufsRef.current.get(selectedSym);
         if (!buf || buf.digits.length === 0) { setSnap(INIT_SNAP); return; }
@@ -325,9 +342,9 @@ function LivePriceDisplay({ livePrice, prevPrice, liveDigit, pipSize, status }: 
     return (
         <div className='ez-price'>
             <div className='ez-price__status'>
-                {status==='live'        ? <span className='ez-dot ez-dot--live'/>        : null}
-                {status==='connecting'  ? <span className='ez-dot ez-dot--connecting'/>  : null}
-                {status==='error'       ? <span className='ez-dot ez-dot--error'/>       : null}
+                {status==='live'       ? <span className='ez-dot ez-dot--live'/>       : null}
+                {status==='connecting' ? <span className='ez-dot ez-dot--connecting'/> : null}
+                {status==='error'      ? <span className='ez-dot ez-dot--error'/>      : null}
                 <span className='ez-price__status-text'>{status==='live'?'Live':status==='connecting'?'Connecting…':'Error'}</span>
                 {dir==='up'   && <TrendingUp   className='ez-price__arrow ez-price__arrow--up'/>}
                 {dir==='down' && <TrendingDown  className='ez-price__arrow ez-price__arrow--down'/>}
@@ -372,11 +389,18 @@ const MARKET_COLOR: Record<MarketType, string> = {
     over_under:'#6366f1', even_odd:'#10b981', matches_differs:'#f59e0b',
 };
 
-function SignalCard({ signal, now }: { signal: Signal; now: number }) {
+function SignalCard({ signal, now, winResult }: {
+    signal: Signal; now: number; winResult?: boolean;
+}) {
     const remaining = signal.expiresAt - now;
-    const pct       = Math.max(0, remaining / SIGNAL_TTL);
+    const ttl       = signal.expiresAt - signal.createdAt; // 60 000 or 120 000
+    const pct       = Math.max(0, remaining / ttl);
     const color     = MARKET_COLOR[signal.market];
     const urgent    = remaining < 30_000;
+
+    // Recency bar colour: green if strong, amber if moderate
+    const recentPct  = signal.recentTotal > 0 ? signal.recentScore / signal.recentTotal : 0;
+    const recentColor = recentPct >= 0.70 ? '#10b981' : recentPct >= 0.55 ? '#eab308' : '#ef4444';
 
     return (
         <motion.div className='se-signal-card'
@@ -384,13 +408,21 @@ function SignalCard({ signal, now }: { signal: Signal; now: number }) {
             exit={{ opacity:0, y:-10, scale:0.95 }} transition={{ duration:0.3 }}
             style={{ '--sig-color': color } as React.CSSProperties}>
 
+            {/* head: market badge + timer + optional win/loss */}
             <div className='se-signal-card__head'>
                 <span className='se-signal-card__badge' style={{ background:`${color}22`, color }}>
                     {MARKET_LABEL[signal.market]}
                 </span>
-                <span className={`se-signal-card__timer ${urgent ? 'se-signal-card__timer--urgent' : ''}`}>
-                    ⏱ {fmtCountdown(remaining)}
-                </span>
+                <div className='se-signal-card__head-right'>
+                    {winResult !== undefined && (
+                        <span className={`se-signal-card__result se-signal-card__result--${winResult ? 'win' : 'loss'}`}>
+                            {winResult ? '✓ WIN' : '✗ LOSS'}
+                        </span>
+                    )}
+                    <span className={`se-signal-card__timer ${urgent ? 'se-signal-card__timer--urgent' : ''}`}>
+                        ⏱ {fmtCountdown(remaining)}
+                    </span>
+                </div>
             </div>
 
             <div className='se-signal-card__direction' style={{ color }}>{signal.direction}</div>
@@ -406,12 +438,22 @@ function SignalCard({ signal, now }: { signal: Signal; now: number }) {
                 ))}
             </div>
 
+            {/* meta: sample size + recency score */}
+            <div className='se-signal-card__meta'>
+                <span className='se-signal-card__meta-pill'>
+                    📊 {signal.sampleSize} ticks
+                </span>
+                <span className='se-signal-card__meta-pill' style={{ color: recentColor }}>
+                    🕐 {signal.recentScore}/{signal.recentTotal} recent
+                </span>
+            </div>
+
             <div className='se-signal-card__conf-row'>
                 <span className='se-signal-card__conf-label'>Confidence</span>
                 <span className='se-signal-card__conf-val' style={{ color }}>{signal.confidence}%</span>
             </div>
             <div className='se-signal-card__conf-track'>
-                <motion.div className='se-signal-card__conf-fill' style={{ background:color }}
+                <motion.div className='se-signal-card__conf-fill' style={{ background: color }}
                     initial={{ width:0 }} animate={{ width:`${signal.confidence}%` }}
                     transition={{ duration:0.6, ease:'easeOut' }} />
             </div>
@@ -427,7 +469,7 @@ function SignalCard({ signal, now }: { signal: Signal; now: number }) {
     );
 }
 
-// ─── Volatility badge (for selected symbol) ───────────────────────────────────
+// ─── Volatility badge ─────────────────────────────────────────────────────────
 
 function VolBadge({ digits, tickTimes }: { digits: number[]; tickTimes: number[] }) {
     const { status, reason } = modelVolatility(digits, tickTimes);
@@ -436,6 +478,19 @@ function VolBadge({ digits, tickTimes }: { digits: number[]; tickTimes: number[]
             <span className='se-vol-badge__dot' />
             <span>{status === 'ALLOW' ? 'Stable' : reason}</span>
         </div>
+    );
+}
+
+// ─── Win rate pill ────────────────────────────────────────────────────────────
+
+function WinRatePill({ wins, total }: { wins: number; total: number }) {
+    if (total === 0) return null;
+    const pct   = Math.round((wins / total) * 100);
+    const color = pct >= 60 ? '#10b981' : pct >= 45 ? '#eab308' : '#ef4444';
+    return (
+        <span className='se-win-rate' style={{ color, borderColor: `${color}40`, background: `${color}12` }}>
+            {wins}/{total} won · {pct}%
+        </span>
     );
 }
 
@@ -453,28 +508,55 @@ const SignalEngine = () => {
     const mlWeightsRef              = useRef<MLWeights>(initialMLWeights());
     const now                       = useNow(1000);
 
+    // Win rate tracking
+    const winRecordsRef = useRef<WinRecord[]>([]);
+    const [winStats,  setWinStats]  = useState<{ wins: number; total: number }>({ wins: 0, total: 0 });
+    const [winMap,    setWinMap]    = useState<Map<string, boolean>>(new Map());
+
     // Expire signals every second
     useEffect(() => {
         setSignals(prev => prev.filter(s => s.expiresAt > now));
     }, [now]);
 
-    // Run analysis whenever any symbol hits its 10-tick mark
+    // Run analysis on every 10-tick event + resolve win records
     useEffect(() => {
         if (!tickEvent) return;
         const { sym, tc } = tickEvent;
         const buf = bufsRef.current.get(sym);
         if (!buf || buf.digits.length < 50) return;
 
-        // Retrain ML every 50 ticks on the selected symbol's data
+        const dig = buf.liveDigit;
+
+        // 1. Resolve any pending win records for this symbol
+        if (dig !== null) {
+            let anyResolved = false;
+            winRecordsRef.current.forEach(rec => {
+                if (rec.resolved || rec.symbol !== sym) return;
+                rec.won      = resolveSignal(rec.market, rec.direction, dig);
+                rec.resolved = true;
+                anyResolved  = true;
+            });
+            if (anyResolved) {
+                // Keep at most 100 records
+                if (winRecordsRef.current.length > 100)
+                    winRecordsRef.current = winRecordsRef.current.slice(-100);
+                const resolved = winRecordsRef.current.filter(r => r.resolved);
+                const newMap   = new Map(resolved.map(r => [r.id, r.won]));
+                setWinMap(newMap);
+                setWinStats({ wins: resolved.filter(r => r.won).length, total: resolved.length });
+            }
+        }
+
+        // 2. Retrain ML every 50 ticks on the selected symbol
         if (sym === selectedSym && tc % 50 === 0) {
             mlWeightsRef.current = trainMLWeights(buf.digits, mlWeightsRef.current);
         }
 
+        // 3. Run signal analysis
         const symLabel = SYM_LONG[sym] ?? sym;
-
         setSignals(prev => {
-            const nowT        = Date.now();
-            const active      = prev.filter(s => s.expiresAt > nowT);
+            const nowT          = Date.now();
+            const active        = prev.filter(s => s.expiresAt > nowT);
             const activeMarkets = new Set(
                 active.filter(s => s.symbol === sym).map(s => s.market)
             ) as Set<MarketType>;
@@ -483,19 +565,28 @@ const SignalEngine = () => {
                 buf.digits, buf.ts, sym, symLabel,
                 mlWeightsRef.current, activeMarkets,
             );
+
+            if (newSigs.length > 0) {
+                // Register new signals for win tracking
+                newSigs.forEach(s => winRecordsRef.current.push({
+                    id: s.id, symbol: s.symbol,
+                    direction: s.direction, market: s.market,
+                    resolved: false, won: false,
+                }));
+            }
+
             return newSigs.length > 0 ? [...active, ...newSigs] : active;
         });
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tickEvent]);
 
-    // Sort signals: highest confidence first, cap display at 6
+    // Sort signals: highest confidence first, cap at 6
     const displaySignals = [...signals]
         .sort((a, b) => b.confidence - a.confidence || b.createdAt - a.createdAt)
         .slice(0, 6);
 
     const liveCount = ALL_SYMBOLS.filter(s => scanStatus[s] === 'live').length;
 
-    // Buffer data for selected symbol (for VolBadge)
     const selBuf    = bufsRef.current.get(selectedSym);
     const selDigits = selBuf?.digits ?? [];
     const selTs     = selBuf?.ts     ?? [];
@@ -528,7 +619,7 @@ const SignalEngine = () => {
             {/* ── Scan status row ── */}
             <ScanStatusRow statuses={scanStatus} />
 
-            {/* ── Live price for selected symbol ── */}
+            {/* ── Live price ── */}
             <div className='ez-price-row'>
                 <LivePriceDisplay livePrice={livePrice} prevPrice={prevPrice} liveDigit={liveDigit} pipSize={pipSize} status={status} />
                 <div className='ez-cursor-tag'>
@@ -549,13 +640,13 @@ const SignalEngine = () => {
                 </div>
             </div>
 
-            {/* ── Digit circles for selected symbol ── */}
+            {/* ── Digit circles ── */}
             <div className='ez-quadrants'>
                 <QuadrantRow digits={[0,1,2,3,4]} distribution={distribution} ranks={ranks} liveDigit={liveDigit} />
                 <QuadrantRow digits={[5,6,7,8,9]} distribution={distribution} ranks={ranks} liveDigit={liveDigit} />
             </div>
 
-            {/* ── Signals Card ── */}
+            {/* ── Signals section ── */}
             <div className='se-signals-card'>
                 <div className='se-signals-card__header'>
                     <span className='se-signals-card__title'>
@@ -565,6 +656,7 @@ const SignalEngine = () => {
                         )}
                     </span>
                     <div className='se-signals-card__header-right'>
+                        <WinRatePill wins={winStats.wins} total={winStats.total} />
                         {selDigits.length > 0 && <VolBadge digits={selDigits} tickTimes={selTs} />}
                     </div>
                 </div>
@@ -585,7 +677,7 @@ const SignalEngine = () => {
                     ) : (
                         <AnimatePresence>
                             {displaySignals.map(sig => (
-                                <SignalCard key={sig.id} signal={sig} now={now} />
+                                <SignalCard key={sig.id} signal={sig} now={now} winResult={winMap.get(sig.id)} />
                             ))}
                         </AnimatePresence>
                     )}

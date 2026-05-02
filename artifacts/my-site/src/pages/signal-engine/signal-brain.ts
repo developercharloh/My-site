@@ -10,10 +10,13 @@ export interface Signal {
     market:         MarketType;
     direction:      string;
     modelsAgreeing: string[];
-    confidence:     number;   // 0–100
+    confidence:     number;
     entryPoint:     string;
     createdAt:      number;
     expiresAt:      number;
+    sampleSize:     number;   // ticks used for analysis (100)
+    recentScore:    number;   // agreeing ticks in last 20
+    recentTotal:    number;   // always 20
 }
 
 export interface MLWeights { w: number[]; b: number; }
@@ -22,26 +25,23 @@ export const initialMLWeights = (): MLWeights => ({ w: [0, 0, 0, 0, 0], b: 0 });
 interface Vote { model: string; market: MarketType; direction: string; confidence: number; }
 
 // ─── Thresholds ───────────────────────────────────────────────────────────────
-// Confidence is always relative to each barrier's EXPECTED rate, not 50%.
-// e.g. OVER 3 expects 60% naturally — signal fires when observed > 66% (edge ≥ 6 pp)
+// Confidence is always relative to each barrier's EXPECTED rate.
+// OVER  barriers: checked 6→1 (tightest first)
+// UNDER barriers: checked 3→8 (tightest first)
 //
-// OVER  barriers: 1→6  (checked 6→1, tightest first)
-// UNDER barriers: 3→8  (checked 3→8, tightest first)
-//
-// Expected rate per OVER barrier b:   (9 − b) / 10
-// Expected rate per UNDER barrier b:  b / 10
-//
-// A signal fires when ≥ 3 models agree on the SAME direction AND avg conf ≥ 55 %
-const MIN_AGREE = 3;
-const MIN_CONF  = 55;
-const EDGE_PCT  = 0.06;   // 6 pp above expected = edge threshold
+// Signal fires when ≥ 3 models agree on the SAME direction AND avg conf ≥ 58 %
+// Recency gate: last 20 ticks must also confirm direction (10 pp above expected)
+// TTL: 60 s for 1HZ* (1-second) indices, 120 s for R_* (standard) indices
+const MIN_AGREE   = 3;
+const MIN_CONF    = 58;          // raised from 55 → 58
+const EDGE_PCT    = 0.06;        // 6 pp above expected = model detection threshold
+const RECENCY_EDGE = 0.10;       // 10 pp above expected in last 20 ticks
 
 // ─── Math helpers ─────────────────────────────────────────────────────────────
 
 const clamp   = (v: number, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, v));
 const sigmoid = (x: number) => 1 / (1 + Math.exp(-x));
 
-// Confidence relative to each barrier's natural expected rate
 function barrierConf(observed: number, expected: number): number {
     return clamp((observed - expected) * 500);
 }
@@ -54,9 +54,52 @@ function streakOf(digits: number[], pred: (d: number) => boolean): number {
     return n;
 }
 
+// ─── Recency check ────────────────────────────────────────────────────────────
+// Verifies the pattern is still active in the last 20 ticks.
+// Returns score (agreeing count), total (20), and whether it passes the gate.
+
+interface RecencyResult { score: number; total: number; passing: boolean; }
+
+function checkRecency(digits: number[], direction: string, market: MarketType): RecencyResult {
+    const last20 = digits.slice(-20);
+    const n      = last20.length;
+    if (n < 10) return { score: n, total: n, passing: true }; // too few — pass through
+
+    let agreeing: number;
+    let minRequired: number;
+
+    if (market === 'over_under') {
+        const b = Number(direction.split(' ')[1]);
+        if (direction.startsWith('OVER')) {
+            const expected = (9 - b) / 10;
+            agreeing    = last20.filter(d => d > b).length;
+            minRequired = Math.ceil(n * (expected + RECENCY_EDGE));
+        } else {
+            const expected = b / 10;
+            agreeing    = last20.filter(d => d < b).length;
+            minRequired = Math.ceil(n * (expected + RECENCY_EDGE));
+        }
+    } else if (market === 'even_odd') {
+        agreeing    = direction === 'EVEN'
+            ? last20.filter(d => d % 2 === 0).length
+            : last20.filter(d => d % 2 !== 0).length;
+        minRequired = Math.ceil(n * (0.50 + RECENCY_EDGE));
+    } else {
+        // matches_differs
+        const dig = Number(direction.split(' ')[1]);
+        if (direction.startsWith('MATCHES')) {
+            agreeing    = last20.filter(d => d === dig).length;
+            minRequired = 3; // 15%+ in 20 ticks (expected 10%)
+        } else {
+            agreeing    = last20.filter(d => d !== dig).length;
+            minRequired = Math.ceil(n * (0.90 - RECENCY_EDGE)); // ≥80% not the digit
+        }
+    }
+
+    return { score: agreeing, total: n, passing: agreeing >= minRequired };
+}
+
 // ─── Barrier helpers ──────────────────────────────────────────────────────────
-// Both return the TIGHTEST (highest/lowest) barrier that has at least MIN_CONF%
-// confidence, ensuring every model picks the same direction string.
 
 interface BarrierHit { barrier: number; ratio: number; conf: number; }
 
@@ -82,12 +125,11 @@ function bestUnderBarrier(d: number[]): BarrierHit | null {
     return null;
 }
 
-// Bayesian version — smooths raw counts with a small prior centred on expected rate
 function bayesOverBarrier(d: number[]): BarrierHit | null {
     const n = d.length || 1;
     for (let b = 6; b >= 1; b--) {
         const expected = (9 - b) / 10;
-        const PRIOR    = expected * 8; // centred-prior with weight 8
+        const PRIOR    = expected * 8;
         const rawCount = d.filter(x => x > b).length;
         const post     = (rawCount + PRIOR) / (n + 8);
         const conf     = barrierConf(post, expected);
@@ -129,7 +171,6 @@ function modelStatistical(digits: number[]): Vote[] {
     const votes: Vote[] = [];
     const n = d.length;
 
-    // Over / Under — full barrier range, tightest with sufficient confidence
     const over = bestOverBarrier(d);
     if (over) votes.push({ model: 'Statistical', market: 'over_under',
         direction: `OVER ${over.barrier}`, confidence: over.conf });
@@ -138,25 +179,20 @@ function modelStatistical(digits: number[]): Vote[] {
     if (under) votes.push({ model: 'Statistical', market: 'over_under',
         direction: `UNDER ${under.barrier}`, confidence: under.conf });
 
-    // Even / Odd (expected 50%)
     const evenR = d.filter(x => x % 2 === 0).length / n;
-    if (evenR > 0.50 + EDGE_PCT) {
-        votes.push({ model: 'Statistical', market: 'even_odd', direction: 'EVEN',
-            confidence: barrierConf(evenR, 0.50) });
-    } else if (evenR < 0.50 - EDGE_PCT) {
-        votes.push({ model: 'Statistical', market: 'even_odd', direction: 'ODD',
-            confidence: barrierConf(1 - evenR, 0.50) });
-    }
+    if (evenR > 0.50 + EDGE_PCT)
+        votes.push({ model: 'Statistical', market: 'even_odd', direction: 'EVEN', confidence: barrierConf(evenR, 0.50) });
+    else if (evenR < 0.50 - EDGE_PCT)
+        votes.push({ model: 'Statistical', market: 'even_odd', direction: 'ODD',  confidence: barrierConf(1 - evenR, 0.50) });
 
-    // Matches / Differs
     const cnt  = Array(10).fill(0) as number[];
     d.forEach(x => cnt[x]++);
     const maxR = Math.max(...cnt) / n;
     const minR = Math.min(...cnt) / n;
     if (maxR > 0.16) votes.push({ model: 'Statistical', market: 'matches_differs',
-        direction: `MATCHES ${topDigitOf(d)}`,    confidence: clamp((maxR - 0.10) * 600) });
+        direction: `MATCHES ${topDigitOf(d)}`,   confidence: clamp((maxR - 0.10) * 600) });
     else if (minR < 0.04) votes.push({ model: 'Statistical', market: 'matches_differs',
-        direction: `DIFFERS ${leastDigitOf(d)}`,  confidence: clamp((0.10 - minR) * 600) });
+        direction: `DIFFERS ${leastDigitOf(d)}`, confidence: clamp((0.10 - minR) * 600) });
 
     return votes;
 }
@@ -177,19 +213,14 @@ function modelBayesian(digits: number[]): Vote[] {
     if (under) votes.push({ model: 'Bayesian', market: 'over_under',
         direction: `UNDER ${under.barrier}`, confidence: under.conf });
 
-    // Even / Odd
     const PRIOR_EO = 4;
-    const evenC = d.filter(x => x % 2 === 0).length;
-    const pEven = (evenC + PRIOR_EO) / (n + 2 * PRIOR_EO);
-    if (pEven > 0.50 + EDGE_PCT) {
-        votes.push({ model: 'Bayesian', market: 'even_odd', direction: 'EVEN',
-            confidence: barrierConf(pEven, 0.50) });
-    } else if (pEven < 0.50 - EDGE_PCT) {
-        votes.push({ model: 'Bayesian', market: 'even_odd', direction: 'ODD',
-            confidence: barrierConf(1 - pEven, 0.50) });
-    }
+    const evenC    = d.filter(x => x % 2 === 0).length;
+    const pEven    = (evenC + PRIOR_EO) / (n + 2 * PRIOR_EO);
+    if (pEven > 0.50 + EDGE_PCT)
+        votes.push({ model: 'Bayesian', market: 'even_odd', direction: 'EVEN', confidence: barrierConf(pEven, 0.50) });
+    else if (pEven < 0.50 - EDGE_PCT)
+        votes.push({ model: 'Bayesian', market: 'even_odd', direction: 'ODD',  confidence: barrierConf(1 - pEven, 0.50) });
 
-    // Matches / Differs
     const DIGIT_PA = 1, DIGIT_PB = 9;
     const cnt = Array(10).fill(0) as number[];
     d.forEach(x => cnt[x]++);
@@ -199,13 +230,12 @@ function modelBayesian(digits: number[]): Vote[] {
         if (post > maxPost) { maxPost = post; maxDig = dig; }
         if (post < minPost) { minPost = post; minDig = dig; }
     }
-    if (maxPost > 0.17 && maxDig >= 0) {
+    if (maxPost > 0.17 && maxDig >= 0)
         votes.push({ model: 'Bayesian', market: 'matches_differs',
             direction: `MATCHES ${maxDig}`, confidence: clamp((maxPost - 0.10) * 600) });
-    } else if (minPost < 0.04 && minDig >= 0) {
+    else if (minPost < 0.04 && minDig >= 0)
         votes.push({ model: 'Bayesian', market: 'matches_differs',
             direction: `DIFFERS ${minDig}`, confidence: clamp((0.10 - minPost) * 600) });
-    }
 
     return votes;
 }
@@ -251,8 +281,6 @@ function modelML(digits: number[], wts: MLWeights): Vote[] {
     const pHigh = sigmoid(z);
     const votes: Vote[] = [];
 
-    // ML predicts P(digit ≥ 5), i.e. whether the OVER 4 barrier holds.
-    // If confident, pick the tightest valid barrier from the same 100-tick window.
     if (pHigh > 0.50 + EDGE_PCT) {
         const over = bestOverBarrier(d100);
         if (over) votes.push({ model: 'ML Classifier', market: 'over_under',
@@ -263,17 +291,12 @@ function modelML(digits: number[], wts: MLWeights): Vote[] {
             direction: `UNDER ${under.barrier}`, confidence: clamp((1 - pHigh) * 100) });
     }
 
-    // Even/Odd via even-ratio feature
     const pEven = feat[1];
-    if (pEven > 0.50 + EDGE_PCT) {
-        votes.push({ model: 'ML Classifier', market: 'even_odd', direction: 'EVEN',
-            confidence: clamp(pEven * 100) });
-    } else if (pEven < 0.50 - EDGE_PCT) {
-        votes.push({ model: 'ML Classifier', market: 'even_odd', direction: 'ODD',
-            confidence: clamp((1 - pEven) * 100) });
-    }
+    if (pEven > 0.50 + EDGE_PCT)
+        votes.push({ model: 'ML Classifier', market: 'even_odd', direction: 'EVEN', confidence: clamp(pEven * 100) });
+    else if (pEven < 0.50 - EDGE_PCT)
+        votes.push({ model: 'ML Classifier', market: 'even_odd', direction: 'ODD',  confidence: clamp((1 - pEven) * 100) });
 
-    // Matches/Differs via freq-deviation feature
     const fDev = feat[4];
     if (fDev > 0.08) {
         const recent = digits.slice(-20);
@@ -281,16 +304,16 @@ function modelML(digits: number[], wts: MLWeights): Vote[] {
         recent.forEach(d => cntR[d]++);
         const maxCnt = Math.max(...cntR);
         const topD   = cntR.indexOf(maxCnt);
-        if (maxCnt / recent.length > 0.18) {
+        if (maxCnt / recent.length > 0.18)
             votes.push({ model: 'ML Classifier', market: 'matches_differs',
                 direction: `MATCHES ${topD}`, confidence: clamp(maxCnt / recent.length * 350) });
-        }
     }
 
     return votes;
 }
 
 // ─── MODEL 4 — Streak & Pattern ───────────────────────────────────────────────
+// Streak minimum raised from 4 → 5 for both high/low and even/odd
 
 function modelStreak(digits: number[]): Vote[] {
     if (digits.length < 10) return [];
@@ -299,9 +322,8 @@ function modelStreak(digits: number[]): Vote[] {
     const last = d30[d30.length - 1];
     const votes: Vote[] = [];
 
-    // High/Low streak → CONTINUATION using tightest valid barrier
     const hlStrk = streakOf(d30, x => (x >= 5) === (last >= 5));
-    if (hlStrk >= 4) {
+    if (hlStrk >= 5) {   // raised from 4 → 5
         if (last >= 5) {
             const over = bestOverBarrier(d100);
             if (over) votes.push({ model: 'Streak/Pattern', market: 'over_under',
@@ -313,14 +335,12 @@ function modelStreak(digits: number[]): Vote[] {
         }
     }
 
-    // Even/Odd streak → CONTINUATION
     const eoStrk = streakOf(d30, x => (x % 2 === 0) === (last % 2 === 0));
-    if (eoStrk >= 4) {
+    if (eoStrk >= 5) {   // raised from 4 → 5
         votes.push({ model: 'Streak/Pattern', market: 'even_odd',
             direction: last % 2 === 0 ? 'EVEN' : 'ODD', confidence: clamp(50 + eoStrk * 7) });
     }
 
-    // Repeating digit in last 5 → MATCHES that dominant digit (continuation)
     const last5 = digits.slice(-5);
     if (last5.length === 5 && new Set(last5).size <= 2) {
         const cntL5 = Array(10).fill(0) as number[];
@@ -330,7 +350,6 @@ function modelStreak(digits: number[]): Vote[] {
             direction: `MATCHES ${topL5}`, confidence: 72 });
     }
 
-    // Very mixed last 10 → MATCHES most common digit in d100
     const last10 = digits.slice(-10);
     if (last10.length === 10 && new Set(last10).size >= 9) {
         votes.push({ model: 'Streak/Pattern', market: 'matches_differs',
@@ -379,11 +398,9 @@ function buildConsensus(votes: Vote[], volStatus: VolatilityStatus) {
         const mv = votes.filter(v => v.market === market);
 
         if (market === 'over_under') {
-            // Group by OVER vs UNDER prefix (ignore specific barrier for agreement count)
             for (const prefix of ['OVER', 'UNDER'] as const) {
                 const group = mv.filter(v => v.direction.startsWith(prefix));
                 if (group.length < MIN_AGREE) continue;
-                // Among agreeing models, find the most-voted direction string
                 const dirCounts = new Map<string, Vote[]>();
                 group.forEach(v => {
                     const arr = dirCounts.get(v.direction) ?? [];
@@ -392,15 +409,13 @@ function buildConsensus(votes: Vote[], volStatus: VolatilityStatus) {
                 });
                 let best: Vote[] = []; let bestDir = '';
                 dirCounts.forEach((vs, dir) => {
-                    if (vs.length > best.length ||
-                        (vs.length === best.length && dir > bestDir)) {
+                    if (vs.length > best.length || (vs.length === best.length && dir > bestDir)) {
                         best = vs; bestDir = dir;
                     }
                 });
-                // If no single direction has MIN_AGREE votes, use all group votes with the best dir
                 if (best.length < MIN_AGREE) {
                     best    = group;
-                    bestDir = [...dirCounts.entries()].sort((a,b)=>b[1].length-a[1].length)[0]?.[0] ?? group[0].direction;
+                    bestDir = [...dirCounts.entries()].sort((a, b) => b[1].length - a[1].length)[0]?.[0] ?? group[0].direction;
                 }
                 const avgConf = group.reduce((s, v) => s + v.confidence, 0) / group.length;
                 if (avgConf < MIN_CONF) continue;
@@ -409,13 +424,8 @@ function buildConsensus(votes: Vote[], volStatus: VolatilityStatus) {
             continue;
         }
 
-        // Even/Odd and Matches/Differs — exact direction match
         const groups = new Map<string, Vote[]>();
-        mv.forEach(v => {
-            const g = groups.get(v.direction) ?? [];
-            g.push(v);
-            groups.set(v.direction, g);
-        });
+        mv.forEach(v => { const g = groups.get(v.direction) ?? []; g.push(v); groups.set(v.direction, g); });
         let best: Vote[] = []; let bestDir = '';
         groups.forEach((vs, dir) => { if (vs.length > best.length) { best = vs; bestDir = dir; } });
         if (best.length < MIN_AGREE) continue;
@@ -436,8 +446,8 @@ function buildEntry(market: MarketType, direction: string, digits: number[]): st
             : `Last digit < ${b}  (wins on 0–${b - 1},  ${b} digits)`;
     }
     if (market === 'even_odd') {
-        const last  = digits[digits.length - 1];
-        const eoS   = streakOf(digits.slice(-20), x => (x % 2 === 0) === (last !== undefined ? last % 2 === 0 : true));
+        const last = digits[digits.length - 1];
+        const eoS  = streakOf(digits.slice(-20), x => (x % 2 === 0) === (last !== undefined ? last % 2 === 0 : true));
         return eoS >= 3 ? 'Next tick — after current streak' : 'After 3 confirming ticks';
     }
     const digit = direction.split(' ')[1];
@@ -466,21 +476,32 @@ export function analyzeSignals(
     ];
 
     const { status: volStatus } = modelVolatility(digits, tickTimes);
-    const agreed = buildConsensus(allVotes, volStatus);
+    const agreed                = buildConsensus(allVotes, volStatus);
 
+    // Split TTL: 60 s for 1-second indices (1HZ*), 120 s for standard (R_*)
+    const ttl = symbol.startsWith('1HZ') ? 60_000 : 120_000;
     const now = Date.now();
+
     return agreed
         .filter(r => !activeMarkets.has(r.market))
-        .map(r => ({
-            id:             `sig_${now}_${symbol}_${r.market}`,
-            symbol,
-            symbolLabel,
-            market:         r.market,
-            direction:      r.direction,
-            modelsAgreeing: r.models,
-            confidence:     r.confidence,
-            entryPoint:     buildEntry(r.market, r.direction, digits),
-            createdAt:      now,
-            expiresAt:      now + 120_000,
-        }));
+        .map(r => {
+            const rec = checkRecency(digits, r.direction, r.market);
+            if (!rec.passing) return null; // pattern fading — suppress signal
+            return {
+                id:             `sig_${now}_${symbol}_${r.market}`,
+                symbol,
+                symbolLabel,
+                market:         r.market,
+                direction:      r.direction,
+                modelsAgreeing: r.models,
+                confidence:     r.confidence,
+                entryPoint:     buildEntry(r.market, r.direction, digits),
+                createdAt:      now,
+                expiresAt:      now + ttl,
+                sampleSize:     Math.min(digits.length, 100),
+                recentScore:    rec.score,
+                recentTotal:    rec.total,
+            };
+        })
+        .filter((s): s is Signal => s !== null);
 }
