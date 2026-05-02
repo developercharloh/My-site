@@ -13,6 +13,7 @@
     <variable id="*tDfZG|UY{ZHotb=SU^=">text1</variable>
     <variable id="eo_entry_pt_id">entry point</variable>
     <variable id="eo_last_digit_id">last digit</variable>
+    <variable id="tm_eo_id">trading mode</variable>
   </variables>
   <block type="trade_definition" id="S1,RT~hHPMlVl.L|3!$_" deletable="false" x="0" y="60">
     <statement name="TRADE_OPTIONS">
@@ -81,6 +82,26 @@
                         <field name="NUM">10</field>
                       </block>
                     </value>
+                    <next>
+                      <block type="variables_set" id="eo_ep_init_fixed">
+                        <field name="VAR" id="eo_entry_pt_id">entry point</field>
+                        <value name="VALUE">
+                          <block type="math_number" id="eo_ep_num_fixed">
+                            <field name="NUM">0</field>
+                          </block>
+                        </value>
+                        <next>
+                          <block type="variables_set" id="tm_eo_init">
+                            <field name="VAR" id="tm_eo_id">trading mode</field>
+                            <value name="VALUE">
+                              <block type="math_number" id="tm_eo_zero">
+                                <field name="NUM">0</field>
+                              </block>
+                            </value>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
                   </block>
                 </next>
               </block>
@@ -920,6 +941,31 @@
   </block>
   <block type="before_purchase" id="4vMGgAV:uVXot*G5?6YJ" deletable="false" x="0" y="930">
     <statement name="BEFOREPURCHASE_STACK">
+      <block type="controls_if" id="tm_force_entry_eo">
+        <value name="IF0">
+          <block type="logic_compare" id="tm_cmp_eo">
+            <field name="OP">EQ</field>
+            <value name="A">
+              <block type="variables_get" id="tm_get_eo">
+                <field name="VAR" id="tm_eo_id">trading mode</field>
+              </block>
+            </value>
+            <value name="B">
+              <block type="math_number" id="tm_one_eo"><field name="NUM">1</field></block>
+            </value>
+          </block>
+        </value>
+        <statement name="DO0">
+          <block type="variables_set" id="force_ld_eq_ep_eo">
+            <field name="VAR" id="eo_last_digit_id">last digit</field>
+            <value name="VALUE">
+              <block type="variables_get" id="force_ep_get_eo">
+                <field name="VAR" id="eo_entry_pt_id">entry point</field>
+              </block>
+            </value>
+          </block>
+        </statement>
+      </block>
       <block type="variables_set" id="set_ld_eo_scan">
         <field name="VAR" id="eo_last_digit_id">last digit</field>
         <value name="VALUE">
@@ -990,7 +1036,13 @@
                       </block>
                     </value>
                     <statement name="DO0">
-      <block type="text_join" id="7P(pivWjWm:[8l?z~pQ~">
+                      <block type="variables_set" id="set_tm_on_eo">
+                        <field name="VAR" id="tm_eo_id">trading mode</field>
+                        <value name="VALUE">
+                          <block type="math_number" id="tm_on_eo_num"><field name="NUM">1</field></block>
+                        </value>
+                        <next>
+                          <block type="text_join" id="7P(pivWjWm:[8l?z~pQ~">
               <field name="VARIABLE" id="[x07AAvnEQUXBGmSZ5Mm">text</field>
               <statement name="STACK">
                 <block type="text_statement" id="{cpkVf5O{0R!qs.SbPL3">
@@ -1443,6 +1495,8 @@
                 </block>
               </next>
             </block>
+                        </next>
+                      </block>
                     </statement>
                   </block>
                 </next>
