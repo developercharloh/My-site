@@ -310,8 +310,10 @@
               </block>
             </statement>
             <next>
-              <block type="text_print" id="scan_journal_print">
-                <value name="TEXT">
+              <block type="notify" id="scan_journal_print">
+                <field name="NOTIFICATION_TYPE">success</field>
+                <field name="NOTIFICATION_SOUND">silent</field>
+                <value name="MESSAGE">
                   <shadow type="text" id="scan_print_shadow">
                     <field name="TEXT">scanning</field>
                   </shadow>
@@ -337,8 +339,10 @@
                       </block>
                     </value>
                     <statement name="DO0">
-                      <block type="text_print" id="entry_hit_print">
-                        <value name="TEXT">
+                      <block type="notify" id="entry_hit_print">
+                <field name="NOTIFICATION_TYPE">success</field>
+                <field name="NOTIFICATION_SOUND">silent</field>
+                <value name="MESSAGE">
                           <shadow type="text" id="entry_hit_shadow">
                             <field name="TEXT">ENTRY HIT — Buying DIFFER digit 9</field>
                           </shadow>

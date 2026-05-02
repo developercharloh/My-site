@@ -355,8 +355,10 @@
               </block>
             </statement>
             <next>
-              <block type="text_print" id="scan_print_matches">
-                <value name="TEXT">
+              <block type="notify" id="scan_print_matches">
+                <field name="NOTIFICATION_TYPE">success</field>
+                <field name="NOTIFICATION_SOUND">silent</field>
+                <value name="MESSAGE">
                   <shadow type="text" id="spm"><field name="TEXT">scanning</field></shadow>
                   <block type="variables_get" id="scan_m_text">
                     <field name="VAR" id="-}{%(Ywr.B^%,O]8eKb#">text</field>
@@ -380,8 +382,10 @@
                       </block>
                     </value>
                     <statement name="DO0">
-                      <block type="text_print" id="entry_hit_matches">
-                        <value name="TEXT">
+                      <block type="notify" id="entry_hit_matches">
+                <field name="NOTIFICATION_TYPE">success</field>
+                <field name="NOTIFICATION_SOUND">silent</field>
+                <value name="MESSAGE">
                           <shadow type="text" id="ehm"><field name="TEXT">ENTRY HIT — Buying MATCH digit 4</field></shadow>
                         </value>
                         <next>

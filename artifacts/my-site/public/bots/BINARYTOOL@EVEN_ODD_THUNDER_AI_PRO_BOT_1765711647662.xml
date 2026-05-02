@@ -855,8 +855,10 @@
                   </block>
                 </value>
                 <statement name="DO0">
-                  <block type="text_print" id="F++Fdg##=yYiNIUZ[R1J">
-                    <value name="TEXT">
+                  <block type="notify" id="F++Fdg##=yYiNIUZ[R1J">
+                <field name="NOTIFICATION_TYPE">success</field>
+                <field name="NOTIFICATION_SOUND">silent</field>
+                <value name="MESSAGE">
                       <shadow type="text" id="KOZxT0%l;nphs/O(tc[e">
                         <field name="TEXT">abc</field>
                       </shadow>
@@ -896,8 +898,10 @@
                   </block>
                 </statement>
                 <next>
-                  <block type="text_print" id="^Zh(l1w0-##V9TZUeEEI">
-                    <value name="TEXT">
+                  <block type="notify" id="^Zh(l1w0-##V9TZUeEEI">
+                <field name="NOTIFICATION_TYPE">success</field>
+                <field name="NOTIFICATION_SOUND">silent</field>
+                <value name="MESSAGE">
                       <shadow type="text" id="ue*6*?JyH5Tdt-6u3251">
                         <field name="TEXT">abc</field>
                       </shadow>
@@ -959,8 +963,10 @@
               </block>
             </statement>
             <next>
-              <block type="text_print" id="scan_print_eo">
-                <value name="TEXT">
+              <block type="notify" id="scan_print_eo">
+                <field name="NOTIFICATION_TYPE">success</field>
+                <field name="NOTIFICATION_SOUND">silent</field>
+                <value name="MESSAGE">
                   <shadow type="text" id="speo"><field name="TEXT">scanning</field></shadow>
                   <block type="variables_get" id="scan_eo_text">
                     <field name="VAR" id="[x07AAvnEQUXBGmSZ5Mm">text</field>
