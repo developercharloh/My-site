@@ -32,10 +32,10 @@ interface Vote { model: string; market: MarketType; direction: string; confidenc
 // Signal fires when ≥ 3 models agree on the SAME direction AND avg conf ≥ 58 %
 // Recency gate: last 20 ticks must also confirm direction (10 pp above expected)
 // TTL: 60 s for 1HZ* (1-second) indices, 120 s for R_* (standard) indices
-const MIN_AGREE   = 3;
-const MIN_CONF    = 58;          // raised from 55 → 58
-const EDGE_PCT    = 0.06;        // 6 pp above expected = model detection threshold
-const RECENCY_EDGE = 0.10;       // 10 pp above expected in last 20 ticks
+const MIN_AGREE    = 3;
+const MIN_CONF     = 52;         // lowered 58 → 52 so Over/Under fires more readily
+const EDGE_PCT     = 0.06;       // 6 pp above expected = model detection threshold
+const RECENCY_EDGE = 0.06;       // lowered 0.10 → 0.06 — recency gate was killing valid signals
 
 // ─── Math helpers ─────────────────────────────────────────────────────────────
 
@@ -309,6 +309,17 @@ function modelML(digits: number[], wts: MLWeights): Vote[] {
                 direction: `MATCHES ${topD}`, confidence: clamp(maxCnt / recent.length * 350) });
     }
 
+    // DIFFERS: if a digit appears rarely in last 100 ticks, vote to avoid it
+    const cntD100 = Array(10).fill(0) as number[];
+    d100.forEach(d => cntD100[d]++);
+    const minCnt = Math.min(...cntD100);
+    const minDig = cntD100.indexOf(minCnt);
+    if (minCnt / d100.length < 0.05) {
+        votes.push({ model: 'ML Classifier', market: 'matches_differs',
+            direction: `DIFFERS ${minDig}`,
+            confidence: clamp((0.10 - minCnt / d100.length) * 600) });
+    }
+
     return votes;
 }
 
@@ -354,6 +365,22 @@ function modelStreak(digits: number[]): Vote[] {
     if (last10.length === 10 && new Set(last10).size >= 9) {
         votes.push({ model: 'Streak/Pattern', market: 'matches_differs',
             direction: `MATCHES ${topDigitOf(d100)}`, confidence: 62 });
+    }
+
+    // DIFFERS: if a digit is absent from the last 15 ticks, vote to avoid it
+    const last15 = digits.slice(-15);
+    if (last15.length >= 15) {
+        const cntL15 = Array(10).fill(0) as number[];
+        last15.forEach(d => cntL15[d]++);
+        const absent = cntL15.map((c, i) => c === 0 ? i : -1).filter(i => i >= 0);
+        if (absent.length > 0) {
+            // among absent digits, pick the one least frequent overall
+            const cntAll = Array(10).fill(0) as number[];
+            d100.forEach(d => cntAll[d]++);
+            const rarest = absent.reduce((best, d) => cntAll[d] < cntAll[best] ? d : best, absent[0]);
+            votes.push({ model: 'Streak/Pattern', market: 'matches_differs',
+                direction: `DIFFERS ${rarest}`, confidence: 66 });
+        }
     }
 
     return votes;
