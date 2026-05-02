@@ -414,6 +414,53 @@
         letter-spacing: -0.01em;
     }
 
+    &__engine-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.6rem 1.1rem;
+        border-bottom: 1px solid rgba(100, 116, 139, 0.1);
+        background: rgba(100, 116, 139, 0.03);
+    }
+    &__engine-label {
+        font-size: 0.76rem;
+        font-weight: 600;
+        color: var(--text-less-prominent, #64748b);
+        letter-spacing: 0.01em;
+    }
+    &__engine-seg {
+        display: flex;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid rgba(100, 116, 139, 0.2);
+        background: rgba(100, 116, 139, 0.06);
+    }
+    &__engine-opt {
+        padding: 5px 16px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        cursor: pointer;
+        border: none;
+        background: transparent;
+        color: var(--text-less-prominent, #64748b);
+        transition: all 0.15s;
+        letter-spacing: 0.01em;
+
+        &--active {
+            background: rgba(100, 116, 139, 0.18);
+            color: var(--text-general, #1e293b);
+        }
+        &--v2 {
+            &.se-modal__engine-opt--v2-active {
+                background: rgba(14, 165, 233, 0.18);
+                color: #0ea5e9;
+            }
+        }
+        &:hover:not(&--active):not(&--v2-active) {
+            background: rgba(100, 116, 139, 0.1);
+        }
+    }
+
     &__close {
         display: flex;
         align-items: center;

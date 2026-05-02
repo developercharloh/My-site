@@ -10,6 +10,10 @@ import {
 import { useStore } from '@/hooks/useStore';
 import { DBOT_TABS } from '@/constants/bot-contents';
 import { botIdFromSignal, fetchAndPatchBot } from '@/utils/bot-patch';
+import { parseXmlV2Config } from '@/utils/xml-v2-parser';
+
+const ENGINE_KEY    = 'free_bots_engine_mode';
+const V2_CONFIG_KEY = 'free_bots_v2_config';
 
 // ─── All 13 volatility symbols ────────────────────────────────────────────────
 
@@ -406,8 +410,11 @@ function SignalSettingsModal({ signal, rank, onClose }: {
         } catch { /* ignore */ }
         return { stake: '0.5', takeProfit: '10', stopLoss: '30', martingale: '2' };
     });
-    const [runState, setRunState] = useState<RunState>('idle');
-    const [errMsg,   setErrMsg]   = useState('');
+    const [runState,   setRunState]   = useState<RunState>('idle');
+    const [errMsg,     setErrMsg]     = useState('');
+    const [engineMode, setEngineMode] = useState<'v1' | 'v2'>(() =>
+        localStorage.getItem(ENGINE_KEY) === 'v2' ? 'v2' : 'v1'
+    );
     const color = MARKET_COLOR[signal.market];
 
     async function handleRun() {
@@ -427,7 +434,7 @@ function SignalSettingsModal({ signal, rank, onClose }: {
             const stopLoss   = parseFloat(cfg.stopLoss)   || 30;
             const martingale = parseFloat(cfg.martingale) || 2;
 
-            // Resolve to the same real XML file used in Free Bots section
+            // Fetch + patch the bot XML with signal's settings
             const botId  = botIdFromSignal(signal);
             const doc    = await fetchAndPatchBot(botId, signal, stake, takeProfit, stopLoss, martingale);
             const xmlStr = new XMLSerializer().serializeToString(doc.documentElement);
@@ -437,16 +444,35 @@ function SignalSettingsModal({ signal, rank, onClose }: {
             Blockly.derivWorkspace.cleanUp();
             Blockly.derivWorkspace.clearUndo();
 
-            // Switch to Bot Builder tab so the user can see the run panel
-            dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
-            onClose();
+            // Persist the chosen engine mode globally so header + run panel stay in sync
+            localStorage.setItem(ENGINE_KEY, engineMode);
+            window.dispatchEvent(new StorageEvent('storage', { key: ENGINE_KEY, newValue: engineMode }));
 
-            // Auto-run via the store — same path the quick-strategy panel uses
-            setTimeout(() => {
-                if (!run_panel.is_running) {
-                    run_panel.onRunButtonClick();
-                }
-            }, 500);
+            if (engineMode === 'v2') {
+                // Parse V2 config from the patched XML and save for the run panel
+                const v2Cfg    = parseXmlV2Config(xmlStr);
+                const v2CfgStr = JSON.stringify(v2Cfg);
+                localStorage.setItem(V2_CONFIG_KEY, v2CfgStr);
+                window.dispatchEvent(new StorageEvent('storage', { key: V2_CONFIG_KEY, newValue: v2CfgStr }));
+
+                dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
+                onClose();
+
+                // Ask the trade-animation to auto-start the V2 engine
+                setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('deriv-v2-autostart'));
+                }, 400);
+            } else {
+                // V1: switch to Bot Builder and auto-run the standard DBot engine
+                dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
+                onClose();
+
+                setTimeout(() => {
+                    if (!(run_panel as any).is_running) {
+                        run_panel.onRunButtonClick();
+                    }
+                }, 500);
+            }
 
         } catch (e: any) {
             setRunState('error');
@@ -483,6 +509,27 @@ function SignalSettingsModal({ signal, rank, onClose }: {
                     <div className='se-modal__info-right'>
                         <span className='se-modal__info-dir' style={{ color }}>{signal.direction}</span>
                         <span className='se-modal__info-meta'>Rank #{rank} | Confidence: {signal.confidence}%</span>
+                    </div>
+                </div>
+
+                {/* Engine mode selector */}
+                <div className='se-modal__engine-row'>
+                    <span className='se-modal__engine-label'>Execute with</span>
+                    <div className='se-modal__engine-seg'>
+                        <button
+                            type='button'
+                            className={`se-modal__engine-opt ${engineMode === 'v1' ? 'se-modal__engine-opt--active' : ''}`}
+                            onClick={() => setEngineMode('v1')}
+                        >
+                            ⚙️ V1
+                        </button>
+                        <button
+                            type='button'
+                            className={`se-modal__engine-opt se-modal__engine-opt--v2 ${engineMode === 'v2' ? 'se-modal__engine-opt--v2-active' : ''}`}
+                            onClick={() => setEngineMode('v2')}
+                        >
+                            ⚡ V2
+                        </button>
                     </div>
                 </div>
 

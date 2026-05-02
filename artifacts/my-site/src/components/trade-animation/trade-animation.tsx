@@ -87,6 +87,29 @@ const TradeAnimation = observer(({ className, should_show_overlay }: TTradeAnima
         setV2Running(false);
     }, []);
 
+    // Switch engine mode at any time — stops the running engine if needed
+    const handleModeSwitch = React.useCallback((newMode: 'v1' | 'v2') => {
+        const switchToV2 = newMode === 'v2';
+        if (switchToV2 === isV2Mode) return;
+        if (!switchToV2 && v2Running) {
+            v2EngineRef.current?.stop();
+            v2EngineRef.current = null;
+            setV2Running(false);
+        }
+        localStorage.setItem(ENGINE_KEY, newMode);
+        window.dispatchEvent(new StorageEvent('storage', { key: ENGINE_KEY, newValue: newMode }));
+        setIsV2Mode(switchToV2);
+    }, [isV2Mode, v2Running]);
+
+    // Auto-start V2 engine when the signal engine dispatches the event
+    React.useEffect(() => {
+        const handler = () => {
+            setTimeout(() => handleV2Start(), 300);
+        };
+        window.addEventListener('deriv-v2-autostart', handler);
+        return () => window.removeEventListener('deriv-v2-autostart', handler);
+    }, [handleV2Start]);
+
     const { is_contract_completed, profit } = summary_card;
     const {
         contract_stage,
@@ -240,6 +263,20 @@ const TradeAnimation = observer(({ className, should_show_overlay }: TTradeAnima
         }
     };
 
+    // ── Shared engine mode toggle (always visible, switchable while running) ────
+    const engineToggle = (
+        <div className='animation__engine-toggle'>
+            <button
+                className={`animation__engine-btn ${!isV2Mode ? 'animation__engine-btn--active' : ''}`}
+                onClick={() => handleModeSwitch('v1')}
+            >⚙️ V1</button>
+            <button
+                className={`animation__engine-btn ${isV2Mode ? 'animation__engine-btn--v2-active' : ''}`}
+                onClick={() => handleModeSwitch('v2')}
+            >⚡ V2</button>
+        </div>
+    );
+
     // ── V2 mode: show ⚡ Run V2 / Stop button, keep animation container ─────────
     if (isV2Mode && v2Config) {
         const v2BtnClass = v2Running ? 'animation__stop-button' : 'animation__run-button';
@@ -261,6 +298,7 @@ const TradeAnimation = observer(({ className, should_show_overlay }: TTradeAnima
                 >
                     {v2Label}
                 </Button>
+                {engineToggle}
                 <div
                     className={classNames('animation__container', className, {
                         'animation--running':   contract_stage > 0,
@@ -337,6 +375,7 @@ const TradeAnimation = observer(({ className, should_show_overlay }: TTradeAnima
                     {button_props.text}
                 </Button>
             )}
+            {engineToggle}
             <div
                 className={classNames('animation__container', className, {
                     'animation--running': contract_stage > 0,

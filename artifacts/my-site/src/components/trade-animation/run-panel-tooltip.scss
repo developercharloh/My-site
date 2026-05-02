@@ -169,3 +169,59 @@
 .animation--disabled {
     opacity: 0.32;
 }
+
+// ── Live engine mode toggle (V1 / V2) shown beside the Run/Stop button ────────
+.animation__engine-toggle {
+    display: flex;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid rgba(100, 116, 139, 0.25);
+    height: 28px;
+    margin-left: 6px;
+    flex-shrink: 0;
+    align-self: center;
+
+    .animation__engine-btn {
+        padding: 0 10px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        cursor: pointer;
+        border: none;
+        background: transparent;
+        color: rgba(100, 116, 139, 0.7);
+        transition: all 0.15s;
+        white-space: nowrap;
+        line-height: 28px;
+
+        &:hover { background: rgba(100, 116, 139, 0.1); color: inherit; }
+
+        &--active {
+            background: rgba(100, 116, 139, 0.15);
+            color: var(--text-general, #1e293b);
+        }
+
+        &--v2-active {
+            background: rgba(14, 165, 233, 0.15);
+            color: #0ea5e9;
+        }
+    }
+}
+
+// Dark-theme adjustment
+.theme--dark .animation__engine-toggle {
+    border-color: rgba(255, 255, 255, 0.18);
+
+    .animation__engine-btn {
+        color: rgba(255, 255, 255, 0.45);
+
+        &--active {
+            background: rgba(255, 255, 255, 0.1);
+            color: #e7eaf3;
+        }
+
+        &--v2-active {
+            background: rgba(14, 165, 233, 0.2);
+            color: #38bdf8;
+        }
+    }
+}
