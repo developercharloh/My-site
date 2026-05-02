@@ -9,13 +9,22 @@ interface V2Stats {
     stake:  number;
 }
 
+interface V2Alert {
+    kind:   'tp' | 'sl';
+    amount: number;
+    profit: number;
+    seq:    number;
+}
+
 interface V2PanelProps {
-    status:       EngineStatus;
-    logs:         EngineLog[];
-    tradeRecords: TradeRecord[];
-    stats:        V2Stats;
-    onStop:       () => void;
-    onClear:      () => void;
+    status:          EngineStatus;
+    logs:            EngineLog[];
+    tradeRecords:    TradeRecord[];
+    stats:           V2Stats;
+    alert?:          V2Alert | null;
+    onStop:          () => void;
+    onClear:         () => void;
+    onDismissAlert?: () => void;
 }
 
 function statusLabel(s: EngineStatus): string {
@@ -61,8 +70,15 @@ function DigitBadge({ digit, label }: { digit: number; label: string }) {
     );
 }
 
-export const V2Panel = React.memo(({ status, logs, tradeRecords, stats, onStop, onClear }: V2PanelProps) => {
+export const V2Panel = React.memo(({ status, logs, tradeRecords, stats, alert, onStop, onClear, onDismissAlert }: V2PanelProps) => {
     const [activeTab, setActiveTab] = React.useState<'log' | 'trades'>('log');
+
+    // Auto-dismiss the TP/SL banner after 8 seconds
+    React.useEffect(() => {
+        if (!alert || !onDismissAlert) return;
+        const id = window.setTimeout(() => onDismissAlert(), 8000);
+        return () => window.clearTimeout(id);
+    }, [alert?.seq, onDismissAlert]);
 
     const isActive = status === 'scanning' || status === 'trading';
 
@@ -78,6 +94,27 @@ export const V2Panel = React.memo(({ status, logs, tradeRecords, stats, onStop, 
 
     return (
         <div className='v2p'>
+            {/* ── TP / SL Alert overlay ────────────────────────── */}
+            {alert && (
+                <div className={`v2p__alert v2p__alert--${alert.kind}`} role='status' aria-live='polite'>
+                    <div className='v2p__alert-icon'>{alert.kind === 'tp' ? '🎯' : '🛑'}</div>
+                    <div className='v2p__alert-body'>
+                        <div className='v2p__alert-title'>
+                            {alert.kind === 'tp' ? 'Take Profit Hit!' : 'Stop Loss Hit!'}
+                        </div>
+                        <div className='v2p__alert-msg'>
+                            {alert.kind === 'tp'
+                                ? <>Target <strong>${alert.amount.toFixed(2)}</strong> reached · P&amp;L <strong>+${alert.profit.toFixed(2)}</strong> · engine stopped.</>
+                                : <>Limit <strong>${alert.amount.toFixed(2)}</strong> reached · P&amp;L <strong>-${Math.abs(alert.profit).toFixed(2)}</strong> · engine stopped.</>
+                            }
+                        </div>
+                    </div>
+                    {onDismissAlert && (
+                        <button className='v2p__alert-close' onClick={onDismissAlert} title='Dismiss'>✕</button>
+                    )}
+                </div>
+            )}
+
             {/* ── Header ───────────────────────────────────────── */}
             <div className='v2p__header'>
                 <span className='v2p__title'>⚡ V2 Engine</span>

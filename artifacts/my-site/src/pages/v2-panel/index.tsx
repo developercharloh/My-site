@@ -5,7 +5,7 @@ import { V2Panel } from '@/components/trade-animation/v2-panel';
 import './v2-panel-page.scss';
 
 const V2PanelTab = observer(() => {
-    const { status, logs, tradeRecords, stats } = v2EngineStore;
+    const { status, logs, tradeRecords, stats, alert } = v2EngineStore;
 
     if (status === 'idle') {
         return (
@@ -27,8 +27,10 @@ const V2PanelTab = observer(() => {
                 logs={logs}
                 tradeRecords={tradeRecords}
                 stats={stats}
+                alert={alert}
                 onStop={() => v2EngineStore.stop()}
                 onClear={() => v2EngineStore.clearAll()}
+                onDismissAlert={() => v2EngineStore.dismissAlert()}
             />
         </div>
     );

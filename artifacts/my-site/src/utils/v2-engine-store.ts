@@ -23,12 +23,21 @@ export interface V2Stats {
     stake:  number;
 }
 
+export interface V2Alert {
+    kind:   'tp' | 'sl';
+    amount: number;
+    profit: number;
+    seq:    number;
+}
+
 class V2EngineStore {
     status:       EngineStatus = 'idle';
     logs:         EngineLog[]  = [];
     tradeRecords: TradeRecord[] = [];
     stats:        V2Stats      = { profit: 0, wins: 0, losses: 0, stake: 0 };
     running:      boolean      = false;
+    alert:        V2Alert | null = null;
+    private alertSeq: number   = 0;
 
     private engine: DerivV2Engine | null = null;
 
@@ -53,6 +62,7 @@ class V2EngineStore {
         engine.onProfit = (p, w, l, s) => runInAction(() => this.setStats(p, w, l, s));
         engine.onStatus = status => runInAction(() => this.setStatus(status));
         engine.onTrade  = record => runInAction(() => this.pushTrade(record));
+        engine.onAlert  = a      => runInAction(() => this.setAlert(a.kind, a.amount, a.profit));
 
         this.engine = engine;
         engine.start();
@@ -85,6 +95,14 @@ class V2EngineStore {
         this.stats = { profit, wins, losses, stake };
     }
 
+    setAlert(kind: 'tp' | 'sl', amount: number, profit: number): void {
+        this.alert = { kind, amount, profit, seq: ++this.alertSeq };
+    }
+
+    dismissAlert(): void {
+        this.alert = null;
+    }
+
     clearLogs(): void {
         this.logs = [];
     }
@@ -100,6 +118,7 @@ class V2EngineStore {
         this.tradeRecords = [];
         this.stats        = { profit: 0, wins: 0, losses: 0, stake: initialStake };
         this.running      = false;
+        this.alert        = null;
     }
 }
 

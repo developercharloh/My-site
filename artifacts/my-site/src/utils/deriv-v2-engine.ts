@@ -133,6 +133,7 @@ export class DerivV2Engine {
     public onProfit: (profit: number, wins: number, losses: number, stake: number) => void = () => {};
     public onStatus: (status: EngineStatus)                                  => void = () => {};
     public onTrade:  (record: TradeRecord)                                   => void = () => {};
+    public onAlert:  (alert: { kind: 'tp' | 'sl'; amount: number; profit: number }) => void = () => {};
 
     constructor(config: V2BotConfig) {
         this.config       = config;
@@ -505,6 +506,7 @@ export class DerivV2Engine {
             if (this.totalProfit >= this.config.takeProfit) {
                 this.addLog(`Take Profit $${this.config.takeProfit.toFixed(2)} reached — stopping`, 'system');
                 this.onProfit(this.totalProfit, this.wins, this.losses, this.currentStake);
+                this.onAlert({ kind: 'tp', amount: this.config.takeProfit, profit: this.totalProfit });
                 this.stop(); return;
             }
         } else {
@@ -516,6 +518,7 @@ export class DerivV2Engine {
             if (this.totalProfit <= -this.config.stopLoss) {
                 this.addLog(`Stop Loss $${this.config.stopLoss.toFixed(2)} reached — stopping`, 'error');
                 this.onProfit(this.totalProfit, this.wins, this.losses, this.currentStake);
+                this.onAlert({ kind: 'sl', amount: this.config.stopLoss, profit: this.totalProfit });
                 this.stop(); return;
             }
             if (this.lossCount >= this.config.martingaleLevel) {
