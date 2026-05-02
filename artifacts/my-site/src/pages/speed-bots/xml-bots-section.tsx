@@ -162,6 +162,14 @@ const XmlBotsSection: React.FC = observer(() => {
         return () => window.removeEventListener('storage', handler);
     }, []);
 
+    // Toggle engine mode and broadcast to the rest of the app
+    const toggleEngine = () => {
+        const next = engineMode === 'v2' ? 'v1' : 'v2';
+        setEngineMode(next);
+        try { localStorage.setItem(ENGINE_KEY, next); } catch { /* ignore */ }
+        window.dispatchEvent(new StorageEvent('storage', { key: ENGINE_KEY, newValue: next }));
+    };
+
     const loadBot = async (bot: XmlBotEntry) => {
         if (!store) return;
         setLoadStatus(prev => ({ ...prev, [bot.id]: 'loading' }));
@@ -201,13 +209,19 @@ const XmlBotsSection: React.FC = observer(() => {
         <div className='sb-xml-section'>
             <div className='sb-xml-section__header'>
                 <span className='sb-xml-section__title'>📂 XML Bots</span>
-                <span className={`sb-xml-section__badge sb-xml-section__badge--${engineMode}`}>
+                <button
+                    type='button'
+                    className={`sb-xml-section__badge sb-xml-section__badge--${engineMode} sb-xml-section__badge--toggle`}
+                    onClick={toggleEngine}
+                    title={`Click to switch to ${engineMode === 'v2' ? 'V1' : 'V2'} engine`}
+                >
                     {engineMode === 'v2' ? '⚡ V2 Mode' : '⚙️ V1 Mode'}
-                </span>
+                    <span className='sb-xml-section__badge-swap'>⇄ tap to switch</span>
+                </button>
                 <span className='sb-xml-section__hint'>
                     {engineMode === 'v2'
                         ? 'Bots load into Bot Builder and run with the V2 engine — all transactions appear in the run panel.'
-                        : 'Bots load into the standard DBot Bot Builder. Switch to V2 in the header for faster execution.'}
+                        : 'Bots load into the standard DBot Bot Builder. Tap the badge above to switch to V2 for faster execution.'}
                 </span>
             </div>
 
