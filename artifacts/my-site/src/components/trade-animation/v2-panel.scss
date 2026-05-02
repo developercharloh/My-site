@@ -1,6 +1,6 @@
 // ── V2 Engine Panel ────────────────────────────────────────────────────────────
 // Inline component — fills whatever container it is placed in.
-// Used inside the dedicated "V2 Panel" tab page (v2pt wrapper sets the height).
+// Used inside the dedicated "V2 Panel" tab page.
 
 .v2p {
     display: flex;
@@ -115,6 +115,48 @@
         &--neg { color: #ef4444; }
     }
 
+    // ── Tab bar ──────────────────────────────────────────────────
+    &__tabs {
+        display: flex;
+        border-bottom: 1px solid var(--general-section-1, #e9eff0);
+        flex-shrink: 0;
+        background: var(--general-main-1, #f8fafc);
+    }
+
+    &__tab {
+        flex: 1;
+        padding: 8px 12px;
+        font-size: 0.76rem;
+        font-weight: 600;
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        cursor: pointer;
+        color: var(--text-less-prominent, #64748b);
+        transition: color 0.15s, border-color 0.15s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+
+        &:hover { color: #0ea5e9; }
+
+        &--active {
+            color: #0ea5e9;
+            border-bottom-color: #0ea5e9;
+            background: rgba(14, 165, 233, 0.06);
+        }
+    }
+
+    &__tab-count {
+        background: #0ea5e9;
+        color: #fff;
+        border-radius: 8px;
+        padding: 1px 6px;
+        font-size: 0.65rem;
+        font-weight: 700;
+    }
+
     // ── Log ──────────────────────────────────────────────────────
     &__log-wrap {
         flex: 1;
@@ -162,6 +204,120 @@
         word-break: break-word;
         font-size: 0.78rem;
     }
+
+    // ── Trade / Journal rows ──────────────────────────────────────
+    &__trade-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 8px 14px;
+        border-bottom: 1px solid var(--general-section-1, rgba(0,0,0,0.05));
+
+        &:hover { background: rgba(100, 116, 139, 0.05); }
+
+        &--win  { border-left: 3px solid #10b981; }
+        &--loss { border-left: 3px solid #ef4444; }
+    }
+
+    &__trade-result {
+        font-size: 1.1rem;
+        flex-shrink: 0;
+        margin-top: 2px;
+
+        &--win  { filter: none; }
+        &--loss { filter: none; }
+    }
+
+    &__trade-body {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    &__trade-row1 {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    &__trade-contract {
+        font-weight: 700;
+        font-size: 0.82rem;
+        color: var(--text-general, #1e293b);
+        letter-spacing: 0.02em;
+    }
+
+    &__trade-profit {
+        font-weight: 700;
+        font-size: 0.85rem;
+    }
+
+    &__trade-row2 {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex-wrap: wrap;
+    }
+
+    &__trade-arrow {
+        color: #94a3b8;
+        font-size: 0.7rem;
+    }
+
+    &__trade-stake {
+        margin-left: auto;
+        font-size: 0.72rem;
+        color: #64748b;
+        font-weight: 600;
+    }
+
+    &__trade-row3 {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    &__trade-time {
+        font-size: 0.68rem;
+        color: #94a3b8;
+        font-variant-numeric: tabular-nums;
+    }
+
+    &__trade-pnl {
+        font-size: 0.72rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+    }
+
+    // ── Digit badge ───────────────────────────────────────────────
+    &__digit {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1px;
+    }
+
+    &__digit-label {
+        font-size: 0.55rem;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        line-height: 1;
+    }
+
+    &__digit-val {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        font-size: 0.7rem;
+        font-weight: 800;
+        color: #fff;
+        line-height: 1;
+    }
 }
 
 // ── Dark theme ────────────────────────────────────────────────────────────────
@@ -169,21 +325,21 @@
     .v2p {
         background: #1a1f2e;
 
-        &__header { background: #141824; border-bottom-color: rgba(255,255,255,0.08); }
-        &__title  { color: #e2e8f0; }
+        &__header    { background: #141824; border-bottom-color: rgba(255,255,255,0.08); }
+        &__title     { color: #e2e8f0; }
+        &__tabs      { background: #141824; border-bottom-color: rgba(255,255,255,0.08); }
+        &__tab       { color: #64748b; &--active { color: #0ea5e9; background: rgba(14,165,233,0.1); } }
 
-        &__stat       { border-right-color: rgba(255,255,255,0.08); }
+        &__stat      { border-right-color: rgba(255,255,255,0.08); }
         &__stat-label { color: #64748b; }
-        &__stat-val   { color: #e2e8f0; }
+        &__stat-val  { color: #e2e8f0; }
+        &__stats     { border-bottom-color: rgba(255,255,255,0.08); }
 
-        &__stats  { border-bottom-color: rgba(255,255,255,0.08); }
+        &__log-row   { border-bottom-color: rgba(255,255,255,0.05); }
+        &__log-time  { color: #475569; }
+        &__log-msg   { color: #cbd5e1; }
 
-        &__log-row {
-            border-bottom-color: rgba(255,255,255,0.05);
-            &--scan { opacity: 0.5; }
-        }
-
-        &__log-time { color: #475569; }
-        &__log-msg  { color: #cbd5e1; }
+        &__trade-row       { border-bottom-color: rgba(255,255,255,0.05); }
+        &__trade-contract  { color: #e2e8f0; }
     }
 }

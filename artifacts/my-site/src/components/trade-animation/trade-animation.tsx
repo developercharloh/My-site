@@ -11,7 +11,7 @@ import { LabelPairedPlayLgFillIcon, LabelPairedSquareLgFillIcon } from '@deriv/q
 import { Localize, localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 import { rudderStackSendRunBotEvent } from '../../analytics/rudderstack-common-events';
-import { DerivV2Engine, type V2BotConfig } from '@/utils/deriv-v2-engine';
+import { type V2BotConfig } from '@/utils/deriv-v2-engine';
 import { v2EngineStore } from '@/utils/v2-engine-store';
 import Button from '../shared_ui/button';
 import Tooltip from '../shared_ui/tooltip/tooltip';
@@ -43,11 +43,12 @@ const TradeAnimation = observer(({ className, should_show_overlay }: TTradeAnima
     const [isV2Mode, setIsV2Mode] = React.useState<boolean>(
         () => localStorage.getItem(ENGINE_KEY) === 'v2'
     );
-    const [v2Config,  setV2Config]  = React.useState<V2BotConfig | null>(readV2Config);
-    const [v2Running, setV2Running] = React.useState(false);
-    const v2EngineRef = React.useRef<DerivV2Engine | null>(null);
+    const [v2Config, setV2Config] = React.useState<V2BotConfig | null>(readV2Config);
 
-    // Listen for mode and config changes from free-bots page
+    // v2Running is derived from the shared store (reactive via observer)
+    const v2Running = v2EngineStore.running;
+
+    // Listen for mode and config changes from free-bots / signal-engine pages
     React.useEffect(() => {
         const handler = (e: StorageEvent) => {
             if (e.key === ENGINE_KEY) setIsV2Mode(e.newValue === 'v2');
@@ -59,76 +60,31 @@ const TradeAnimation = observer(({ className, should_show_overlay }: TTradeAnima
         return () => window.removeEventListener('storage', handler);
     }, []);
 
-    // Clean up V2 engine on unmount
-    React.useEffect(() => {
-        return () => { v2EngineRef.current?.stop(); };
-    }, []);
-
     const handleV2Start = React.useCallback(() => {
         const cfg = readV2Config();
         if (!cfg) return;
-
-        // Inject the live account currency so proposals use the right currency
         const cfgWithCurrency = { ...cfg, currency: client.currency || 'USD' };
-
-        // Reset the shared store for a fresh run
-        v2EngineStore.reset(cfg.initialStake);
-
-        const engine = new DerivV2Engine(cfgWithCurrency);
-        engine.bindStores({
+        v2EngineStore.start(cfgWithCurrency, {
             run_panel:    run_panel as any,
             transactions: (store as any).transactions,
             journal:      (store as any).journal,
             summary_card: summary_card as any,
             setRunId:     (id: string) => runInAction(() => { (run_panel as any).run_id = id; }),
         });
-
-        // Wire callbacks to the shared MobX store (observed by V2 Panel tab)
-        engine.onLog    = log  => v2EngineStore.pushLog(log);
-        engine.onProfit = (profit, wins, losses, stake) =>
-            v2EngineStore.setStats(profit, wins, losses, stake);
-        engine.onStatus = status => {
-            v2EngineStore.setStatus(status);
-            if (status === 'stopped' || status === 'error') setV2Running(false);
-        };
-
-        v2EngineRef.current = engine;
-        v2EngineStore.bindStop(handleV2Stop);
-        engine.start();
-        setV2Running(true);
-
-        // Navigate to the dedicated V2 Panel tab so the user sees live output
         dashboard.setActiveTab(DBOT_TABS.V2_PANEL);
-    }, [run_panel, store, summary_card, dashboard]);
-
-    const handleV2Stop = React.useCallback(() => {
-        v2EngineRef.current?.stop();
-        v2EngineRef.current = null;
-        setV2Running(false);
-    }, []);
+    }, [run_panel, store, summary_card, dashboard, client]);
 
     // Switch engine mode at any time — stops the running engine if needed
     const handleModeSwitch = React.useCallback((newMode: 'v1' | 'v2') => {
         const switchToV2 = newMode === 'v2';
         if (switchToV2 === isV2Mode) return;
-        if (!switchToV2 && v2Running) {
-            v2EngineRef.current?.stop();
-            v2EngineRef.current = null;
-            setV2Running(false);
+        if (!switchToV2 && v2EngineStore.running) {
+            v2EngineStore.stop();
         }
         localStorage.setItem(ENGINE_KEY, newMode);
         window.dispatchEvent(new StorageEvent('storage', { key: ENGINE_KEY, newValue: newMode }));
         setIsV2Mode(switchToV2);
-    }, [isV2Mode, v2Running]);
-
-    // Auto-start V2 engine when the signal engine dispatches the event
-    React.useEffect(() => {
-        const handler = () => {
-            setTimeout(() => handleV2Start(), 300);
-        };
-        window.addEventListener('deriv-v2-autostart', handler);
-        return () => window.removeEventListener('deriv-v2-autostart', handler);
-    }, [handleV2Start]);
+    }, [isV2Mode]);
 
     const { is_contract_completed, profit } = summary_card;
     const {
@@ -315,7 +271,7 @@ const TradeAnimation = observer(({ className, should_show_overlay }: TTradeAnima
                     className={v2BtnClass}
                     id={v2BtnId}
                     icon={v2Icon}
-                    onClick={v2Running ? handleV2Stop : handleV2Start}
+                    onClick={v2Running ? () => v2EngineStore.stop() : handleV2Start}
                     has_effect
                     primary
                 >

@@ -1,8 +1,10 @@
 import React, { lazy, Suspense, useEffect, useState } from 'react';
 import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
+import { runInAction } from 'mobx';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ChunkLoader from '@/components/loader/chunk-loader';
+import { v2EngineStore } from '@/utils/v2-engine-store';
 import { generateOAuthURL } from '@/components/shared';
 import DesktopWrapper from '@/components/shared_ui/desktop-wrapper';
 import Dialog from '@/components/shared_ui/dialog';
@@ -127,6 +129,34 @@ const AppWrapper = observer(() => {
             }
         }
     }, [clear, connectionStatus, setWebSocketState, stopBot]);
+
+    // ── Global V2 autostart listener ──────────────────────────────────────────
+    // Placed here (always mounted) so the Signal Engine tab can fire the event
+    // even when RunPanel / TradeAnimation is hidden on mobile.
+    const store = useStore();
+    React.useEffect(() => {
+        const handler = () => {
+            setTimeout(() => {
+                try {
+                    const raw = localStorage.getItem('free_bots_v2_config');
+                    if (!raw) return;
+                    const cfg = JSON.parse(raw);
+                    const currency = (store as any).client?.currency || 'USD';
+                    const cfgWithCurrency = { ...cfg, currency };
+                    v2EngineStore.start(cfgWithCurrency, {
+                        run_panel:    run_panel as any,
+                        transactions: (store as any).transactions,
+                        journal:      (store as any).journal,
+                        summary_card: summary_card as any,
+                        setRunId:     (id: string) => runInAction(() => { (run_panel as any).run_id = id; }),
+                    });
+                    dashboard.setActiveTab(DBOT_TABS.V2_PANEL);
+                } catch { /* ignore parse errors */ }
+            }, 300);
+        };
+        window.addEventListener('deriv-v2-autostart', handler);
+        return () => window.removeEventListener('deriv-v2-autostart', handler);
+    }, [dashboard, run_panel, summary_card, store]);
 
     // Update tab shadows height to match bot builder height
     const updateTabShadowsHeight = () => {

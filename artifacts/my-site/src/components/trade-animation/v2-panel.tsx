@@ -1,5 +1,5 @@
 import React from 'react';
-import type { EngineLog, EngineStatus } from '@/utils/deriv-v2-engine';
+import type { EngineLog, EngineStatus, TradeRecord } from '@/utils/deriv-v2-engine';
 import './v2-panel.scss';
 
 interface V2Stats {
@@ -10,11 +10,12 @@ interface V2Stats {
 }
 
 interface V2PanelProps {
-    status:  EngineStatus;
-    logs:    EngineLog[];
-    stats:   V2Stats;
-    onStop:  () => void;
-    onClear: () => void;
+    status:       EngineStatus;
+    logs:         EngineLog[];
+    tradeRecords: TradeRecord[];
+    stats:        V2Stats;
+    onStop:       () => void;
+    onClear:      () => void;
 }
 
 function statusLabel(s: EngineStatus): string {
@@ -24,7 +25,7 @@ function statusLabel(s: EngineStatus): string {
         case 'stopped':    return '■ Stopped';
         case 'error':      return '✖ Error';
         case 'connecting': return '⟳ Connecting…';
-        default:           return '—';
+        default:           return '— Ready';
     }
 }
 
@@ -45,22 +46,35 @@ const LOG_TYPE_CLASS: Record<string, string> = {
     system: 'v2p__log--system',
 };
 
-export const V2Panel = React.memo(({ status, logs, stats, onStop, onClear }: V2PanelProps) => {
+const D_COLORS = [
+    '#6366f1','#8b5cf6','#0ea5e9','#10b981',
+    '#eab308','#f97316','#ef4444','#ec4899','#14b8a6','#84cc16',
+];
 
-    const isActive  = status === 'scanning' || status === 'trading';
+function DigitBadge({ digit, label }: { digit: number; label: string }) {
+    const color = D_COLORS[digit] ?? '#64748b';
+    return (
+        <div className='v2p__digit' title={label}>
+            <span className='v2p__digit-label'>{label}</span>
+            <span className='v2p__digit-val' style={{ background: color }}>{digit}</span>
+        </div>
+    );
+}
+
+export const V2Panel = React.memo(({ status, logs, tradeRecords, stats, onStop, onClear }: V2PanelProps) => {
+    const [activeTab, setActiveTab] = React.useState<'log' | 'trades'>('log');
+
+    const isActive = status === 'scanning' || status === 'trading';
 
     const winRate = stats.wins + stats.losses > 0
         ? Math.round((stats.wins / (stats.wins + stats.losses)) * 100)
         : 0;
 
-    const pnlSign   = stats.profit >= 0 ? '+' : '';
-    const pnlStr    = `${pnlSign}$${Math.abs(stats.profit).toFixed(2)}`;
-    const pnlClass  = stats.profit > 0 ? 'v2p__stat-val--pos'
-                    : stats.profit < 0 ? 'v2p__stat-val--neg'
-                    : '';
-
-    // Fix #3: no scrollIntoView needed — flex-direction:column-reverse keeps
-    //         newest logs naturally at the visual top without any scroll.
+    const pnlSign  = stats.profit >= 0 ? '+' : '';
+    const pnlStr   = `${pnlSign}$${Math.abs(stats.profit).toFixed(2)}`;
+    const pnlClass = stats.profit > 0 ? 'v2p__stat-val--pos'
+                   : stats.profit < 0 ? 'v2p__stat-val--neg'
+                   : '';
 
     return (
         <div className='v2p'>
@@ -71,18 +85,14 @@ export const V2Panel = React.memo(({ status, logs, stats, onStop, onClear }: V2P
                     {statusLabel(status)}
                 </span>
                 <div className='v2p__header-actions'>
-                    <button className='v2p__btn-clear' onClick={onClear} title='Clear log'>
-                        🗑
-                    </button>
+                    <button className='v2p__btn-clear' onClick={onClear} title='Clear log'>🗑</button>
                     {isActive && (
-                        <button className='v2p__btn-stop' onClick={onStop}>
-                            ■ Stop
-                        </button>
+                        <button className='v2p__btn-stop' onClick={onStop}>■ Stop</button>
                     )}
                 </div>
             </div>
 
-            {/* ── Stats ────────────────────────────────────────── */}
+            {/* ── Stats row ────────────────────────────────────── */}
             <div className='v2p__stats'>
                 <div className='v2p__stat'>
                     <span className='v2p__stat-label'>P&amp;L</span>
@@ -106,19 +116,88 @@ export const V2Panel = React.memo(({ status, logs, stats, onStop, onClear }: V2P
                 </div>
             </div>
 
-            {/* ── Log ──────────────────────────────────────────── */}
-            {/* Fix #6: use log.seq (stable unique counter) as key, not array index */}
-            <div className='v2p__log-wrap'>
-                {logs.length === 0 && (
-                    <div className='v2p__log-empty'>No trades yet…</div>
-                )}
-                {logs.map(log => (
-                    <div key={log.seq} className={`v2p__log-row ${LOG_TYPE_CLASS[log.type] ?? ''}`}>
-                        <span className='v2p__log-time'>{log.time}</span>
-                        <span className='v2p__log-msg'>{log.message}</span>
-                    </div>
-                ))}
+            {/* ── Tab bar ──────────────────────────────────────── */}
+            <div className='v2p__tabs'>
+                <button
+                    className={`v2p__tab ${activeTab === 'log' ? 'v2p__tab--active' : ''}`}
+                    onClick={() => setActiveTab('log')}
+                >
+                    📋 Log
+                </button>
+                <button
+                    className={`v2p__tab ${activeTab === 'trades' ? 'v2p__tab--active' : ''}`}
+                    onClick={() => setActiveTab('trades')}
+                >
+                    📊 Trades {tradeRecords.length > 0 && <span className='v2p__tab-count'>{tradeRecords.length}</span>}
+                </button>
             </div>
+
+            {/* ── Log view ──────────────────────────────────────── */}
+            {activeTab === 'log' && (
+                <div className='v2p__log-wrap'>
+                    {logs.length === 0 && (
+                        <div className='v2p__log-empty'>No activity yet…</div>
+                    )}
+                    {logs.map(log => (
+                        <div key={log.seq} className={`v2p__log-row ${LOG_TYPE_CLASS[log.type] ?? ''}`}>
+                            <span className='v2p__log-time'>{log.time}</span>
+                            <span className='v2p__log-msg'>{log.message}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* ── Trades / Journal view ─────────────────────────── */}
+            {activeTab === 'trades' && (
+                <div className='v2p__log-wrap'>
+                    {tradeRecords.length === 0 && (
+                        <div className='v2p__log-empty'>No trades settled yet…</div>
+                    )}
+                    {tradeRecords.map(r => {
+                        const pnl      = r.totalPnl;
+                        const pnlColor = pnl >= 0 ? '#10b981' : '#ef4444';
+                        const rowClass = r.isWin ? 'v2p__trade--win' : 'v2p__trade--loss';
+                        return (
+                            <div key={r.seq} className={`v2p__trade-row ${rowClass}`}>
+                                {/* Result badge */}
+                                <div className={`v2p__trade-result ${r.isWin ? 'v2p__trade-result--win' : 'v2p__trade-result--loss'}`}>
+                                    {r.isWin ? '✅' : '❌'}
+                                </div>
+
+                                {/* Main info */}
+                                <div className='v2p__trade-body'>
+                                    <div className='v2p__trade-row1'>
+                                        <span className='v2p__trade-contract'>{r.contractLabel}</span>
+                                        <span className='v2p__trade-profit'
+                                            style={{ color: r.isWin ? '#10b981' : '#ef4444' }}>
+                                            {r.isWin ? '+' : ''}{r.profit.toFixed(2)}
+                                        </span>
+                                    </div>
+                                    <div className='v2p__trade-row2'>
+                                        {/* Digit info */}
+                                        <DigitBadge digit={r.entryPoint}  label='entry' />
+                                        <span className='v2p__trade-arrow'>→</span>
+                                        <DigitBadge digit={r.triggerDigit} label='trigger' />
+                                        {r.exitDigit !== null && (
+                                            <>
+                                                <span className='v2p__trade-arrow'>→</span>
+                                                <DigitBadge digit={r.exitDigit} label='exit' />
+                                            </>
+                                        )}
+                                        <span className='v2p__trade-stake'>${ r.stake.toFixed(2)}</span>
+                                    </div>
+                                    <div className='v2p__trade-row3'>
+                                        <span className='v2p__trade-time'>{r.time}</span>
+                                        <span className='v2p__trade-pnl' style={{ color: pnlColor }}>
+                                            P&amp;L {pnl >= 0 ? '+' : ''}{pnl.toFixed(2)}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 });

@@ -70,7 +70,20 @@ export interface V2BoundStores {
     setRunId: (id: string) => void;
 }
 
-interface OpenContract { contractId: string; stake: number; subId: string | null; }
+export interface TradeRecord {
+    seq:           number;
+    time:          string;
+    contractLabel: string;     // human-readable: "OVER 5", "MATCH 3", "EVEN"
+    entryPoint:    number;     // digit the engine scans for to start buying
+    triggerDigit:  number;     // digit when this particular buy was placed
+    exitDigit:     number | null; // last digit of the exit tick
+    stake:         number;
+    profit:        number;
+    totalPnl:      number;     // cumulative P&L after this trade settles
+    isWin:         boolean;
+}
+
+interface OpenContract { contractId: string; stake: number; subId: string | null; triggerDigit: number; }
 interface ReadyProposal { id: string; price: number; }
 
 // ─── Engine ───────────────────────────────────────────────────────────────────
@@ -79,48 +92,47 @@ export class DerivV2Engine {
     private config:  V2BotConfig;
     private stores:  V2BoundStores | null = null;
 
-    // log sequence counter — gives each log entry a stable unique key
-    private logSeq: number = 0;
+    // log / trade sequence counters
+    private logSeq:   number = 0;
+    private tradeSeq: number = 0;
 
     // req namespace
-    private reqBase:    number                  = (Math.floor(Date.now() / 1000) % 50000) * 1000;
-    private reqCounter: number                  = 0;
-    private myReqIds:   Map<number, string>     = new Map(); // reqId → type hint
+    private reqBase:    number              = (Math.floor(Date.now() / 1000) % 50000) * 1000;
+    private reqCounter: number              = 0;
+    private myReqIds:   Map<number, string> = new Map(); // reqId → type hint
 
     private msgSub:    { unsubscribe: () => void } | null = null;
     private tickSubId: string | null = null;
 
     // ── Trading state ─────────────────────────────────────────────────────────
-    private isRunning:    boolean = false;
-    private chainActive:  boolean = false;  // true once entry digit first seen
-    private currentStake: number;
-    private lossCount:    number  = 1;
-    private totalProfit:  number  = 0;
-    private wins:         number  = 0;
-    private losses:       number  = 0;
+    private isRunning:     boolean = false;
+    private chainActive:   boolean = false;
+    private lastTickDigit: number  = 0;
+    private currentStake:  number;
+    private lossCount:     number  = 1;
+    private totalProfit:   number  = 0;
+    private wins:          number  = 0;
+    private losses:        number  = 0;
 
     // ── Proposal pre-fetch pipeline ───────────────────────────────────────────
-    // One proposal is always being pre-fetched so it is ready when the next tick
-    // arrives. A tick that finds no ready proposal sets `tickWaiting = true` and
-    // buys as soon as the proposal lands.
     private readyProposal:    ReadyProposal | null = null;
     private proposalInflight: boolean              = false;
-    private tickWaiting:      boolean              = false; // tick arrived, no proposal yet
+    private tickWaiting:      boolean              = false;
 
     // ── Buy serialisation ─────────────────────────────────────────────────────
-    // Only one buy request on the wire at a time.
     private buyInflight:    boolean = false;
     private lastBuyMs:      number  = 0;
-    private readonly MIN_BUY_GAP = 100; // ms — avoids burst rate-limit
+    private readonly MIN_BUY_GAP = 100;
 
     // ── Open contract tracking ────────────────────────────────────────────────
-    private openContracts:     Map<string, OpenContract> = new Map();
-    private pocReqToContract:  Map<number,  string>      = new Map();
+    private openContracts:    Map<string, OpenContract> = new Map();
+    private pocReqToContract: Map<number,  string>      = new Map();
 
     // Callbacks
-    public onLog:    (log: EngineLog)                               => void = () => {};
+    public onLog:    (log: EngineLog)                                        => void = () => {};
     public onProfit: (profit: number, wins: number, losses: number, stake: number) => void = () => {};
-    public onStatus: (status: EngineStatus)                         => void = () => {};
+    public onStatus: (status: EngineStatus)                                  => void = () => {};
+    public onTrade:  (record: TradeRecord)                                   => void = () => {};
 
     constructor(config: V2BotConfig) {
         this.config       = config;
@@ -145,6 +157,7 @@ export class DerivV2Engine {
 
         this.isRunning         = true;
         this.chainActive       = false;
+        this.lastTickDigit     = 0;
         this.readyProposal     = null;
         this.proposalInflight  = false;
         this.tickWaiting       = false;
@@ -155,6 +168,7 @@ export class DerivV2Engine {
         this.totalProfit       = 0;
         this.wins              = 0;
         this.losses            = 0;
+        this.tradeSeq          = 0;
         this.tickSubId         = null;
         this.myReqIds.clear();
         this.openContracts.clear();
@@ -177,7 +191,7 @@ export class DerivV2Engine {
 
         this.onStatus('scanning');
         this.addLog(
-            `⚡ V2 Engine ready — every tick will trigger a buy once entry point ${this.config.entryPoint} is hit`,
+            `⚡ V2 Engine ready — scanning for entry digit ${this.config.entryPoint} on ${this.config.symbol}`,
             'system'
         );
         this.subscribeTicks();
@@ -244,14 +258,12 @@ export class DerivV2Engine {
 
             if (msg.msg_type === 'proposal') {
                 this.proposalInflight = false;
-                // Retry proposal fetch — a tick may be waiting on it
                 setTimeout(() => this.fetchProposal(), 200);
             }
             if (msg.msg_type === 'buy') {
                 this.buyInflight   = false;
-                this.readyProposal = null; // proposal was spent; need a fresh one
+                this.readyProposal = null;
                 this.addLog('Buy rejected — fetching new proposal', 'system');
-                // Fetch a fresh proposal; if a tick is still waiting it will buy
                 this.fetchProposal();
             }
             return;
@@ -284,38 +296,29 @@ export class DerivV2Engine {
     private handleTick(tick: { quote: number } | undefined): void {
         if (!tick) return;
         const digit = this.lastDigit(tick.quote);
+        this.lastTickDigit = digit;
 
         if (!this.chainActive) {
-            // ── Scanning: wait for entry digit ───────────────────────────────
             this.addLog(`Digit: ${digit}  |  Waiting for entry: ${this.config.entryPoint}`, 'scan');
             if (digit === this.config.entryPoint) {
                 this.chainActive = true;
                 this.addLog(`Entry ${digit} hit — ⚡ buying on every tick from now`, 'info');
                 this.onStatus('trading');
-                // Pre-fetch first proposal, then trade on this tick
                 this.tradeOnTick();
             }
             return;
         }
 
-        // ── Trading: EVERY tick fires a buy — no exceptions ──────────────────
         this.tradeOnTick();
     }
 
-    /**
-     * Called on every tick once trading has started.
-     * If a proposal is ready → buy immediately.
-     * If not → mark tickWaiting; the buy will fire the moment the proposal lands.
-     */
     private tradeOnTick(): void {
         if (!this.isRunning) return;
 
         if (this.readyProposal && !this.buyInflight) {
             this.executeBuy(this.readyProposal);
         } else {
-            // Proposal not ready or buy in-flight — mark that a tick is pending
             this.tickWaiting = true;
-            // Ensure a proposal fetch is underway
             if (!this.proposalInflight && !this.readyProposal) {
                 this.fetchProposal();
             }
@@ -363,12 +366,10 @@ export class DerivV2Engine {
             price: parseFloat(proposal.ask_price ?? this.currentStake),
         };
 
-        // If a tick arrived while we were fetching — buy immediately now
         if (this.tickWaiting && !this.buyInflight) {
             this.tickWaiting = false;
             this.executeBuy(ready);
         } else {
-            // Store for the next tick
             this.readyProposal = ready;
         }
     }
@@ -381,10 +382,7 @@ export class DerivV2Engine {
         const now  = Date.now();
         const gap  = this.MIN_BUY_GAP - (now - this.lastBuyMs);
         if (gap > 0) {
-            // Tiny rate-limit guard — retry after the gap
-            setTimeout(() => {
-                if (this.isRunning) this.tradeOnTick();
-            }, gap);
+            setTimeout(() => { if (this.isRunning) this.tradeOnTick(); }, gap);
             return;
         }
 
@@ -393,10 +391,10 @@ export class DerivV2Engine {
         this.lastBuyMs     = now;
         this.tickWaiting   = false;
 
-        if (this.stores) this.stores.run_panel.setContractStage(3); // PURCHASE_SENT
+        if (this.stores) this.stores.run_panel.setContractStage(3);
 
         this.addLog(
-            `⚡ Tick-buy  $${this.currentStake.toFixed(2)}  (${this.openContracts.size} open)`,
+            `⚡ Buy  $${this.currentStake.toFixed(2)}  digit:${this.lastTickDigit}  entry:${this.config.entryPoint}  (${this.openContracts.size} open)`,
             'info'
         );
         this.send({ buy: p.id, price: p.price }, 'buy');
@@ -413,7 +411,12 @@ export class DerivV2Engine {
         }
 
         const contractId = String(buy.contract_id);
-        this.openContracts.set(contractId, { contractId, stake: this.currentStake, subId: null });
+        this.openContracts.set(contractId, {
+            contractId,
+            stake:        this.currentStake,
+            subId:        null,
+            triggerDigit: this.lastTickDigit,
+        });
 
         if (this.stores) {
             this.stores.run_panel.setContractStage(4);
@@ -426,7 +429,6 @@ export class DerivV2Engine {
         );
         this.pocReqToContract.set(pocReqId, contractId);
 
-        // Pre-fetch the next proposal immediately so it is ready for the next tick
         this.fetchProposal();
     }
 
@@ -445,9 +447,8 @@ export class DerivV2Engine {
         const rec = this.openContracts.get(contractId);
         if (rec && subId && !rec.subId) rec.subId = subId;
 
-        if (!poc.is_sold) return; // not yet settled
+        if (!poc.is_sold) return;
 
-        // Clean up
         const effSubId = subId ?? rec?.subId ?? null;
         if (effSubId) this.rawSend({ forget: effSubId });
         this.openContracts.delete(contractId);
@@ -455,6 +456,27 @@ export class DerivV2Engine {
         const profit = parseFloat(poc.profit ?? '0');
         const isWin  = poc.status === 'won';
         this.totalProfit += profit;
+
+        // Extract exit digit from the exit tick display value
+        const exitTickStr  = poc.exit_tick_display_value as string | undefined;
+        const exitDigit    = exitTickStr ? this.lastDigit(parseFloat(exitTickStr)) : null;
+        const triggerDigit = rec?.triggerDigit ?? 0;
+        const tradeStake   = rec?.stake ?? this.currentStake;
+
+        // Emit a structured trade record for the journal
+        const record: TradeRecord = {
+            seq:           ++this.tradeSeq,
+            time:          this.nowTime(),
+            contractLabel: this.formatContractLabel(),
+            entryPoint:    this.config.entryPoint,
+            triggerDigit,
+            exitDigit,
+            stake:         tradeStake,
+            profit,
+            totalPnl:      this.totalProfit,
+            isWin,
+        };
+        this.onTrade(record);
 
         // Feed DBot stores
         if (this.stores) {
@@ -473,7 +495,7 @@ export class DerivV2Engine {
         if (isWin) {
             this.wins++;
             this.addLog(
-                `✅ WIN  +$${Math.abs(profit).toFixed(2)}  P&L: ${this.pnlStr()}  open: ${this.openContracts.size}`,
+                `✅ WIN  +$${Math.abs(profit).toFixed(2)}  exit:${exitDigit ?? '?'}  stake:$${tradeStake.toFixed(2)}  P&L:${this.pnlStr()}`,
                 'win'
             );
             this.currentStake = this.config.initialStake;
@@ -486,7 +508,7 @@ export class DerivV2Engine {
         } else {
             this.losses++;
             this.addLog(
-                `❌ LOSS -$${Math.abs(profit).toFixed(2)}  P&L: ${this.pnlStr()}  open: ${this.openContracts.size}`,
+                `❌ LOSS -$${Math.abs(profit).toFixed(2)}  exit:${exitDigit ?? '?'}  stake:$${tradeStake.toFixed(2)}  P&L:${this.pnlStr()}`,
                 'loss'
             );
             if (this.totalProfit <= -this.config.stopLoss) {
@@ -504,7 +526,6 @@ export class DerivV2Engine {
         }
 
         this.onProfit(this.totalProfit, this.wins, this.losses, this.currentStake);
-        // Settlement never drives the next buy — ticks do that
     }
 
     // ── Private — helpers ─────────────────────────────────────────────────────
@@ -520,6 +541,21 @@ export class DerivV2Engine {
         return contractKind;
     }
 
+    private formatContractLabel(): string {
+        const ct = this.resolveContractType();
+        const p  = this.config.prediction ?? this.config.entryPoint;
+        const b  = this.config.barrier    ?? this.config.entryPoint;
+        switch (ct) {
+            case 'DIGITOVER':  return `OVER ${b}`;
+            case 'DIGITUNDER': return `UNDER ${b}`;
+            case 'DIGITMATCH': return `MATCH ${p}`;
+            case 'DIGITDIFF':  return `DIFF ${p}`;
+            case 'DIGITEVEN':  return 'EVEN';
+            case 'DIGITODD':   return 'ODD';
+            default:           return ct;
+        }
+    }
+
     private lastDigit(quote: number): number {
         const s = quote.toString().replace(/^.*\./, '');
         return parseInt(s[s.length - 1] ?? '0', 10);
@@ -530,10 +566,13 @@ export class DerivV2Engine {
         return `${sign}$${this.totalProfit.toFixed(2)}`;
     }
 
-    private addLog(message: string, type: EngineLogType): void {
-        const now  = new Date();
-        const time = [now.getHours(), now.getMinutes(), now.getSeconds()]
+    private nowTime(): string {
+        const now = new Date();
+        return [now.getHours(), now.getMinutes(), now.getSeconds()]
             .map(n => n.toString().padStart(2, '0')).join(':');
-        this.onLog({ seq: ++this.logSeq, time, message, type });
+    }
+
+    private addLog(message: string, type: EngineLogType): void {
+        this.onLog({ seq: ++this.logSeq, time: this.nowTime(), message, type });
     }
 }
