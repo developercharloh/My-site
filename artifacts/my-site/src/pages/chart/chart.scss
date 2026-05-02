@@ -240,3 +240,47 @@
         display: block;
     }
 }
+
+/* ── TradingView controls (symbol picker + open-in-new-tab link) ── */
+.chart-wrapper {
+    &__toggle {
+        flex-wrap: wrap;
+    }
+
+    &__tv-controls {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin-left: auto;
+    }
+
+    &__tv-symbol {
+        appearance: none;
+        background: rgba(15, 23, 42, 0.06);
+        border: 1px solid rgba(100, 116, 139, 0.3);
+        color: var(--text-prominent, #1e293b);
+        font-size: 0.8rem;
+        font-weight: 600;
+        padding: 0.35rem 1.4rem 0.35rem 0.6rem;
+        border-radius: 0.4rem;
+        cursor: pointer;
+        max-width: 200px;
+    }
+
+    &__tv-link {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #6366f1;
+        text-decoration: none;
+        padding: 0.35rem 0.55rem;
+        border-radius: 0.4rem;
+        border: 1px solid rgba(99, 102, 241, 0.4);
+        white-space: nowrap;
+        transition: background 0.18s, color 0.18s;
+
+        &:hover {
+            background: rgba(99, 102, 241, 0.12);
+            color: #4f46e5;
+        }
+    }
+}

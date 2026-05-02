@@ -270,13 +270,23 @@
     gap: 0.35rem;
 }
 
-/* Single-row layout: all 10 digits in one card, no per-quadrant stacking */
-.ez-quadrants--single {
+/* Combined layout: two rows (0-4, 5-9) inside one card */
+.ez-quadrants--combined {
+    padding: 0.85rem 0.75rem;
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(100, 116, 139, 0.2);
+    gap: 0.6rem;
+
     .ez-quadrant {
-        padding: 0.85rem 0.75rem;
+        padding: 0;
+        background: transparent;
+        border: 0;
+        border-radius: 0;
+        gap: 0.4rem;
     }
     .ez-circles {
-        gap: 0.25rem;
+        gap: 0.35rem;
     }
 }
 
