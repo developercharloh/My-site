@@ -47,7 +47,7 @@
       </block>
     </statement>
     <statement name="INITIALIZATION">
-      <block type="btnotify" id="?$O,0W|EIp}F(`|b:f%R">
+      <block type="notify" id="?$O,0W|EIp}F(`|b:f%R">
         <field name="NOTIFICATION_TYPE">success</field>
         <field name="NOTIFICATION_SOUND">silent</field>
         <value name="MESSAGE">

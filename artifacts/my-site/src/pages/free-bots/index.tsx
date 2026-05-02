@@ -60,16 +60,15 @@ const BOTS: BotConfig[] = [
         name: 'Even Odd Entry Scanner Bot',
         emoji: '⚡',
         description:
-            'Trades Digit Even/Odd on Volatility 100 Index. Scans for optimal entry conditions before placing trades. Martingale recovery on losses with Take Profit and Stop Loss protection.',
+            'Trades Digit Even/Odd on Volatility 100 Index. AI-powered entry scanner detects Even/Odd direction before placing trades. Multi-level recovery system on losses with Target Profit and Max Loss protection.',
         market: 'Volatility 100 Index (R_100)',
-        strategy: 'Digit Even / Odd · Entry Scanner · Martingale',
+        strategy: 'Digit Even / Odd · AI Entry Scanner · Multi-Level Recovery',
         params: [
-            { label: 'Stake', value: '$1' },
-            { label: 'Take Profit', value: '$20' },
-            { label: 'Stop Loss', value: '$80' },
-            { label: 'Martingale', value: '3.1×' },
+            { label: 'Stake', value: '$0.55' },
+            { label: 'Target Profit', value: '$10' },
+            { label: 'Max Loss', value: '$100' },
         ],
-        xmlPath: '/bots/BINARYTOOL@EVEN&ODD_AI_BOT_(2)_1765711647663.xml',
+        xmlPath: '/bots/BINARYTOOL@EVEN_ODD_THUNDER_AI_PRO_BOT_1765711647662.xml',
         gradient: 'linear-gradient(135deg, #1a1a0a 0%, #3d3d00 50%, #d4ac0d 100%)',
     },
     {
