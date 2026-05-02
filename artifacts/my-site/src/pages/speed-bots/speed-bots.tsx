@@ -183,8 +183,8 @@ const SpeedBotsEngineSelector: React.FC = () => {
             </div>
             <span className='sb-engine-selector__hint'>
                 {mode === 'v2'
-                    ? 'XML Bots will run on V2 (custom Speed Bots use their own engine).'
-                    : 'XML Bots will run on V1 Classic (custom Speed Bots use their own engine).'}
+                    ? '⚡ V2 active — XML Bots run on V2, and all Speed Bots mirror their stats & TP/SL alerts into the V2 Panel.'
+                    : '⚙️ V1 active — XML Bots use the classic DBot engine; Speed Bots show stats only in their own panels.'}
             </span>
         </div>
     );

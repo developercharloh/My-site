@@ -5,6 +5,7 @@ import { runInAction } from 'mobx';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ChunkLoader from '@/components/loader/chunk-loader';
 import { v2EngineStore } from '@/utils/v2-engine-store';
+import { initCustomBotV2Bridge } from '@/utils/custom-bot-v2-bridge';
 import { generateOAuthURL } from '@/components/shared';
 import DesktopWrapper from '@/components/shared_ui/desktop-wrapper';
 import Dialog from '@/components/shared_ui/dialog';
@@ -72,6 +73,10 @@ const AppWrapper = observer(() => {
     const navigate = useNavigate();
     const [left_tab_shadow, setLeftTabShadow] = useState<boolean>(false);
     const [right_tab_shadow, setRightTabShadow] = useState<boolean>(false);
+
+    // One-time init: subscribe the custom Speed Bot engines to the V2 store so
+    // their stats and TP/SL alerts mirror into the V2 panel when V2 mode is on.
+    useEffect(() => { initCustomBotV2Bridge(); }, []);
 
     let tab_value: number | string = active_tab;
     const GetHashedValue = (tab: number) => {
