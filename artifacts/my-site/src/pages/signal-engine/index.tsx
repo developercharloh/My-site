@@ -789,6 +789,36 @@ const SignalEngine = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tickEvent]);
 
+    // Publish top signal per direction type to localStorage for Free Bots wiring
+    useEffect(() => {
+        const now = Date.now();
+        const active = signals.filter(s => s.expiresAt > now);
+
+        const topMatch  = active.filter(s => s.market === 'matches_differs' && s.direction.startsWith('MATCHES'))
+                                .sort((a, b) => b.confidence - a.confidence)[0];
+        const topDiffer = active.filter(s => s.market === 'matches_differs' && s.direction.startsWith('DIFFERS'))
+                                .sort((a, b) => b.confidence - a.confidence)[0];
+        const topEO     = active.filter(s => s.market === 'even_odd')
+                                .sort((a, b) => b.confidence - a.confidence)[0];
+
+        const push = (key: string, sig: Signal | undefined) => {
+            if (!sig) return;
+            localStorage.setItem(key, JSON.stringify({
+                symbol:      sig.symbol,
+                symbolLabel: sig.symbolLabel,
+                direction:   sig.direction,
+                entryPoint:  sig.entryPoint,
+                confidence:  sig.confidence,
+                market:      sig.market,
+                savedAt:     now,
+            }));
+        };
+        push('fb_signal_matches',  topMatch);
+        push('fb_signal_differs',  topDiffer);
+        push('fb_signal_even_odd', topEO);
+        window.dispatchEvent(new Event('fb_signal_update'));
+    }, [signals]);
+
     // Sort signals: highest confidence first, cap at 6
     const displaySignals = [...signals]
         .sort((a, b) => b.confidence - a.confidence || b.createdAt - a.createdAt)
