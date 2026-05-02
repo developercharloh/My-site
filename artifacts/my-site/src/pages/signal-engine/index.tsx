@@ -7,7 +7,9 @@ import {
     analyzeSignals, trainMLWeights, modelVolatility,
     initialMLWeights, type Signal, type MarketType, type MLWeights,
 } from './signal-brain';
-import { downloadBotXml } from './generate-bot-xml';
+import { generateEvenOddXml } from './generate-bot-xml';
+import { useStore } from '@/hooks/useStore';
+import { DBOT_TABS } from '@/constants/bot-contents';
 
 // ─── All 13 volatility symbols ────────────────────────────────────────────────
 
@@ -390,9 +392,12 @@ interface SignalSettings {
     martingale: string;
 }
 
+type RunState = 'idle' | 'launching' | 'no-workspace' | 'error';
+
 function SignalSettingsModal({ signal, rank, onClose }: {
     signal: Signal; rank: number; onClose: () => void;
 }) {
+    const { dashboard } = useStore();
     const storageKey = `sig_cfg_${signal.symbol}_${signal.market}`;
     const [cfg, setCfg] = useState<SignalSettings>(() => {
         try {
@@ -401,32 +406,58 @@ function SignalSettingsModal({ signal, rank, onClose }: {
         } catch { /* ignore */ }
         return { stake: '0.5', takeProfit: '10', stopLoss: '30', martingale: '2' };
     });
-    const [ran, setRan] = useState(false);
+    const [runState, setRunState] = useState<RunState>('idle');
+    const [errMsg,   setErrMsg]   = useState('');
     const color = MARKET_COLOR[signal.market];
 
     function parseEntryDigit(): number {
-        // entryPoint for EVEN/ODD is "Entry digit: X"
         const m = signal.entryPoint.match(/\d+/);
         return m ? parseInt(m[0], 10) : 0;
     }
 
-    function handleRun() {
+    async function handleRun() {
         localStorage.setItem(storageKey, JSON.stringify(cfg));
+        setRunState('launching');
+        setErrMsg('');
 
-        if (signal.market === 'even_odd') {
-            const dir = signal.direction.toUpperCase() as 'EVEN' | 'ODD';
-            downloadBotXml({
+        try {
+            const Blockly = (window as any).Blockly;
+            if (!Blockly?.utils?.xml?.textToDom || !Blockly?.derivWorkspace) {
+                setRunState('no-workspace');
+                return;
+            }
+
+            const xmlText = generateEvenOddXml({
                 symbol:     signal.symbol,
-                direction:  dir === 'ODD' ? 'ODD' : 'EVEN',
+                direction:  signal.direction.toUpperCase() === 'ODD' ? 'ODD' : 'EVEN',
                 entryDigit: parseEntryDigit(),
                 stake:      parseFloat(cfg.stake)      || 0.5,
                 takeProfit: parseFloat(cfg.takeProfit) || 10,
                 stopLoss:   parseFloat(cfg.stopLoss)   || 30,
                 martingale: parseFloat(cfg.martingale) || 2,
             });
-        }
 
-        setRan(true);
+            const dom = Blockly.utils.xml.textToDom(xmlText);
+            Blockly.Xml.clearWorkspaceAndLoadFromXml(dom, Blockly.derivWorkspace);
+            Blockly.derivWorkspace.cleanUp();
+            Blockly.derivWorkspace.clearUndo();
+
+            // Switch to Bot Builder tab — run panel lives there
+            dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
+            onClose();
+
+            // Auto-click Run after the tab has rendered
+            setTimeout(() => {
+                const runBtn = document.querySelector<HTMLButtonElement>(
+                    '#db-animation__run-button, [data-testid="dt_run-panel_run-button"], .run-controls__run-button, button[class*="run"]'
+                );
+                runBtn?.click();
+            }, 700);
+
+        } catch (e: any) {
+            setRunState('error');
+            setErrMsg(e?.message || 'Failed to load bot.');
+        }
     }
 
     const fields: { label: string; key: keyof SignalSettings; hint: string; step: string }[] = [
@@ -473,36 +504,49 @@ function SignalSettingsModal({ signal, rank, onClose }: {
                                 type='number' min='0' step={step}
                                 value={cfg[key]}
                                 onChange={e => setCfg(p => ({ ...p, [key]: e.target.value }))}
+                                disabled={runState === 'launching'}
                             />
                         </div>
                     ))}
                 </div>
 
-                {/* Download instructions banner (shown after run) */}
-                {ran && signal.market === 'even_odd' && (
-                    <motion.div className='se-modal__dl-banner'
-                        initial={{ opacity:0, y:8 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.2 }}>
-                        <div className='se-modal__dl-title'>✓ Bot file downloaded!</div>
-                        <ol className='se-modal__dl-steps'>
-                            <li>Open <strong>Deriv Bot</strong> in your browser</li>
-                            <li>Click <strong>Import</strong> → choose the downloaded <code>.xml</code> file</li>
-                            <li>Hit <strong>Run bot</strong> — it will scan for digit {parseEntryDigit()} then trade {signal.direction}</li>
-                        </ol>
-                        <button className='se-modal__btn se-modal__btn--close-dl' onClick={onClose}>
-                            Close
-                        </button>
+                {/* No-workspace warning */}
+                {runState === 'no-workspace' && (
+                    <motion.div className='se-modal__warn-banner'
+                        initial={{ opacity:0, y:6 }} animate={{ opacity:1, y:0 }}>
+                        <div className='se-modal__warn-icon'>⚠️</div>
+                        <div className='se-modal__warn-body'>
+                            <strong>Bot Builder not ready yet.</strong>
+                            <span>Visit the <strong>Bot Builder</strong> tab once to initialise the workspace, then come back and tap Save &amp; Run again.</span>
+                        </div>
+                        <button className='se-modal__btn se-modal__btn--cancel se-modal__warn-close' onClick={() => setRunState('idle')}>OK</button>
+                    </motion.div>
+                )}
+
+                {/* Generic error */}
+                {runState === 'error' && (
+                    <motion.div className='se-modal__warn-banner se-modal__warn-banner--error'
+                        initial={{ opacity:0, y:6 }} animate={{ opacity:1, y:0 }}>
+                        <div className='se-modal__warn-icon'>❌</div>
+                        <div className='se-modal__warn-body'>
+                            <strong>Could not load bot.</strong>
+                            <span>{errMsg}</span>
+                        </div>
+                        <button className='se-modal__btn se-modal__btn--cancel se-modal__warn-close' onClick={() => setRunState('idle')}>Retry</button>
                     </motion.div>
                 )}
 
                 {/* Footer */}
-                {!ran && (
-                    <div className='se-modal__footer'>
-                        <button className='se-modal__btn se-modal__btn--cancel' onClick={onClose}>Cancel</button>
-                        <button className='se-modal__btn se-modal__btn--run' onClick={handleRun}>
-                            Save and Run
-                        </button>
-                    </div>
-                )}
+                <div className='se-modal__footer'>
+                    <button className='se-modal__btn se-modal__btn--cancel'
+                        onClick={onClose} disabled={runState === 'launching'}>Cancel</button>
+                    <button className='se-modal__btn se-modal__btn--run'
+                        onClick={handleRun} disabled={runState === 'launching'}>
+                        {runState === 'launching'
+                            ? <><Loader2 size={13} className='se-modal__spin'/> Launching…</>
+                            : 'Save and Run'}
+                    </button>
+                </div>
             </motion.div>
         </div>
     );
