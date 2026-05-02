@@ -1,36 +1,30 @@
 // ─── Deriv V2 Lightning Engine ────────────────────────────────────────────────
 //
-// Why V2 beats V1
-// ───────────────
-// V1 (DBot):  tick → buy → wait settlement → tick → buy …  (~1/s on Vol indices)
-// V2:  proposal → buy → ACK → proposal → buy → ACK …        (~5-10/s)
+// Core principle: EVERY tick = ONE buy. No tick is ever skipped.
 //
-// Key technique: proposal+buy pipeline
-// ─────────────────────────────────────
-// Each buy uses a pre-validated unique `proposal_id` rather than raw parameters.
-// This prevents the API's duplicate-purchase guard from firing (raw params within
-// the same tick window look identical → API rejects the second one).
+// V1 behaviour (what this replaces):
+//   Tick 1 → buy A → [waiting…] → A settles → Tick 4 → buy B
+//   Ticks 2, 3 are completely wasted.
 //
-// Pipeline:
-//   advanceChain() → fetchProposal()
-//     proposal arrives → buyFromProposal(id)
-//       buy ack → track contract + fetchProposal() immediately (no tick wait)
-//         next proposal arrives → buyFromProposal() again …
+// V2 behaviour:
+//   Tick 1 → buy A
+//   Tick 2 → buy B  (A still open / settling in background)
+//   Tick 3 → buy C  (A settled, B still open)
+//   Tick 4 → buy D  …
 //
-// Contracts settle independently. Martingale stake is updated on each settlement.
-// Chain stall safety: tick handler restarts the pipeline if it dies.
+// Every tick drives one buy. Settlements happen asynchronously and update
+// P&L + martingale stake without ever blocking the next tick's buy.
+//
+// To avoid "duplicate purchase" API rejection, each buy uses a unique
+// proposal_id obtained in advance. The next proposal is pre-fetched as soon
+// as a buy ack is received so it is ready before the next tick arrives.
 
 import { api_base } from '@/external/bot-skeleton/services/api/api-base';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type EngineLogType = 'scan' | 'info' | 'win' | 'loss' | 'error' | 'system';
-
-export interface EngineLog {
-    time:    string;
-    message: string;
-    type:    EngineLogType;
-}
+export interface EngineLog { time: string; message: string; type: EngineLogType; }
 
 export type EngineStatus =
     | 'idle' | 'connecting' | 'scanning' | 'trading' | 'stopped' | 'error';
@@ -56,8 +50,6 @@ export interface V2BotConfig {
     stopLoss:        number;
 }
 
-// ─── Store binding ────────────────────────────────────────────────────────────
-
 export interface V2BoundStores {
     run_panel: {
         setIsRunning:      (v: boolean)    => void;
@@ -68,7 +60,7 @@ export interface V2BoundStores {
     transactions: { onBotContractEvent: (data: any) => void; };
     journal: {
         onLogSuccess: (msg: { log_type: string; extra: any }) => void;
-        onError:      (msg: string | Error) => void;
+        onError:      (msg: string | Error)                   => void;
     };
     summary_card: {
         onBotContractEvent: (data: any) => void;
@@ -77,22 +69,8 @@ export interface V2BoundStores {
     setRunId: (id: string) => void;
 }
 
-// ─── Internal records ─────────────────────────────────────────────────────────
-
-interface OpenContract {
-    contractId: string;
-    stake:      number;
-    subId:      string | null;
-}
-
-// Maximum simultaneous open contracts. Keep small to bound exposure.
-const MAX_CONCURRENT    = 3;
-// Minimum ms between consecutive buy sends (avoids burst rate-limiting).
-const MIN_BUY_INTERVAL  = 120;
-// Delay before retrying after a buy error.
-const BUY_RETRY_DELAY   = 300;
-// Maximum retry attempts per chain step before giving up for that tick.
-const MAX_BUY_RETRIES   = 3;
+interface OpenContract { contractId: string; stake: number; subId: string | null; }
+interface ReadyProposal { id: string; price: number; }
 
 // ─── Engine ───────────────────────────────────────────────────────────────────
 
@@ -100,36 +78,40 @@ export class DerivV2Engine {
     private config:  V2BotConfig;
     private stores:  V2BoundStores | null = null;
 
-    private reqBase:    number      = (Math.floor(Date.now() / 1000) % 50000) * 1000;
-    private reqCounter: number      = 0;
-    private myReqIds:   Map<number, string> = new Map(); // reqId → msg_type hint
+    // req namespace
+    private reqBase:    number                  = (Math.floor(Date.now() / 1000) % 50000) * 1000;
+    private reqCounter: number                  = 0;
+    private myReqIds:   Map<number, string>     = new Map(); // reqId → type hint
 
     private msgSub:    { unsubscribe: () => void } | null = null;
     private tickSubId: string | null = null;
 
-    // ── Engine state ──────────────────────────────────────────────────────────
-    private isRunning:     boolean = false;
-    private chainActive:   boolean = false;
-    private currentStake:  number;
-    private lossCount:     number  = 1;
-    private totalProfit:   number  = 0;
-    private wins:          number  = 0;
-    private losses:        number  = 0;
+    // ── Trading state ─────────────────────────────────────────────────────────
+    private isRunning:    boolean = false;
+    private chainActive:  boolean = false;  // true once entry digit first seen
+    private currentStake: number;
+    private lossCount:    number  = 1;
+    private totalProfit:  number  = 0;
+    private wins:         number  = 0;
+    private losses:       number  = 0;
 
-    // ── Proposal pipeline ─────────────────────────────────────────────────────
-    // At most one proposal request is in-flight at a time.
-    private proposalInFlight:  boolean               = false;
-    private pendingProposal:   { id: string; price: number } | null = null;
-    // Buy serialisation
-    private buyInFlight:       boolean               = false;
-    private buyRetries:        number                = 0;
-    private lastBuyAt:         number                = 0; // timestamp
+    // ── Proposal pre-fetch pipeline ───────────────────────────────────────────
+    // One proposal is always being pre-fetched so it is ready when the next tick
+    // arrives. A tick that finds no ready proposal sets `tickWaiting = true` and
+    // buys as soon as the proposal lands.
+    private readyProposal:    ReadyProposal | null = null;
+    private proposalInflight: boolean              = false;
+    private tickWaiting:      boolean              = false; // tick arrived, no proposal yet
 
-    // ── Concurrent contract tracking ──────────────────────────────────────────
-    private openContracts: Map<string, OpenContract> = new Map();
+    // ── Buy serialisation ─────────────────────────────────────────────────────
+    // Only one buy request on the wire at a time.
+    private buyInflight:    boolean = false;
+    private lastBuyMs:      number  = 0;
+    private readonly MIN_BUY_GAP = 100; // ms — avoids burst rate-limit
 
-    // ── POC request → contract id mapping ────────────────────────────────────
-    private pocReqToContract: Map<number, string>    = new Map();
+    // ── Open contract tracking ────────────────────────────────────────────────
+    private openContracts:     Map<string, OpenContract> = new Map();
+    private pocReqToContract:  Map<number,  string>      = new Map();
 
     // Callbacks
     public onLog:    (log: EngineLog)                               => void = () => {};
@@ -157,19 +139,19 @@ export class DerivV2Engine {
             this.onStatus('error'); return;
         }
 
-        this.isRunning          = true;
-        this.chainActive        = false;
-        this.proposalInFlight   = false;
-        this.pendingProposal    = null;
-        this.buyInFlight        = false;
-        this.buyRetries         = 0;
-        this.lastBuyAt          = 0;
-        this.currentStake       = this.config.initialStake;
-        this.lossCount          = 1;
-        this.totalProfit        = 0;
-        this.wins               = 0;
-        this.losses             = 0;
-        this.tickSubId          = null;
+        this.isRunning         = true;
+        this.chainActive       = false;
+        this.readyProposal     = null;
+        this.proposalInflight  = false;
+        this.tickWaiting       = false;
+        this.buyInflight       = false;
+        this.lastBuyMs         = 0;
+        this.currentStake      = this.config.initialStake;
+        this.lossCount         = 1;
+        this.totalProfit       = 0;
+        this.wins              = 0;
+        this.losses            = 0;
+        this.tickSubId         = null;
         this.myReqIds.clear();
         this.openContracts.clear();
         this.pocReqToContract.clear();
@@ -191,7 +173,7 @@ export class DerivV2Engine {
 
         this.onStatus('scanning');
         this.addLog(
-            `⚡ V2 Lightning Engine started — scanning for entry ${this.config.entryPoint} on ${this.config.symbol}`,
+            `⚡ V2 Engine ready — every tick will trigger a buy once entry point ${this.config.entryPoint} is hit`,
             'system'
         );
         this.subscribeTicks();
@@ -200,9 +182,10 @@ export class DerivV2Engine {
     stop(): void {
         this.isRunning        = false;
         this.chainActive      = false;
-        this.proposalInFlight = false;
-        this.buyInFlight      = false;
-        this.pendingProposal  = null;
+        this.proposalInflight = false;
+        this.buyInflight      = false;
+        this.tickWaiting      = false;
+        this.readyProposal    = null;
 
         if (this.tickSubId) { this.rawSend({ forget: this.tickSubId }); this.tickSubId = null; }
         this.openContracts.forEach(c => { if (c.subId) this.rawSend({ forget: c.subId }); });
@@ -222,7 +205,7 @@ export class DerivV2Engine {
         this.addLog('Engine stopped.', 'system');
     }
 
-    // ── Private — API helpers ─────────────────────────────────────────────────
+    // ── Private — API ─────────────────────────────────────────────────────────
 
     private send(payload: Record<string, unknown>, hint = ''): number {
         const reqId = this.reqBase + (++this.reqCounter);
@@ -250,30 +233,22 @@ export class DerivV2Engine {
 
         if (!isMyReq && !isMyTickSub && !isMyContract) return;
 
-        // ── Error handling ────────────────────────────────────────────────────
         if (msg.error) {
             const errMsg = msg.error.message ?? 'Unknown error';
             this.addLog(`API error [${msg.msg_type}]: ${errMsg}`, 'error');
             this.stores?.journal.onError(errMsg);
 
-            switch (msg.msg_type) {
-                case 'proposal':
-                    this.proposalInFlight = false;
-                    // Retry proposal after a short delay
-                    setTimeout(() => this.advanceChain(), BUY_RETRY_DELAY);
-                    break;
-                case 'buy':
-                    this.buyInFlight  = false;
-                    this.pendingProposal = null; // proposal was consumed; fetch fresh one
-                    this.buyRetries++;
-                    if (this.buyRetries <= MAX_BUY_RETRIES) {
-                        this.addLog(`Buy rejected — retrying in ${BUY_RETRY_DELAY * this.buyRetries}ms`, 'system');
-                        setTimeout(() => this.advanceChain(), BUY_RETRY_DELAY * this.buyRetries);
-                    } else {
-                        this.addLog('Max retries reached — waiting for next tick', 'system');
-                        this.buyRetries = 0;
-                    }
-                    break;
+            if (msg.msg_type === 'proposal') {
+                this.proposalInflight = false;
+                // Retry proposal fetch — a tick may be waiting on it
+                setTimeout(() => this.fetchProposal(), 200);
+            }
+            if (msg.msg_type === 'buy') {
+                this.buyInflight   = false;
+                this.readyProposal = null; // proposal was spent; need a fresh one
+                this.addLog('Buy rejected — fetching new proposal', 'system');
+                // Fetch a fresh proposal; if a tick is still waiting it will buy
+                this.fetchProposal();
             }
             return;
         }
@@ -284,7 +259,7 @@ export class DerivV2Engine {
                 this.handleTick(msg.tick);
                 break;
             case 'proposal':
-                this.handleProposal(msg.proposal, reqId);
+                this.handleProposal(msg.proposal);
                 break;
             case 'buy':
                 this.handleBuyAck(msg.buy);
@@ -295,8 +270,7 @@ export class DerivV2Engine {
         }
     }
 
-    // ── Private — tick handling ───────────────────────────────────────────────
-    // ONLY role: detect entry point (scan mode) + safety restart if chain stalls.
+    // ── Private — tick: the heartbeat of V2 ──────────────────────────────────
 
     private subscribeTicks(): void {
         this.addLog(`Subscribing to ${this.config.symbol} ticks…`, 'system');
@@ -308,54 +282,47 @@ export class DerivV2Engine {
         const digit = this.lastDigit(tick.quote);
 
         if (!this.chainActive) {
+            // ── Scanning: wait for entry digit ───────────────────────────────
             this.addLog(`Digit: ${digit}  |  Waiting for entry: ${this.config.entryPoint}`, 'scan');
             if (digit === this.config.entryPoint) {
                 this.chainActive = true;
-                this.buyRetries  = 0;
-                this.addLog(`Entry digit ${digit} hit — ⚡ pipeline started`, 'info');
+                this.addLog(`Entry ${digit} hit — ⚡ buying on every tick from now`, 'info');
                 this.onStatus('trading');
-                this.advanceChain();
+                // Pre-fetch first proposal, then trade on this tick
+                this.tradeOnTick();
             }
+            return;
+        }
+
+        // ── Trading: EVERY tick fires a buy — no exceptions ──────────────────
+        this.tradeOnTick();
+    }
+
+    /**
+     * Called on every tick once trading has started.
+     * If a proposal is ready → buy immediately.
+     * If not → mark tickWaiting; the buy will fire the moment the proposal lands.
+     */
+    private tradeOnTick(): void {
+        if (!this.isRunning) return;
+
+        if (this.readyProposal && !this.buyInflight) {
+            this.executeBuy(this.readyProposal);
         } else {
-            // Safety restart: if pipeline died, the next tick will revive it
-            if (!this.proposalInFlight && !this.buyInFlight &&
-                !this.pendingProposal   && this.openContracts.size === 0) {
-                this.addLog('Pipeline restart on tick (safety net)', 'system');
-                this.buyRetries = 0;
-                this.advanceChain();
+            // Proposal not ready or buy in-flight — mark that a tick is pending
+            this.tickWaiting = true;
+            // Ensure a proposal fetch is underway
+            if (!this.proposalInflight && !this.readyProposal) {
+                this.fetchProposal();
             }
         }
     }
 
     // ── Private — proposal pipeline ───────────────────────────────────────────
 
-    /**
-     * Main chain driver. Called after:
-     *  - Entry point hit (first call)
-     *  - Buy ack (immediately after ack)
-     *  - Contract settlement (slot freed)
-     *  - Error retry (after delay)
-     *  - Tick safety restart
-     */
-    private advanceChain(): void {
-        if (!this.isRunning || !this.chainActive) return;
-        if (this.openContracts.size >= MAX_CONCURRENT)  return; // slots full
-        if (this.buyInFlight)                            return; // buy on the wire
-        if (this.proposalInFlight)                       return; // proposal on the wire
-
-        // If we have a ready proposal, use it right away
-        if (this.pendingProposal) {
-            this.buyFromProposal(this.pendingProposal);
-            return;
-        }
-
-        // Otherwise fetch a fresh proposal
-        this.fetchProposal();
-    }
-
     private fetchProposal(): void {
-        if (!this.isRunning || this.proposalInFlight) return;
-        this.proposalInFlight = true;
+        if (!this.isRunning || this.proposalInflight) return;
+        this.proposalInflight = true;
 
         const ct = this.resolveContractType();
         const params: Record<string, unknown> = {
@@ -378,86 +345,88 @@ export class DerivV2Engine {
         this.send(params, 'proposal');
     }
 
-    private handleProposal(proposal: Record<string, any> | undefined, _reqId: number | undefined): void {
-        this.proposalInFlight = false;
+    private handleProposal(proposal: Record<string, any> | undefined): void {
+        this.proposalInflight = false;
 
         if (!proposal?.id) {
-            this.addLog('Proposal returned no id — retrying', 'error');
-            setTimeout(() => this.advanceChain(), BUY_RETRY_DELAY);
+            this.addLog('Empty proposal — retrying', 'error');
+            setTimeout(() => this.fetchProposal(), 200);
             return;
         }
 
-        const id    = String(proposal.id);
-        const price = parseFloat(proposal.ask_price ?? this.currentStake);
-        this.pendingProposal = { id, price };
+        const ready: ReadyProposal = {
+            id:    String(proposal.id),
+            price: parseFloat(proposal.ask_price ?? this.currentStake),
+        };
 
-        // Buy immediately if a slot is open and no buy is in-flight
-        if (!this.buyInFlight && this.openContracts.size < MAX_CONCURRENT) {
-            this.buyFromProposal(this.pendingProposal);
+        // If a tick arrived while we were fetching — buy immediately now
+        if (this.tickWaiting && !this.buyInflight) {
+            this.tickWaiting = false;
+            this.executeBuy(ready);
+        } else {
+            // Store for the next tick
+            this.readyProposal = ready;
         }
     }
 
-    private buyFromProposal(p: { id: string; price: number }): void {
-        if (!this.isRunning || this.buyInFlight) return;
-        if (this.openContracts.size >= MAX_CONCURRENT) return;
+    // ── Private — buy execution ───────────────────────────────────────────────
 
-        const now = Date.now();
-        const wait = MIN_BUY_INTERVAL - (now - this.lastBuyAt);
-        if (wait > 0) {
-            // Respect minimum interval to avoid burst rate-limiting
+    private executeBuy(p: ReadyProposal): void {
+        if (!this.isRunning || this.buyInflight) return;
+
+        const now  = Date.now();
+        const gap  = this.MIN_BUY_GAP - (now - this.lastBuyMs);
+        if (gap > 0) {
+            // Tiny rate-limit guard — retry after the gap
             setTimeout(() => {
-                if (this.pendingProposal?.id === p.id) this.buyFromProposal(p);
-            }, wait);
+                if (this.isRunning) this.tradeOnTick();
+            }, gap);
             return;
         }
 
-        this.pendingProposal = null;
-        this.buyInFlight     = true;
-        this.lastBuyAt       = now;
+        this.readyProposal = null;
+        this.buyInflight   = true;
+        this.lastBuyMs     = now;
+        this.tickWaiting   = false;
 
         if (this.stores) this.stores.run_panel.setContractStage(3); // PURCHASE_SENT
 
         this.addLog(
-            `⚡ Buy proposal ${p.id.slice(-6)}  $${this.currentStake.toFixed(2)}  (${this.openContracts.size}/${MAX_CONCURRENT} open)`,
+            `⚡ Tick-buy  $${this.currentStake.toFixed(2)}  (${this.openContracts.size} open)`,
             'info'
         );
-
-        // Buy by proposal id — unique per request, API cannot flag as duplicate
         this.send({ buy: p.id, price: p.price }, 'buy');
     }
 
     // ── Private — buy acknowledgement ─────────────────────────────────────────
 
     private handleBuyAck(buy: Record<string, any> | undefined): void {
-        this.buyInFlight = false;
-        this.buyRetries  = 0; // successful buy resets retry counter
+        this.buyInflight = false;
 
         if (!buy) {
             this.addLog('Buy ack missing contract — retrying', 'error');
-            setTimeout(() => this.advanceChain(), BUY_RETRY_DELAY);
-            return;
+            this.fetchProposal(); return;
         }
 
         const contractId = String(buy.contract_id);
         this.openContracts.set(contractId, { contractId, stake: this.currentStake, subId: null });
 
         if (this.stores) {
-            this.stores.run_panel.setContractStage(4); // PURCHASE_RECEIVED
+            this.stores.run_panel.setContractStage(4);
             this.stores.run_panel.setHasOpenContract(true);
         }
 
-        // Subscribe for settlement, map req_id so we can route the first response
         const pocReqId = this.send(
             { proposal_open_contract: 1, contract_id: buy.contract_id, subscribe: 1 },
             'poc'
         );
         this.pocReqToContract.set(pocReqId, contractId);
 
-        // ⚡ Immediately advance the chain — contract A is open, start B now
-        this.advanceChain();
+        // Pre-fetch the next proposal immediately so it is ready for the next tick
+        this.fetchProposal();
     }
 
-    // ── Private — settlement ──────────────────────────────────────────────────
+    // ── Private — settlement (runs in background, never blocks ticks) ─────────
 
     private handleContract(
         poc:   Record<string, any> | undefined,
@@ -467,15 +436,12 @@ export class DerivV2Engine {
         if (!poc) return;
 
         const contractId = String(poc.contract_id);
+        if (reqId !== undefined) this.pocReqToContract.delete(reqId);
 
-        // Map req_id → contract on first (unsold) push and capture subscription id
-        if (reqId !== undefined && this.pocReqToContract.has(reqId)) {
-            this.pocReqToContract.delete(reqId);
-        }
         const rec = this.openContracts.get(contractId);
         if (rec && subId && !rec.subId) rec.subId = subId;
 
-        if (!poc.is_sold) return; // not settled yet
+        if (!poc.is_sold) return; // not yet settled
 
         // Clean up
         const effSubId = subId ?? rec?.subId ?? null;
@@ -486,6 +452,7 @@ export class DerivV2Engine {
         const isWin  = poc.status === 'won';
         this.totalProfit += profit;
 
+        // Feed DBot stores
         if (this.stores) {
             this.stores.transactions.onBotContractEvent(poc);
             this.stores.summary_card.onBotContractEvent(poc);
@@ -533,9 +500,7 @@ export class DerivV2Engine {
         }
 
         this.onProfit(this.totalProfit, this.wins, this.losses);
-
-        // Slot freed — advance the chain immediately
-        this.advanceChain();
+        // Settlement never drives the next buy — ticks do that
     }
 
     // ── Private — helpers ─────────────────────────────────────────────────────
