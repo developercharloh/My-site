@@ -7,7 +7,7 @@ import {
     analyzeSignals, trainMLWeights, modelVolatility,
     initialMLWeights, type Signal, type MarketType, type MLWeights,
 } from './signal-brain';
-import { generateEvenOddXml } from './generate-bot-xml';
+import { generateEvenOddXml, generateMatchesDiffersXml } from './generate-bot-xml';
 import { useStore } from '@/hooks/useStore';
 import { DBOT_TABS } from '@/constants/bot-contents';
 
@@ -427,15 +427,40 @@ function SignalSettingsModal({ signal, rank, onClose }: {
                 return;
             }
 
-            const xmlText = generateEvenOddXml({
-                symbol:     signal.symbol,
-                direction:  signal.direction.toUpperCase() === 'ODD' ? 'ODD' : 'EVEN',
-                entryDigit: parseEntryDigit(),
-                stake:      parseFloat(cfg.stake)      || 0.5,
-                takeProfit: parseFloat(cfg.takeProfit) || 10,
-                stopLoss:   parseFloat(cfg.stopLoss)   || 30,
-                martingale: parseFloat(cfg.martingale) || 2,
-            });
+            const stake      = parseFloat(cfg.stake)      || 0.5;
+            const takeProfit = parseFloat(cfg.takeProfit) || 10;
+            const stopLoss   = parseFloat(cfg.stopLoss)   || 30;
+            const martingale = parseFloat(cfg.martingale) || 2;
+            const digit      = parseEntryDigit();
+
+            let xmlText: string;
+
+            if (signal.market === 'matches_differs') {
+                const contract = signal.direction.toUpperCase().startsWith('MATCHES')
+                    ? 'DIGITMATCH' : 'DIGITDIFF';
+                // martingaleLevel = how many losses can be covered before stopLoss is hit
+                const martingaleLevel = Math.max(3, Math.min(10, Math.round(stopLoss / stake)));
+                xmlText = generateMatchesDiffersXml({
+                    symbol: signal.symbol,
+                    contract,
+                    prediction:      digit,
+                    stake,
+                    takeProfit,
+                    martingale,
+                    martingaleLevel,
+                });
+            } else {
+                // even_odd (and future over_under fallback)
+                xmlText = generateEvenOddXml({
+                    symbol:     signal.symbol,
+                    direction:  signal.direction.toUpperCase() === 'ODD' ? 'ODD' : 'EVEN',
+                    entryDigit: digit,
+                    stake,
+                    takeProfit,
+                    stopLoss,
+                    martingale,
+                });
+            }
 
             // Use native DOMParser to avoid Blockly's textToDom null-check throwing
             const parsed = new DOMParser().parseFromString(xmlText, 'text/xml');
