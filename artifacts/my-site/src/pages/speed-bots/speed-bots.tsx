@@ -341,7 +341,22 @@ const SpeedBots: React.FC = () => {
     React.useEffect(() => {
         try { window.localStorage.removeItem(BOT_OPEN_KEY); } catch {}
     }, []);
-    const openBot = () => setBotOpen('vh');
+    // In V2 mode, every Speed Bot "Open Bot" button bypasses the inline
+    // Speed Bot UI and sends the user to the V2 Advanced Engine panel — that
+    // is where transactions, stats, and TP/SL alerts for V2 belong. The
+    // selected bot key is stashed so the V2 panel can show a hint about
+    // which Speed Bot the user came from.
+    const openBotOrRedirect = (key: 'vh' | 'df' | 'ou' | 'tri') => {
+        try {
+            if (localStorage.getItem('free_bots_engine_mode') === 'v2') {
+                localStorage.setItem('v2_panel_origin_bot', key);
+                window.location.hash = '#v2_panel';
+                return;
+            }
+        } catch { /* ignore storage errors */ }
+        setBotOpen(key);
+    };
+    const openBot = () => openBotOrRedirect('vh');
     const closeBot = () => setBotOpen('none');
     const [txFilter, setTxFilter] = useState<TxFilter>('all');
     const [journalFilter, setJournalFilter] = useState<JournalFilter>('all');
@@ -474,9 +489,9 @@ const SpeedBots: React.FC = () => {
             <div className={`speed-bots speed-bots--${theme}`}>
                 <BotLauncherCard
                     onOpenVH={openBot}
-                    onOpenDF={() => setBotOpen('df')}
-                    onOpenOU={() => setBotOpen('ou')}
-                    onOpenTri={() => setBotOpen('tri')}
+                    onOpenDF={() => openBotOrRedirect('df')}
+                    onOpenOU={() => openBotOrRedirect('ou')}
+                    onOpenTri={() => openBotOrRedirect('tri')}
                 />
             </div>
         );
