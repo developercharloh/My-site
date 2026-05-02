@@ -327,7 +327,7 @@ const AppWrapper = observer(() => {
                                 label={
                                     <>
                                         <span className='tab-emoji' role='img' aria-hidden='true'>📊</span>
-                                        <Localize i18n_default_text='Charts' />
+                                        <Localize i18n_default_text='Charts / TradingView' />
                                     </>
                                 }
                                 id={
