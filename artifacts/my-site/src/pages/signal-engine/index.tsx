@@ -423,47 +423,49 @@ function SignalSettingsModal({ signal, rank, onClose }: {
         setErrMsg('');
 
         try {
-            const Blockly = (window as any).Blockly;
-            if (!Blockly?.derivWorkspace) {
-                setRunState('no-workspace');
-                return;
-            }
-
             const stake      = parseFloat(cfg.stake)      || 0.5;
             const takeProfit = parseFloat(cfg.takeProfit) || 10;
             const stopLoss   = parseFloat(cfg.stopLoss)   || 30;
             const martingale = parseFloat(cfg.martingale) || 2;
 
-            // Fetch + patch the bot XML with signal's settings
             const botId  = botIdFromSignal(signal);
             const doc    = await fetchAndPatchBot(botId, signal, stake, takeProfit, stopLoss, martingale);
             const xmlStr = new XMLSerializer().serializeToString(doc.documentElement);
-            const dom    = Blockly.utils.xml.textToDom(xmlStr);
 
-            Blockly.Xml.clearWorkspaceAndLoadFromXml(dom, Blockly.derivWorkspace);
-            Blockly.derivWorkspace.cleanUp();
-            Blockly.derivWorkspace.clearUndo();
-
-            // Persist the chosen engine mode globally so header + run panel stay in sync
+            // Persist the chosen engine mode globally
             localStorage.setItem(ENGINE_KEY, engineMode);
             window.dispatchEvent(new StorageEvent('storage', { key: ENGINE_KEY, newValue: engineMode }));
 
             if (engineMode === 'v2') {
-                // Parse V2 config from the patched XML and save for the run panel
+                // ── V2: parse config from patched XML, persist it, fire autostart ─────
+                // DBot's Blockly workspace is NOT touched — loading XML into it would arm
+                // DBot's engine which would then trade in V1 style and block V2 execution.
                 const v2Cfg    = parseXmlV2Config(xmlStr);
                 const v2CfgStr = JSON.stringify(v2Cfg);
                 localStorage.setItem(V2_CONFIG_KEY, v2CfgStr);
                 window.dispatchEvent(new StorageEvent('storage', { key: V2_CONFIG_KEY, newValue: v2CfgStr }));
 
-                dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
                 onClose();
 
-                // Ask the trade-animation to auto-start the V2 engine
+                // Give React one frame to re-render the run panel in V2 mode,
+                // then tell trade-animation to start the V2 engine.
                 setTimeout(() => {
                     window.dispatchEvent(new CustomEvent('deriv-v2-autostart'));
                 }, 400);
+
             } else {
-                // V1: switch to Bot Builder and auto-run the standard DBot engine
+                // ── V1: load XML into DBot Blockly workspace and auto-run ─────────────
+                const Blockly = (window as any).Blockly;
+                if (!Blockly?.derivWorkspace) {
+                    setRunState('no-workspace');
+                    return;
+                }
+
+                const dom = Blockly.utils.xml.textToDom(xmlStr);
+                Blockly.Xml.clearWorkspaceAndLoadFromXml(dom, Blockly.derivWorkspace);
+                Blockly.derivWorkspace.cleanUp();
+                Blockly.derivWorkspace.clearUndo();
+
                 dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
                 onClose();
 

@@ -278,7 +278,10 @@ const TradeAnimation = observer(({ className, should_show_overlay }: TTradeAnima
     );
 
     // ── V2 mode: show ⚡ Run V2 / Stop button, keep animation container ─────────
-    if (isV2Mode && v2Config) {
+    // Fall back to reading localStorage directly in case React state hasn't
+    // updated yet (e.g. StorageEvent fired but setState is still pending).
+    const effectiveV2Config = v2Config ?? readV2Config();
+    if (isV2Mode && effectiveV2Config) {
         const v2BtnClass = v2Running ? 'animation__stop-button' : 'animation__run-button';
         const v2BtnId    = v2Running ? 'db-animation__stop-button' : 'db-animation__run-button';
         const v2Icon     = v2Running
