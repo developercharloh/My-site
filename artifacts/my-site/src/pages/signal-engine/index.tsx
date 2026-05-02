@@ -7,6 +7,7 @@ import {
     analyzeSignals, trainMLWeights, modelVolatility,
     initialMLWeights, type Signal, type MarketType, type MLWeights,
 } from './signal-brain';
+import { downloadBotXml } from './generate-bot-xml';
 
 // ─── All 13 volatility symbols ────────────────────────────────────────────────
 
@@ -403,10 +404,29 @@ function SignalSettingsModal({ signal, rank, onClose }: {
     const [ran, setRan] = useState(false);
     const color = MARKET_COLOR[signal.market];
 
+    function parseEntryDigit(): number {
+        // entryPoint for EVEN/ODD is "Entry digit: X"
+        const m = signal.entryPoint.match(/\d+/);
+        return m ? parseInt(m[0], 10) : 0;
+    }
+
     function handleRun() {
         localStorage.setItem(storageKey, JSON.stringify(cfg));
+
+        if (signal.market === 'even_odd') {
+            const dir = signal.direction.toUpperCase() as 'EVEN' | 'ODD';
+            downloadBotXml({
+                symbol:     signal.symbol,
+                direction:  dir === 'ODD' ? 'ODD' : 'EVEN',
+                entryDigit: parseEntryDigit(),
+                stake:      parseFloat(cfg.stake)      || 0.5,
+                takeProfit: parseFloat(cfg.takeProfit) || 10,
+                stopLoss:   parseFloat(cfg.stopLoss)   || 30,
+                martingale: parseFloat(cfg.martingale) || 2,
+            });
+        }
+
         setRan(true);
-        setTimeout(() => { setRan(false); onClose(); }, 1200);
     }
 
     const fields: { label: string; key: keyof SignalSettings; hint: string; step: string }[] = [
@@ -458,13 +478,31 @@ function SignalSettingsModal({ signal, rank, onClose }: {
                     ))}
                 </div>
 
+                {/* Download instructions banner (shown after run) */}
+                {ran && signal.market === 'even_odd' && (
+                    <motion.div className='se-modal__dl-banner'
+                        initial={{ opacity:0, y:8 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.2 }}>
+                        <div className='se-modal__dl-title'>✓ Bot file downloaded!</div>
+                        <ol className='se-modal__dl-steps'>
+                            <li>Open <strong>Deriv Bot</strong> in your browser</li>
+                            <li>Click <strong>Import</strong> → choose the downloaded <code>.xml</code> file</li>
+                            <li>Hit <strong>Run bot</strong> — it will scan for digit {parseEntryDigit()} then trade {signal.direction}</li>
+                        </ol>
+                        <button className='se-modal__btn se-modal__btn--close-dl' onClick={onClose}>
+                            Close
+                        </button>
+                    </motion.div>
+                )}
+
                 {/* Footer */}
-                <div className='se-modal__footer'>
-                    <button className='se-modal__btn se-modal__btn--cancel' onClick={onClose}>Cancel</button>
-                    <button className='se-modal__btn se-modal__btn--run' onClick={handleRun}>
-                        {ran ? '✓ Saved!' : 'Save and Run'}
-                    </button>
-                </div>
+                {!ran && (
+                    <div className='se-modal__footer'>
+                        <button className='se-modal__btn se-modal__btn--cancel' onClick={onClose}>Cancel</button>
+                        <button className='se-modal__btn se-modal__btn--run' onClick={handleRun}>
+                            Save and Run
+                        </button>
+                    </div>
+                )}
             </motion.div>
         </div>
     );
@@ -689,6 +727,7 @@ const SignalEngine = () => {
     const selTs     = selBuf?.ts     ?? [];
 
     return (
+        <>
         <div className='ez-root se-root'>
             {/* ── Header ── */}
             <div className='ez-header'>
@@ -793,6 +832,7 @@ const SignalEngine = () => {
                 />
             )}
         </AnimatePresence>
+        </>
     );
 };
 

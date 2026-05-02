@@ -564,6 +564,59 @@
             color: #fff;
             &:hover { opacity: 0.9; }
         }
+
+        &--close-dl {
+            background: #6366f1;
+            color: #fff;
+            width: 100%;
+            margin-top: 0.8rem;
+            &:hover { opacity: 0.9; }
+        }
+    }
+
+    // Download-ready banner (replaces footer after run)
+    &__dl-banner {
+        margin: 0 1rem 1rem;
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%);
+        border: 1.5px solid rgba(16, 185, 129, 0.3);
+        border-radius: 0.9rem;
+        padding: 0.9rem 1rem;
+    }
+
+    &__dl-title {
+        font-size: 0.85rem;
+        font-weight: 900;
+        color: #10b981;
+        margin-bottom: 0.6rem;
+    }
+
+    &__dl-steps {
+        margin: 0;
+        padding-left: 1.2rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+
+        li {
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--text-general, #334155);
+            line-height: 1.4;
+        }
+
+        strong {
+            color: #6366f1;
+            font-weight: 800;
+        }
+
+        code {
+            background: rgba(99, 102, 241, 0.1);
+            border-radius: 0.25rem;
+            padding: 0.05em 0.35em;
+            font-size: 0.68rem;
+            font-family: 'JetBrains Mono', monospace;
+            color: #6366f1;
+        }
     }
 }
 
