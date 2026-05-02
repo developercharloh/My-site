@@ -84,8 +84,9 @@ function confColor(conf: number): string {
 // Walks the bot XML by block ID and updates math_number values in-place.
 
 interface BlockPatch {
-    blockId:  string;
-    numValue: number;
+    blockId:   string;
+    numValue?: number;   // patches math_number → field[NUM]
+    textValue?: string;  // patches text        → field[TEXT]
 }
 
 function patchBotXml(
@@ -105,7 +106,7 @@ function patchBotXml(
         }
     }
 
-    // 2. Patch numeric initialisation values by variables_set block ID
+    // 2. Patch initialisation blocks by variables_set block ID
     const allBlocks = doc.getElementsByTagName('block');
     for (let i = 0; i < allBlocks.length; i++) {
         const block = allBlocks[i];
@@ -113,21 +114,32 @@ function patchBotXml(
         const patch = patches.find(p => p.blockId === bid);
         if (!patch) continue;
 
-        // Descend: variables_set → value[name=VALUE] → math_number → field[name=NUM]
+        // Descend: variables_set → value[name=VALUE] → (math_number|text) → field
         const children = block.childNodes;
         for (let j = 0; j < children.length; j++) {
             const node = children[j] as Element;
             if (node.nodeType !== 1) continue;
-            if (node.tagName !== 'value' && node.nodeName !== 'value') continue;
             if (node.getAttribute('name') !== 'VALUE') continue;
 
-            const mathBlocks = node.getElementsByTagName('block');
-            for (let k = 0; k < mathBlocks.length; k++) {
-                if (mathBlocks[k].getAttribute('type') === 'math_number') {
-                    const numFields = mathBlocks[k].getElementsByTagName('field');
+            const innerBlocks = node.getElementsByTagName('block');
+            for (let k = 0; k < innerBlocks.length; k++) {
+                const btype = innerBlocks[k].getAttribute('type');
+
+                if (btype === 'math_number' && patch.numValue !== undefined) {
+                    const numFields = innerBlocks[k].getElementsByTagName('field');
                     for (let m = 0; m < numFields.length; m++) {
                         if (numFields[m].getAttribute('name') === 'NUM') {
                             numFields[m].textContent = String(patch.numValue);
+                        }
+                    }
+                    break;
+                }
+
+                if (btype === 'text' && patch.textValue !== undefined) {
+                    const txtFields = innerBlocks[k].getElementsByTagName('field');
+                    for (let m = 0; m < txtFields.length; m++) {
+                        if (txtFields[m].getAttribute('name') === 'TEXT') {
+                            txtFields[m].textContent = patch.textValue;
                         }
                     }
                     break;
@@ -179,6 +191,7 @@ function getBotPatches(
 
         case 'even-odd-scanner':
             return [
+                { blockId: 'eo_dir_init',             textValue: signal.direction.trim().toUpperCase() }, // Direction: EVEN or ODD
                 { blockId: 'Wa]y_n3s-T4*h(bmYz+k',  numValue: stake },      // Stake
                 { blockId: 'Z:R@MLC*=N3%meT)IuPt',   numValue: stopLoss },  // Max Loss
                 { blockId: ':Vn+w]Y.(QKzgKKENIfo',   numValue: takeProfit }, // Target Profit
@@ -236,9 +249,9 @@ const BOTS: BotConfig[] = [
         name: 'Even Odd Entry Scanner Bot',
         emoji: '⚡',
         description:
-            'Trades Digit Even/Odd on Volatility 100 Index. Scans every tick — enters only when last digit equals entry point 0, then the AI confirms direction (2 consecutive Even → buy ODD, 2 consecutive Odd → buy EVEN). Multi-level recovery on losses.',
+            'Trades Digit Even/Odd on Volatility 100 Index. Scans every tick — enters only when last digit matches the signal entry point, then buys the direction (EVEN or ODD) from the signal. 10-level martingale recovery on losses.',
         market: 'Volatility 100 Index (R_100)',
-        strategy: 'Digit Even / Odd · Entry Point Scanner · AI Direction',
+        strategy: 'Digit Even / Odd · Signal Direction · Entry Point Scanner',
         params: [
             { label: 'Entry Point', value: 'Digit 0' },
             { label: 'Stake', value: '$0.55' },
