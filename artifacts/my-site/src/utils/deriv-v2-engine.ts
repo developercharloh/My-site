@@ -1,6 +1,9 @@
 // ─── Deriv V2 Direct Engine ───────────────────────────────────────────────────
-// Connects directly to Deriv's WebSocket API and executes trades with
-// near-zero overhead. Bypasses DBot's XML/Blockly processing pipeline.
+// Uses the app's existing authenticated Deriv connection (api_base) instead of
+// creating a new WebSocket. No token required — same session as DBot.
+// Bypasses DBot's Blockly/XML processing pipeline for faster execution.
+
+import { api_base } from '@/external/bot-skeleton/services/api/api-base';
 
 export type EngineLogType = 'scan' | 'info' | 'win' | 'loss' | 'error' | 'system';
 
@@ -29,30 +32,36 @@ export type ContractKind =
 export type TradeDirection = 'EVEN' | 'ODD' | 'OVER' | 'UNDER';
 
 export interface V2BotConfig {
-    symbol:          string;        // e.g. '1HZ75V', 'R_100'
-    contractKind:    ContractKind;  // base contract type (direction may override)
-    direction?:      TradeDirection;// for EVEN/ODD and OVER/UNDER bots
-    prediction?:     number;        // for DIGITMATCH / DIGITDIFF
-    barrier?:        number;        // for DIGITOVER / DIGITUNDER
-    entryPoint:      number;        // digit 0-9 to scan for before entering
-    initialStake:    number;        // starting stake in USD
-    martingale:      number;        // multiplier on loss (e.g. 2.0)
-    martingaleLevel: number;        // max consecutive losses before stopping
-    takeProfit:      number;        // cumulative $ profit to stop at
-    stopLoss:        number;        // cumulative $ loss to stop at
+    symbol:          string;
+    contractKind:    ContractKind;
+    direction?:      TradeDirection;
+    prediction?:     number;
+    barrier?:        number;
+    entryPoint:      number;
+    initialStake:    number;
+    martingale:      number;
+    martingaleLevel: number;
+    takeProfit:      number;
+    stopLoss:        number;
 }
 
-const APP_ID = 1089;
-const WS_URL = `wss://ws.binaryws.com/websockets/v3?app_id=${APP_ID}`;
-
 export class DerivV2Engine {
-    private ws:                  WebSocket | null = null;
-    private token:               string;
     private config:              V2BotConfig;
-    private reqId:               number = 1;
+
+    // Request tracking — use time-based prefix to avoid collision with DBot req_ids
+    private reqBase:             number = (Math.floor(Date.now() / 1000) % 50000) * 1000;
+    private reqCounter:          number = 0;
+    private myReqIds:            Set<number> = new Set();
+
+    // Subscription tracking
+    private msgSub:              { unsubscribe: () => void } | null = null;
+    private tickSubId:           string | null = null;
+    private contractSubIds:      Set<string> = new Set();
+
+    // Trading state
     private isRunning:           boolean = false;
     private waitingForContract:  boolean = false;
-    private tradingMode:         0 | 1 = 0;   // 0 = scan, 1 = trade immediately
+    private tradingMode:         0 | 1 = 0;
     private currentStake:        number;
     private lossCount:           number = 1;
     private totalProfit:         number = 0;
@@ -63,8 +72,7 @@ export class DerivV2Engine {
     public onProfit: (profit: number, wins: number, losses: number)       => void = () => {};
     public onStatus: (status: EngineStatus)                               => void = () => {};
 
-    constructor(token: string, config: V2BotConfig) {
-        this.token        = token;
+    constructor(config: V2BotConfig) {
         this.config       = config;
         this.currentStake = config.initialStake;
     }
@@ -73,81 +81,98 @@ export class DerivV2Engine {
 
     start(): void {
         if (this.isRunning) return;
-        this.isRunning         = true;
-        this.tradingMode       = 0;
-        this.currentStake      = this.config.initialStake;
-        this.lossCount         = 1;
-        this.totalProfit       = 0;
-        this.wins              = 0;
-        this.losses            = 0;
+
+        if (!api_base.api) {
+            this.addLog('Deriv connection not ready — please log in first.', 'error');
+            this.onStatus('error');
+            return;
+        }
+
+        if (!api_base.is_authorized) {
+            this.addLog('Not authorized — log in to your Deriv account first.', 'error');
+            this.onStatus('error');
+            return;
+        }
+
+        this.isRunning          = true;
+        this.tradingMode        = 0;
+        this.currentStake       = this.config.initialStake;
+        this.lossCount          = 1;
+        this.totalProfit        = 0;
+        this.wins               = 0;
+        this.losses             = 0;
         this.waitingForContract = false;
-        this.connect();
+        this.tickSubId          = null;
+        this.contractSubIds     = new Set();
+        this.myReqIds           = new Set();
+
+        // Subscribe to the global message stream
+        this.msgSub = (api_base.api as any).onMessage().subscribe((raw: any) => {
+            try {
+                // DerivAPI delivers messages already parsed as objects
+                const msg = raw?.data ? JSON.parse(raw.data) : raw;
+                this.handle(msg);
+            } catch { /* ignore parse errors */ }
+        });
+
+        this.onStatus('scanning');
+        this.addLog('V2 Engine started — using existing session (no token needed)', 'system');
+        this.subscribeTicks();
     }
 
     stop(): void {
         this.isRunning = false;
-        this.disconnect();
+
+        // Forget the tick subscription
+        if (this.tickSubId) {
+            this.rawSend({ forget: this.tickSubId });
+            this.tickSubId = null;
+        }
+
+        // Forget all open contract subscriptions
+        this.contractSubIds.forEach(id => this.rawSend({ forget: id }));
+        this.contractSubIds.clear();
+
+        // Unsubscribe from message stream
+        this.msgSub?.unsubscribe();
+        this.msgSub = null;
+
         this.onStatus('stopped');
         this.addLog('Engine stopped.', 'system');
     }
 
-    // ── Private — networking ──────────────────────────────────────────────────
+    // ── Private — sending ─────────────────────────────────────────────────────
 
-    private connect(): void {
-        this.onStatus('connecting');
-        this.addLog('Connecting to Deriv API…', 'system');
-        const ws = new WebSocket(WS_URL);
-        this.ws  = ws;
-
-        ws.onopen = () => {
-            this.addLog('Connected — authenticating…', 'system');
-            this.send({ authorize: this.token });
-        };
-
-        ws.onmessage = (evt: MessageEvent) => {
-            try { this.handle(JSON.parse(evt.data as string)); } catch { /* ignore */ }
-        };
-
-        ws.onerror = () => {
-            this.addLog('WebSocket error', 'error');
-            this.onStatus('error');
-        };
-
-        ws.onclose = () => {
-            if (this.isRunning) {
-                this.addLog('Connection lost — reconnecting in 3 s…', 'system');
-                setTimeout(() => { if (this.isRunning) this.connect(); }, 3000);
-            }
-        };
+    /** Send via api_base, tracking the req_id as ours. */
+    private send(payload: Record<string, unknown>): number {
+        const reqId = this.reqBase + (++this.reqCounter);
+        this.myReqIds.add(reqId);
+        this.rawSend({ req_id: reqId, ...payload });
+        return reqId;
     }
 
-    private disconnect(): void {
-        if (!this.ws) return;
-        const ws     = this.ws;
-        this.ws      = null;
-        ws.onopen    = null;
-        ws.onmessage = null;
-        ws.onerror   = null;
-        ws.onclose   = null;
-        try { ws.close(); } catch { /* ignore */ }
-    }
-
-    private send(payload: Record<string, unknown>): void {
-        if (this.ws?.readyState === WebSocket.OPEN) {
-            this.ws.send(JSON.stringify({ req_id: this.reqId++, ...payload }));
-        }
+    /** Send without tracking (for forget/cleanup). */
+    private rawSend(payload: Record<string, unknown>): void {
+        try { (api_base.api as any).send(payload); } catch { /* ignore */ }
     }
 
     // ── Private — message routing ─────────────────────────────────────────────
 
     private handle(msg: Record<string, any>): void {
+        if (!this.isRunning || !msg) return;
+
+        const subId = msg?.subscription?.id as string | undefined;
+        const reqId = msg?.req_id  as number | undefined;
+
+        // Only process messages that belong to this engine instance
+        const isMyReq      = reqId  !== undefined && this.myReqIds.has(reqId);
+        const isMyTickSub  = subId  !== undefined && subId === this.tickSubId;
+        const isMyContract = subId  !== undefined && this.contractSubIds.has(subId);
+
+        if (!isMyReq && !isMyTickSub && !isMyContract) return;
+
         if (msg.error) {
             this.addLog(`API error: ${msg.error.message}`, 'error');
-            if (msg.msg_type === 'authorize') {
-                this.isRunning = false;
-                this.onStatus('error');
-            }
-            // On failed buy — release lock so engine can retry on next tick
             if (msg.msg_type === 'buy') {
                 this.waitingForContract = false;
             }
@@ -155,69 +180,96 @@ export class DerivV2Engine {
         }
 
         switch (msg.msg_type) {
-            case 'authorize':
-                this.handleAuthorize(msg.authorize);
-                break;
             case 'tick':
-                if (this.isRunning && !this.waitingForContract) {
-                    this.handleTick(msg.tick);
-                }
+                // Register subscription id on first tick response
+                if (subId && !this.tickSubId) this.tickSubId = subId;
+                if (!this.waitingForContract) this.handleTick(msg.tick);
                 break;
+
             case 'buy':
-                this.handleBuyAck(msg.buy);
+                this.handleBuyAck(msg.buy, subId);
                 break;
+
             case 'proposal_open_contract':
-                this.handleContract(msg.proposal_open_contract);
+                this.handleContract(msg.proposal_open_contract, subId);
                 break;
         }
     }
 
-    private handleAuthorize(auth: Record<string, any>): void {
-        this.addLog(
-            `Authorized ✓  ${auth.loginid}  |  Balance: ${auth.currency} ${parseFloat(auth.balance).toFixed(2)}`,
-            'system',
-        );
-        this.onStatus('scanning');
+    // ── Private — tick processing ─────────────────────────────────────────────
+
+    private subscribeTicks(): void {
+        this.addLog(`Subscribing to ticks: ${this.config.symbol}`, 'system');
         this.send({ ticks: this.config.symbol, subscribe: 1 });
     }
 
-    private handleTick(tick: { quote: number }): void {
+    private handleTick(tick: { quote: number } | undefined): void {
+        if (!tick) return;
         const digit = this.lastDigit(tick.quote);
 
         if (this.tradingMode === 0) {
-            // Scanning mode — show journal on every tick
-            this.addLog(
-                `Last digit: ${digit}  |  Entry: ${this.config.entryPoint}`,
-                'scan',
-            );
+            this.addLog(`Last digit: ${digit}  |  Entry: ${this.config.entryPoint}`, 'scan');
             if (digit === this.config.entryPoint) {
                 this.tradingMode = 1;
                 this.addLog('Entry point hit — buying contract immediately', 'info');
                 this.buy();
             }
         }
-        // In trading mode, buys are triggered by contract settlement, not ticks
+        // In trading mode, buys fire from contract settlement — not from ticks
     }
 
-    private handleBuyAck(buy: Record<string, any>): void {
+    // ── Private — contract execution ──────────────────────────────────────────
+
+    private buy(): void {
+        if (!this.isRunning) return;
+        this.waitingForContract = true;
+
+        const ct = this.resolveContractType();
+        const params: Record<string, unknown> = {
+            amount:        this.currentStake,
+            basis:         'stake',
+            contract_type: ct,
+            currency:      'USD',
+            duration:      1,
+            duration_unit: 't',
+            symbol:        this.config.symbol,
+        };
+
+        if (ct === 'DIGITMATCH' || ct === 'DIGITDIFF') {
+            params.prediction = this.config.prediction ?? this.config.entryPoint;
+        }
+        if (ct === 'DIGITOVER' || ct === 'DIGITUNDER') {
+            params.barrier = String(this.config.barrier ?? this.config.entryPoint);
+        }
+
+        this.addLog(`Buying ${ct}  stake $${this.currentStake.toFixed(2)}`, 'info');
+        this.send({ buy: 1, price: this.currentStake, parameters: params });
+    }
+
+    private handleBuyAck(buy: Record<string, any> | undefined, subId: string | undefined): void {
         if (!buy) {
-            this.addLog('Buy acknowledgement missing — retrying on next tick', 'error');
+            this.addLog('Buy failed — no contract returned', 'error');
             this.waitingForContract = false;
             return;
         }
-        this.addLog(
-            `Contract #${buy.contract_id} purchased  stake $${this.currentStake.toFixed(2)}`,
-            'info',
-        );
-        // Subscribe for settlement
+
+        this.addLog(`Contract #${buy.contract_id} opened`, 'info');
+
+        // Track subscription id for this open contract
+        if (subId) this.contractSubIds.add(subId);
+
+        // Also explicitly subscribe to proposal_open_contract for settlement
         this.send({ proposal_open_contract: 1, contract_id: buy.contract_id, subscribe: 1 });
     }
 
-    private handleContract(poc: Record<string, any>): void {
-        if (!poc?.is_sold) return;   // not settled yet
+    private handleContract(poc: Record<string, any> | undefined, subId: string | undefined): void {
+        if (!poc?.is_sold) return;  // Contract not settled yet
 
-        // Forget this subscription
-        if (poc.id) this.send({ forget: poc.id });
+        // Remove this contract subscription
+        if (subId) {
+            this.contractSubIds.delete(subId);
+            this.rawSend({ forget: subId });
+        }
 
         this.waitingForContract = false;
 
@@ -227,10 +279,7 @@ export class DerivV2Engine {
 
         if (isWin) {
             this.wins++;
-            this.addLog(
-                `WIN  +$${Math.abs(profit).toFixed(2)}  |  P&L: ${this.pnlStr()}`,
-                'win',
-            );
+            this.addLog(`WIN  +$${Math.abs(profit).toFixed(2)}  |  P&L: ${this.pnlStr()}`, 'win');
             this.currentStake = this.config.initialStake;
             this.lossCount    = 1;
 
@@ -242,10 +291,7 @@ export class DerivV2Engine {
             }
         } else {
             this.losses++;
-            this.addLog(
-                `LOSS -$${Math.abs(profit).toFixed(2)}  |  P&L: ${this.pnlStr()}`,
-                'loss',
-            );
+            this.addLog(`LOSS -$${Math.abs(profit).toFixed(2)}  |  P&L: ${this.pnlStr()}`, 'loss');
 
             if (this.totalProfit <= -this.config.stopLoss) {
                 this.addLog(`Stop Loss $${this.config.stopLoss.toFixed(2)} reached — stopping`, 'error');
@@ -267,37 +313,11 @@ export class DerivV2Engine {
         this.onProfit(this.totalProfit, this.wins, this.losses);
         this.onStatus('trading');
 
-        // Re-buy IMMEDIATELY — no waiting for next tick
+        // Re-buy IMMEDIATELY — no waiting for the next tick
         if (this.isRunning) this.buy();
     }
 
-    // ── Private — trading ─────────────────────────────────────────────────────
-
-    private buy(): void {
-        if (!this.isRunning) return;
-        this.waitingForContract = true;
-
-        const ct = this.resolveContractType();
-
-        const params: Record<string, unknown> = {
-            amount:        this.currentStake,
-            basis:         'stake',
-            contract_type: ct,
-            currency:      'USD',
-            duration:      1,
-            duration_unit: 't',
-            symbol:        this.config.symbol,
-        };
-
-        if (ct === 'DIGITMATCH' || ct === 'DIGITDIFF') {
-            params.prediction = this.config.prediction ?? this.config.entryPoint;
-        }
-        if (ct === 'DIGITOVER' || ct === 'DIGITUNDER') {
-            params.barrier = String(this.config.barrier ?? this.config.entryPoint);
-        }
-
-        this.send({ buy: 1, price: this.currentStake, parameters: params });
-    }
+    // ── Private — helpers ─────────────────────────────────────────────────────
 
     private resolveContractType(): string {
         const { contractKind, direction } = this.config;
@@ -310,11 +330,8 @@ export class DerivV2Engine {
         return contractKind;
     }
 
-    // ── Private — helpers ─────────────────────────────────────────────────────
-
     private lastDigit(quote: number): number {
-        // Parse from string to avoid floating-point rounding errors
-        const s = quote.toString().replace(/^.*\./, ''); // decimal part only
+        const s = quote.toString().replace(/^.*\./, '');
         return parseInt(s[s.length - 1] ?? '0', 10);
     }
 
