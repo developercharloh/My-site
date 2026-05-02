@@ -341,11 +341,15 @@ export class DerivV2Engine {
             symbol:        this.config.symbol,
         };
         if (ct === 'DIGITMATCH' || ct === 'DIGITDIFF') {
-            params.prediction = this.config.prediction ?? this.config.entryPoint;
+            // Deriv API uses selected_tick + barrier (not "prediction") for digit match/diff
+            const digit = this.config.prediction ?? this.config.entryPoint;
+            params.selected_tick = digit;
+            params.barrier       = digit;
         }
         if (ct === 'DIGITOVER' || ct === 'DIGITUNDER') {
             params.barrier = String(this.config.barrier ?? this.config.entryPoint);
         }
+        // DIGITEVEN / DIGITODD: no digit parameter needed
 
         this.send(params, 'proposal');
     }
