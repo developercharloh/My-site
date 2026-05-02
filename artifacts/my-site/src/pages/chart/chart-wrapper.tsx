@@ -25,8 +25,6 @@ const TV_SYMBOLS: { value: string; label: string }[] = [
     { value: 'TVC:SPX',        label: 'S&P 500' },
 ];
 
-const DERIV_TV_URL = 'https://charts.deriv.com';
-
 function buildTvEmbedUrl(symbol: string, theme: 'dark' | 'light'): string {
     const params = new URLSearchParams({
         symbol,
@@ -89,15 +87,6 @@ const ChartWrapper = observer(({ prefix = 'chart', show_digits_stats }: ChartWra
                                 <option key={s.value} value={s.value}>{s.label}</option>
                             ))}
                         </select>
-                        <a
-                            className='chart-wrapper__tv-link'
-                            href={DERIV_TV_URL}
-                            target='_blank'
-                            rel='noopener noreferrer'
-                            title='Open Deriv TradingView in a new tab'
-                        >
-                            ↗ Deriv TV
-                        </a>
                     </div>
                 )}
             </div>
