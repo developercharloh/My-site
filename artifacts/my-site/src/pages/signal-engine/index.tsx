@@ -422,7 +422,7 @@ function SignalSettingsModal({ signal, rank, onClose }: {
 
         try {
             const Blockly = (window as any).Blockly;
-            if (!Blockly?.utils?.xml?.textToDom || !Blockly?.derivWorkspace) {
+            if (!Blockly?.derivWorkspace) {
                 setRunState('no-workspace');
                 return;
             }
@@ -437,7 +437,12 @@ function SignalSettingsModal({ signal, rank, onClose }: {
                 martingale: parseFloat(cfg.martingale) || 2,
             });
 
-            const dom = Blockly.utils.xml.textToDom(xmlText);
+            // Use native DOMParser to avoid Blockly's textToDom null-check throwing
+            const parsed = new DOMParser().parseFromString(xmlText, 'text/xml');
+            const parseError = parsed.querySelector('parsererror');
+            if (parseError) throw new Error('XML parse error: ' + parseError.textContent);
+            const dom = parsed.documentElement;
+
             Blockly.Xml.clearWorkspaceAndLoadFromXml(dom, Blockly.derivWorkspace);
             Blockly.derivWorkspace.cleanUp();
             Blockly.derivWorkspace.clearUndo();
