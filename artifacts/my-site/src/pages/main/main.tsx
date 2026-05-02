@@ -384,6 +384,23 @@ const AppWrapper = observer(() => {
                                     </Suspense>
                                 </div>
                             </div>
+                            <div
+                                label={
+                                    <>
+                                        <span className='tab-emoji' role='img' aria-hidden='true'>⚡</span>
+                                        <Localize i18n_default_text='V2 Panel' />
+                                    </>
+                                }
+                                id='id-v2-panel'
+                            >
+                                <Suspense
+                                    fallback={
+                                        <ChunkLoader message={localize('Loading V2 Panel...')} />
+                                    }
+                                >
+                                    <V2PanelTab />
+                                </Suspense>
+                            </div>
                         </Tabs>
                         {!isDesktop && right_tab_shadow && <span className='tabs-shadow tabs-shadow--right' />}{' '}
                     </div>
@@ -398,7 +415,7 @@ const AppWrapper = observer(() => {
                 <TradingViewModal />
             </DesktopWrapper>
             <MobileWrapper>
-                {!is_open && active_tab !== DBOT_TABS.SPEED_BOTS && active_tab !== DBOT_TABS.ANALYSIS_TOOL && <RunPanel />}
+                {!is_open && active_tab !== DBOT_TABS.SPEED_BOTS && active_tab !== DBOT_TABS.ANALYSIS_TOOL && active_tab !== DBOT_TABS.V2_PANEL && <RunPanel />}
             </MobileWrapper>
             <Dialog
                 cancel_button_text={cancel_button_text || localize('Cancel')}
