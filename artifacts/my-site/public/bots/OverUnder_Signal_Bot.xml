@@ -359,172 +359,23 @@
     </statement>
   </block>
 
-  <!-- ── BEFORE PURCHASE ── -->
+  <!-- ── BEFORE PURCHASE — no delay, buy every tick ── -->
   <block type="before_purchase" id="ou_before_purchase" deletable="false" x="0" y="976">
     <statement name="BEFOREPURCHASE_STACK">
-      <block type="controls_if" id="ou_tm_gate">
+      <block type="controls_if" id="ou_dir_buy_fast">
         <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
         <value name="IF0">
-          <block type="logic_compare" id="ou_tm_cmp">
+          <block type="logic_compare" id="ou_over_cmp_fast">
             <field name="OP">EQ</field>
-            <value name="A">
-              <block type="variables_get" id="ou_tm_get">
-                <field name="VAR" id="ou_tm_id">trading mode</field>
-              </block>
-            </value>
-            <value name="B">
-              <block type="math_number" id="ou_tm_one"><field name="NUM">1</field></block>
-            </value>
+            <value name="A"><block type="variables_get" id="ou_dir_get_fast"><field name="VAR" id="ou_dir_id">Direction</field></block></value>
+            <value name="B"><block type="text" id="ou_over_txt_fast"><field name="TEXT">OVER</field></block></value>
           </block>
         </value>
         <statement name="DO0">
-          <!-- Already in trading mode — purchase based on Direction -->
-          <block type="controls_if" id="ou_dir_purchase_check">
-            <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
-            <value name="IF0">
-              <block type="logic_compare" id="ou_dir_cmp">
-                <field name="OP">EQ</field>
-                <value name="A">
-                  <block type="variables_get" id="ou_dir_get_purchase">
-                    <field name="VAR" id="ou_dir_id">Direction</field>
-                  </block>
-                </value>
-                <value name="B">
-                  <block type="text" id="ou_over_text_cmp">
-                    <field name="TEXT">OVER</field>
-                  </block>
-                </value>
-              </block>
-            </value>
-            <statement name="DO0">
-              <block type="purchase" id="ou_purchase_over">
-                <field name="PURCHASE_LIST">DIGITOVER</field>
-              </block>
-            </statement>
-            <statement name="ELSE">
-              <block type="purchase" id="ou_purchase_under">
-                <field name="PURCHASE_LIST">DIGITUNDER</field>
-              </block>
-            </statement>
-          </block>
+          <block type="purchase" id="ou_buy_over_fast"><field name="PURCHASE_LIST">DIGITOVER</field></block>
         </statement>
         <statement name="ELSE">
-          <!-- Scan mode: log last digit + entry, check entry point, enter trade -->
-          <block type="variables_set" id="ou_set_ld_scan">
-            <field name="VAR" id="ou_ld_id">last digit</field>
-            <value name="VALUE">
-              <block type="last_digit" id="ou_ld_block"></block>
-            </value>
-            <next>
-              <block type="text_join" id="ou_scan_join">
-                <field name="VARIABLE" id="ou_scan_txt_id">scan_text</field>
-                <statement name="STACK">
-                  <block type="text_statement" id="ou_scan_s1">
-                    <value name="TEXT">
-                      <shadow type="text"><field name="TEXT">Last digit: </field></shadow>
-                    </value>
-                    <next>
-                      <block type="text_statement" id="ou_scan_s2">
-                        <value name="TEXT">
-                          <shadow type="text"><field name="TEXT"></field></shadow>
-                          <block type="variables_get" id="ou_scan_ld_get">
-                            <field name="VAR" id="ou_ld_id">last digit</field>
-                          </block>
-                        </value>
-                        <next>
-                          <block type="text_statement" id="ou_scan_s3">
-                            <value name="TEXT">
-                              <shadow type="text"><field name="TEXT"> | Entry: </field></shadow>
-                            </value>
-                            <next>
-                              <block type="text_statement" id="ou_scan_s4">
-                                <value name="TEXT">
-                                  <shadow type="text"><field name="TEXT"></field></shadow>
-                                  <block type="variables_get" id="ou_scan_ep_get">
-                                    <field name="VAR" id="ou_ep_id">entry point</field>
-                                  </block>
-                                </value>
-                              </block>
-                            </next>
-                          </block>
-                        </next>
-                      </block>
-                    </next>
-                  </block>
-                </statement>
-                <next>
-                  <block type="notify" id="ou_scan_notify">
-                    <field name="NOTIFICATION_TYPE">success</field>
-                    <field name="NOTIFICATION_SOUND">silent</field>
-                    <value name="MESSAGE">
-                      <shadow type="text"><field name="TEXT">scanning</field></shadow>
-                      <block type="variables_get" id="ou_scan_txt_get">
-                        <field name="VAR" id="ou_scan_txt_id">scan_text</field>
-                      </block>
-                    </value>
-                    <next>
-                      <block type="controls_if" id="ou_ep_gate">
-                        <value name="IF0">
-                          <block type="logic_compare" id="ou_ep_cmp">
-                            <field name="OP">EQ</field>
-                            <value name="A">
-                              <block type="variables_get" id="ou_ld_ep_get">
-                                <field name="VAR" id="ou_ld_id">last digit</field>
-                              </block>
-                            </value>
-                            <value name="B">
-                              <block type="variables_get" id="ou_ep_get">
-                                <field name="VAR" id="ou_ep_id">entry point</field>
-                              </block>
-                            </value>
-                          </block>
-                        </value>
-                        <statement name="DO0">
-                          <block type="variables_set" id="ou_set_tm_on">
-                            <field name="VAR" id="ou_tm_id">trading mode</field>
-                            <value name="VALUE">
-                              <block type="math_number" id="ou_tm_on"><field name="NUM">1</field></block>
-                            </value>
-                            <next>
-                              <!-- Purchase on entry: OVER or UNDER based on Direction -->
-                              <block type="controls_if" id="ou_dir_purchase_entry">
-                                <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
-                                <value name="IF0">
-                                  <block type="logic_compare" id="ou_dir_cmp_entry">
-                                    <field name="OP">EQ</field>
-                                    <value name="A">
-                                      <block type="variables_get" id="ou_dir_get_entry">
-                                        <field name="VAR" id="ou_dir_id">Direction</field>
-                                      </block>
-                                    </value>
-                                    <value name="B">
-                                      <block type="text" id="ou_over_text_entry">
-                                        <field name="TEXT">OVER</field>
-                                      </block>
-                                    </value>
-                                  </block>
-                                </value>
-                                <statement name="DO0">
-                                  <block type="purchase" id="ou_purchase_over_entry">
-                                    <field name="PURCHASE_LIST">DIGITOVER</field>
-                                  </block>
-                                </statement>
-                                <statement name="ELSE">
-                                  <block type="purchase" id="ou_purchase_under_entry">
-                                    <field name="PURCHASE_LIST">DIGITUNDER</field>
-                                  </block>
-                                </statement>
-                              </block>
-                            </next>
-                          </block>
-                        </statement>
-                      </block>
-                    </next>
-                  </block>
-                </next>
-              </block>
-            </next>
-          </block>
+          <block type="purchase" id="ou_buy_under_fast"><field name="PURCHASE_LIST">DIGITUNDER</field></block>
         </statement>
       </block>
     </statement>

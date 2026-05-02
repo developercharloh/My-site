@@ -561,14 +561,7 @@
                   </block>
                 </statement>
                 <statement name="ELSE">
-                  <block type="timeout" id="eo_trade_again_to">
-                    <statement name="TIMEOUTSTACK">
-                      <block type="trade_again" id="eo_trade_again"></block>
-                    </statement>
-                    <value name="SECONDS">
-                      <shadow type="math_number" id="eo_ta_sec"><field name="NUM">11</field></shadow>
-                    </value>
-                  </block>
+                  <block type="trade_again" id="eo_trade_again"></block>
                 </statement>
               </block>
             </statement>
@@ -589,162 +582,32 @@
     </statement>
   </block>
 
-  <!-- ── BEFORE PURCHASE — simplified ── -->
+  <!-- ── BEFORE PURCHASE — no delay, buy every tick ── -->
   <block type="before_purchase" id="4vMGgAV:uVXot*G5?6YJ" deletable="false" x="0" y="930">
     <statement name="BEFOREPURCHASE_STACK">
 
-      <!-- Force last digit = entry point when already in trading mode (recovery trades pass scan) -->
-      <block type="controls_if" id="tm_force_entry_eo">
+      <block type="controls_if" id="eo_dir_buy_fast">
+        <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="1"></mutation>
         <value name="IF0">
-          <block type="logic_compare" id="tm_cmp_eo">
+          <block type="logic_compare" id="eo_even_cmp_fast">
             <field name="OP">EQ</field>
-            <value name="A"><block type="variables_get" id="tm_get_eo"><field name="VAR" id="tm_eo_id">trading mode</field></block></value>
-            <value name="B"><block type="math_number" id="tm_one_eo"><field name="NUM">1</field></block></value>
+            <value name="A"><block type="variables_get" id="eo_dir_get_fast"><field name="VAR" id="FM1`~n6DvK#8Yi`~!oSD">Direction</field></block></value>
+            <value name="B"><block type="text" id="eo_even_txt_fast"><field name="TEXT">EVEN</field></block></value>
           </block>
         </value>
         <statement name="DO0">
-          <block type="variables_set" id="force_ld_eq_ep_eo">
-            <field name="VAR" id="eo_last_digit_id">last digit</field>
-            <value name="VALUE">
-              <block type="variables_get" id="force_ep_get_eo">
-                <field name="VAR" id="eo_entry_pt_id">entry point</field>
-              </block>
-            </value>
-          </block>
+          <block type="purchase" id="eo_buy_even_fast"><field name="PURCHASE_LIST">DIGITEVEN</field></block>
         </statement>
-      </block>
-
-      <!-- Set last digit = live tick -->
-      <block type="variables_set" id="set_ld_eo_scan">
-        <field name="VAR" id="eo_last_digit_id">last digit</field>
-        <value name="VALUE">
-          <block type="last_digit" id="ld_eo_block"></block>
-        </value>
-        <next>
-          <!-- Re-force after real read (so recovery trades still pass) -->
-          <block type="controls_if" id="re_force_tm_eo">
-            <value name="IF0">
-              <block type="logic_compare" id="re_force_cmp_eo">
-                <field name="OP">EQ</field>
-                <value name="A"><block type="variables_get" id="re_force_get_tm"><field name="VAR" id="tm_eo_id">trading mode</field></block></value>
-                <value name="B"><block type="math_number" id="re_force_one"><field name="NUM">1</field></block></value>
-              </block>
-            </value>
-            <statement name="DO0">
-              <block type="variables_set" id="re_force_set_ld">
-                <field name="VAR" id="eo_last_digit_id">last digit</field>
-                <value name="VALUE">
-                  <block type="variables_get" id="re_force_get_ep">
-                    <field name="VAR" id="eo_entry_pt_id">entry point</field>
-                  </block>
-                </value>
-              </block>
-            </statement>
-            <next>
-              <!-- Journal: "Last digit: X | Entry: Y" -->
-              <block type="text_join" id="scan_join_eo">
-                <field name="VARIABLE" id="eo_scan_text_id">text</field>
-                <statement name="STACK">
-                  <block type="text_statement" id="scan_eo1">
-                    <value name="TEXT">
-                      <shadow type="text" id="seo1"><field name="TEXT">Last digit: </field></shadow>
-                    </value>
-                    <next>
-                      <block type="text_statement" id="scan_eo2">
-                        <value name="TEXT">
-                          <shadow type="text" id="seo2"><field name="TEXT"></field></shadow>
-                          <block type="variables_get" id="scan_eo_ld">
-                            <field name="VAR" id="eo_last_digit_id">last digit</field>
-                          </block>
-                        </value>
-                        <next>
-                          <block type="text_statement" id="scan_eo3">
-                            <value name="TEXT">
-                              <shadow type="text" id="seo3"><field name="TEXT"> | Entry: </field></shadow>
-                            </value>
-                            <next>
-                              <block type="text_statement" id="scan_eo4">
-                                <value name="TEXT">
-                                  <shadow type="text" id="seo4"><field name="TEXT"></field></shadow>
-                                  <block type="variables_get" id="scan_eo_ep">
-                                    <field name="VAR" id="eo_entry_pt_id">entry point</field>
-                                  </block>
-                                </value>
-                              </block>
-                            </next>
-                          </block>
-                        </next>
-                      </block>
-                    </next>
-                  </block>
-                </statement>
-                <next>
-                  <block type="notify" id="scan_print_eo">
-                    <field name="NOTIFICATION_TYPE">success</field>
-                    <field name="NOTIFICATION_SOUND">silent</field>
-                    <value name="MESSAGE">
-                      <shadow type="text" id="speo"><field name="TEXT">scanning</field></shadow>
-                      <block type="variables_get" id="scan_eo_text">
-                        <field name="VAR" id="eo_scan_text_id">text</field>
-                      </block>
-                    </value>
-                    <next>
-                      <!-- Entry gate: if last digit = entry point → trade -->
-                      <block type="controls_if" id="entry_gate_eo">
-                        <value name="IF0">
-                          <block type="logic_compare" id="entry_cmp_eo">
-                            <field name="OP">EQ</field>
-                            <value name="A"><block type="variables_get" id="eg_ld_eo"><field name="VAR" id="eo_last_digit_id">last digit</field></block></value>
-                            <value name="B"><block type="variables_get" id="eg_ep_eo"><field name="VAR" id="eo_entry_pt_id">entry point</field></block></value>
-                          </block>
-                        </value>
-                        <statement name="DO0">
-                          <!-- Mark trading mode = 1 (recovery trades bypass scan) -->
-                          <block type="variables_set" id="set_tm_on_eo">
-                            <field name="VAR" id="tm_eo_id">trading mode</field>
-                            <value name="VALUE">
-                              <block type="math_number" id="tm_on_eo_num"><field name="NUM">1</field></block>
-                            </value>
-                            <next>
-                              <!-- Buy based on Direction (EVEN or ODD from signal/init) -->
-                              <block type="controls_if" id="eo_dir_check">
-                                <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="1"></mutation>
-                                <value name="IF0">
-                                  <block type="logic_compare" id="eo_dir_even_cmp">
-                                    <field name="OP">EQ</field>
-                                    <value name="A"><block type="variables_get" id="eo_dir_even_get"><field name="VAR" id="FM1`~n6DvK#8Yi`~!oSD">Direction</field></block></value>
-                                    <value name="B"><block type="text" id="eo_even_txt"><field name="TEXT">EVEN</field></block></value>
-                                  </block>
-                                </value>
-                                <statement name="DO0">
-                                  <block type="purchase" id="eo_buy_even">
-                                    <field name="PURCHASE_LIST">DIGITEVEN</field>
-                                  </block>
-                                </statement>
-                                <value name="IF1">
-                                  <block type="logic_compare" id="eo_dir_odd_cmp">
-                                    <field name="OP">EQ</field>
-                                    <value name="A"><block type="variables_get" id="eo_dir_odd_get"><field name="VAR" id="FM1`~n6DvK#8Yi`~!oSD">Direction</field></block></value>
-                                    <value name="B"><block type="text" id="eo_odd_txt"><field name="TEXT">ODD</field></block></value>
-                                  </block>
-                                </value>
-                                <statement name="DO1">
-                                  <block type="purchase" id="eo_buy_odd">
-                                    <field name="PURCHASE_LIST">DIGITODD</field>
-                                  </block>
-                                </statement>
-                              </block>
-                            </next>
-                          </block>
-                        </statement>
-                      </block>
-                    </next>
-                  </block>
-                </next>
-              </block>
-            </next>
+        <value name="IF1">
+          <block type="logic_compare" id="eo_odd_cmp_fast">
+            <field name="OP">EQ</field>
+            <value name="A"><block type="variables_get" id="eo_dir_get_fast2"><field name="VAR" id="FM1`~n6DvK#8Yi`~!oSD">Direction</field></block></value>
+            <value name="B"><block type="text" id="eo_odd_txt_fast"><field name="TEXT">ODD</field></block></value>
           </block>
-        </next>
+        </value>
+        <statement name="DO1">
+          <block type="purchase" id="eo_buy_odd_fast"><field name="PURCHASE_LIST">DIGITODD</field></block>
+        </statement>
       </block>
     </statement>
   </block>
