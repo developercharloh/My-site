@@ -2,21 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useStore } from '@/hooks/useStore';
 import { DBOT_TABS } from '@/constants/bot-contents';
+import { parseDigitFrom, patchBotXml, getBotPatches, type BlockPatch, type BotSignal } from '@/utils/bot-patch';
 import './free-bots.scss';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type BotStatus = 'idle' | 'loading' | 'loaded' | 'error';
 
-interface LiveSignal {
-    symbol:      string;
-    symbolLabel: string;
-    direction:   string;
-    entryPoint:  string;
-    confidence:  number;
-    market:      string;
-    savedAt:     number;
-}
+type LiveSignal = BotSignal;
 
 interface SignalSettings {
     stake:      string;
@@ -71,136 +64,8 @@ function useSignal(key: string | undefined): LiveSignal | null {
     return signal;
 }
 
-function parseDigitFrom(str: string): number {
-    const m = str.match(/\d+/);
-    return m ? parseInt(m[0], 10) : 0;
-}
-
 function confColor(conf: number): string {
     return conf >= 70 ? '#10b981' : conf >= 60 ? '#eab308' : '#ef4444';
-}
-
-// ─── XML Patching ─────────────────────────────────────────────────────────────
-// Walks the bot XML by block ID and updates math_number values in-place.
-
-interface BlockPatch {
-    blockId:   string;
-    numValue?: number;   // patches math_number → field[NUM]
-    textValue?: string;  // patches text        → field[TEXT]
-}
-
-function patchBotXml(
-    xmlText: string,
-    symbol:  string,
-    patches: BlockPatch[],
-): Document {
-    const parser = new DOMParser();
-    const doc    = parser.parseFromString(xmlText, 'text/xml');
-
-    // 1. Patch SYMBOL_LIST (first match = market block)
-    const allFields = doc.getElementsByTagName('field');
-    for (let i = 0; i < allFields.length; i++) {
-        if (allFields[i].getAttribute('name') === 'SYMBOL_LIST') {
-            allFields[i].textContent = symbol;
-            break;
-        }
-    }
-
-    // 2. Patch initialisation blocks by variables_set block ID
-    const allBlocks = doc.getElementsByTagName('block');
-    for (let i = 0; i < allBlocks.length; i++) {
-        const block = allBlocks[i];
-        const bid   = block.getAttribute('id') ?? '';
-        const patch = patches.find(p => p.blockId === bid);
-        if (!patch) continue;
-
-        // Descend: variables_set → value[name=VALUE] → (math_number|text) → field
-        const children = block.childNodes;
-        for (let j = 0; j < children.length; j++) {
-            const node = children[j] as Element;
-            if (node.nodeType !== 1) continue;
-            if (node.getAttribute('name') !== 'VALUE') continue;
-
-            const innerBlocks = node.getElementsByTagName('block');
-            for (let k = 0; k < innerBlocks.length; k++) {
-                const btype = innerBlocks[k].getAttribute('type');
-
-                if (btype === 'math_number' && patch.numValue !== undefined) {
-                    const numFields = innerBlocks[k].getElementsByTagName('field');
-                    for (let m = 0; m < numFields.length; m++) {
-                        if (numFields[m].getAttribute('name') === 'NUM') {
-                            numFields[m].textContent = String(patch.numValue);
-                        }
-                    }
-                    break;
-                }
-
-                if (btype === 'text' && patch.textValue !== undefined) {
-                    const txtFields = innerBlocks[k].getElementsByTagName('field');
-                    for (let m = 0; m < txtFields.length; m++) {
-                        if (txtFields[m].getAttribute('name') === 'TEXT') {
-                            txtFields[m].textContent = patch.textValue;
-                        }
-                    }
-                    break;
-                }
-            }
-            break;
-        }
-    }
-
-    return doc;
-}
-
-// ─── Per-bot patch maps ───────────────────────────────────────────────────────
-// Block IDs sourced directly from each bot's INITIALIZATION chain.
-
-function getBotPatches(
-    botId:       string,
-    signal:      LiveSignal,
-    stake:       number,
-    takeProfit:  number,
-    stopLoss:    number,
-    martingale:  number,
-): BlockPatch[] {
-    const digit = parseDigitFrom(signal.direction);   // prediction / entry
-    const entry = parseDigitFrom(signal.entryPoint);  // only Even Odd uses entryPoint separately
-    const martingaleLevel = Math.max(3, Math.min(10, Math.round(stopLoss / stake)));
-
-    switch (botId) {
-        case 'matches-signal':
-            return [
-                { blockId: '!BDtc{tIb5~vb#O@Ogky', numValue: digit },           // Prediction
-                { blockId: 'Dww98I}prRuVxr_mn~}k',  numValue: stake },           // Stake
-                { blockId: 'P@g)b:jeg|/F)mD8%X,w',  numValue: stake },           // InitialStake
-                { blockId: 't0b1vxY9xaXc@*IwT7C{',  numValue: takeProfit },      // TakeProfit
-                { blockId: 'tuMdgDH=EiDY~j.b%n;]',  numValue: martingaleLevel }, // MartingaleLevel
-                { blockId: 'zHWiC2`O-~qH2R`7]FaG',  numValue: martingale },      // Martingale
-                { blockId: 'ep_matches_init',         numValue: digit },           // entry point
-            ];
-
-        case 'differ-v2':
-            return [
-                { blockId: '%,Z?it?u3w,4)WTx2Hq:',  numValue: stake },      // stake
-                { blockId: '/a.5Q3QDR2c)VR/XZvD-',  numValue: digit },      // entry point
-                { blockId: 'ij(6Iu2cn[H}M;H3Y%9[',  numValue: digit },      // prediction
-                { blockId: 's;EQ~zMi)cPYPc-kzha`',  numValue: martingale }, // martingale
-                { blockId: ';N@3iS.2#]xK[5,E{gCO',  numValue: takeProfit }, // take profit
-                { blockId: 'h~GA!H78SVi}._e5N:ur',   numValue: stopLoss },  // stop loss
-            ];
-
-        case 'even-odd-scanner':
-            return [
-                { blockId: 'eo_dir_init',             textValue: signal.direction.trim().toUpperCase() }, // Direction: EVEN or ODD
-                { blockId: 'Wa]y_n3s-T4*h(bmYz+k',  numValue: stake },      // Stake
-                { blockId: 'Z:R@MLC*=N3%meT)IuPt',   numValue: stopLoss },  // Max Loss
-                { blockId: ':Vn+w]Y.(QKzgKKENIfo',   numValue: takeProfit }, // Target Profit
-                { blockId: 'eo_ep_init_fixed',         numValue: entry },     // entry point
-            ];
-
-        default:
-            return [];
-    }
 }
 
 // ─── BOTS config ──────────────────────────────────────────────────────────────

@@ -7,9 +7,9 @@ import {
     analyzeSignals, trainMLWeights, modelVolatility,
     initialMLWeights, type Signal, type MarketType, type MLWeights,
 } from './signal-brain';
-import { generateEvenOddXml, generateMatchesDiffersXml } from './generate-bot-xml';
 import { useStore } from '@/hooks/useStore';
 import { DBOT_TABS } from '@/constants/bot-contents';
+import { botIdFromSignal, fetchAndPatchBot } from '@/utils/bot-patch';
 
 // ─── All 13 volatility symbols ────────────────────────────────────────────────
 
