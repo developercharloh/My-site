@@ -11,12 +11,12 @@ import { LabelPairedPlayLgFillIcon, LabelPairedSquareLgFillIcon } from '@deriv/q
 import { Localize, localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 import { rudderStackSendRunBotEvent } from '../../analytics/rudderstack-common-events';
-import { DerivV2Engine, type V2BotConfig, type EngineLog, type EngineStatus } from '@/utils/deriv-v2-engine';
+import { DerivV2Engine, type V2BotConfig } from '@/utils/deriv-v2-engine';
+import { v2EngineStore } from '@/utils/v2-engine-store';
 import Button from '../shared_ui/button';
 import Tooltip from '../shared_ui/tooltip/tooltip';
 import CircularWrapper from './circular-wrapper';
 import ContractStageText from './contract-stage-text';
-import { V2Panel } from './v2-panel';
 import './run-panel-tooltip.scss';
 
 const ENGINE_KEY   = 'free_bots_engine_mode';
@@ -43,11 +43,8 @@ const TradeAnimation = observer(({ className, should_show_overlay }: TTradeAnima
     const [isV2Mode, setIsV2Mode] = React.useState<boolean>(
         () => localStorage.getItem(ENGINE_KEY) === 'v2'
     );
-    const [v2Config, setV2Config] = React.useState<V2BotConfig | null>(readV2Config);
-    const [v2Running,  setV2Running]  = React.useState(false);
-    const [v2Status,   setV2Status]   = React.useState<EngineStatus>('idle');
-    const [v2Logs,     setV2Logs]     = React.useState<EngineLog[]>([]);
-    const [v2Stats,    setV2Stats]    = React.useState({ profit: 0, wins: 0, losses: 0, stake: 0 });
+    const [v2Config,  setV2Config]  = React.useState<V2BotConfig | null>(readV2Config);
+    const [v2Running, setV2Running] = React.useState(false);
     const v2EngineRef = React.useRef<DerivV2Engine | null>(null);
 
     // Listen for mode and config changes from free-bots page
@@ -71,13 +68,11 @@ const TradeAnimation = observer(({ className, should_show_overlay }: TTradeAnima
         const cfg = readV2Config();
         if (!cfg) return;
 
-        // Fix #4: inject the live account currency so proposals use the right currency
+        // Inject the live account currency so proposals use the right currency
         const cfgWithCurrency = { ...cfg, currency: client.currency || 'USD' };
 
-        // Reset panel state for fresh run
-        setV2Logs([]);
-        setV2Stats({ profit: 0, wins: 0, losses: 0, stake: cfg.initialStake });
-        setV2Status('connecting');
+        // Reset the shared store for a fresh run
+        v2EngineStore.reset(cfg.initialStake);
 
         const engine = new DerivV2Engine(cfgWithCurrency);
         engine.bindStores({
@@ -88,29 +83,28 @@ const TradeAnimation = observer(({ className, should_show_overlay }: TTradeAnima
             setRunId:     (id: string) => runInAction(() => { (run_panel as any).run_id = id; }),
         });
 
-        // ── Wire V2 Panel callbacks ────────────────────────────────────────────
-        engine.onLog    = (log: EngineLog) => setV2Logs(prev => [log, ...prev].slice(0, 200));
+        // Wire callbacks to the shared MobX store (observed by V2 Panel tab)
+        engine.onLog    = log  => v2EngineStore.pushLog(log);
         engine.onProfit = (profit, wins, losses, stake) =>
-            setV2Stats({ profit, wins, losses, stake });
-        engine.onStatus = (status: EngineStatus) => {
-            setV2Status(status);
+            v2EngineStore.setStats(profit, wins, losses, stake);
+        engine.onStatus = status => {
+            v2EngineStore.setStatus(status);
             if (status === 'stopped' || status === 'error') setV2Running(false);
         };
 
         v2EngineRef.current = engine;
+        v2EngineStore.bindStop(handleV2Stop);
         engine.start();
         setV2Running(true);
-    }, [run_panel, store, summary_card]);
+
+        // Navigate to the dedicated V2 Panel tab so the user sees live output
+        dashboard.setActiveTab(DBOT_TABS.V2_PANEL);
+    }, [run_panel, store, summary_card, dashboard]);
 
     const handleV2Stop = React.useCallback(() => {
         v2EngineRef.current?.stop();
         v2EngineRef.current = null;
         setV2Running(false);
-    }, []);
-
-    const handleV2Clear = React.useCallback(() => {
-        setV2Logs([]);
-        setV2Stats({ profit: 0, wins: 0, losses: 0, stake: readV2Config()?.initialStake ?? 0 });
     }, []);
 
     // Switch engine mode at any time — stops the running engine if needed
@@ -316,48 +310,37 @@ const TradeAnimation = observer(({ className, should_show_overlay }: TTradeAnima
         const v2Label    = v2Running ? 'Stop' : '⚡ Run V2';
 
         return (
-            <>
-                <div className={classNames('animation__wrapper', className)}>
-                    <Button
-                        className={v2BtnClass}
-                        id={v2BtnId}
-                        icon={v2Icon}
-                        onClick={v2Running ? handleV2Stop : handleV2Start}
-                        has_effect
-                        primary
-                    >
-                        {v2Label}
-                    </Button>
-                    {engineToggle}
-                    <div
-                        className={classNames('animation__container', className, {
-                            'animation--running':   v2Running,
-                            'animation--completed': show_overlay,
-                        })}
-                    >
-                        <span className='animation__text'>
-                            <ContractStageText contract_stage={contract_stage} />
-                        </span>
-                        <div className='animation__progress'>
-                            <div className='animation__progress-line'>
-                                <div className={`animation__progress-bar animation__progress-${contract_stage}`} />
-                            </div>
-                            {status_classes.map((status_class, i) => (
-                                <CircularWrapper key={`status_class-${status_class}-${i}`} className={status_class} />
-                            ))}
+            <div className={classNames('animation__wrapper', className)}>
+                <Button
+                    className={v2BtnClass}
+                    id={v2BtnId}
+                    icon={v2Icon}
+                    onClick={v2Running ? handleV2Stop : handleV2Start}
+                    has_effect
+                    primary
+                >
+                    {v2Label}
+                </Button>
+                {engineToggle}
+                <div
+                    className={classNames('animation__container', className, {
+                        'animation--running':   v2Running,
+                        'animation--completed': show_overlay,
+                    })}
+                >
+                    <span className='animation__text'>
+                        <ContractStageText contract_stage={contract_stage} />
+                    </span>
+                    <div className='animation__progress'>
+                        <div className='animation__progress-line'>
+                            <div className={`animation__progress-bar animation__progress-${contract_stage}`} />
                         </div>
+                        {status_classes.map((status_class, i) => (
+                            <CircularWrapper key={`status_class-${status_class}-${i}`} className={status_class} />
+                        ))}
                     </div>
                 </div>
-
-                {/* ── Dedicated V2 run panel — visible whenever V2 mode is active ── */}
-                <V2Panel
-                    status={v2Status}
-                    logs={v2Logs}
-                    stats={v2Stats}
-                    onStop={handleV2Stop}
-                    onClear={handleV2Clear}
-                />
-            </>
+            </div>
         );
     }
 

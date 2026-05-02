@@ -1,19 +1,13 @@
 // ── V2 Engine Panel ────────────────────────────────────────────────────────────
-// Fixed right-side drawer that appears when V2 engine is active.
-// Mirrors DBot run-panel positioning so it feels native.
+// Inline component — fills whatever container it is placed in.
+// Used inside the dedicated "V2 Panel" tab page (v2pt wrapper sets the height).
 
 .v2p {
-    position: fixed;
-    top: 48px;          // below DBot header
-    right: 0;
-    width: 320px;
-    height: calc(100vh - 48px);
     display: flex;
     flex-direction: column;
+    width: 100%;
+    height: 100%;
     background: var(--general-main-2, #fff);
-    border-left: 1px solid var(--general-section-1, #e9eff0);
-    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.08);
-    z-index: 200;
     font-size: 0.78rem;
     font-family: inherit;
 
@@ -22,7 +16,7 @@
         display: flex;
         align-items: center;
         gap: 8px;
-        padding: 10px 12px;
+        padding: 10px 16px;
         border-bottom: 1px solid var(--general-section-1, #e9eff0);
         background: var(--general-main-1, #f2f3f4);
         flex-shrink: 0;
@@ -30,16 +24,16 @@
 
     &__title {
         font-weight: 700;
-        font-size: 0.82rem;
+        font-size: 0.88rem;
         color: var(--text-general, #1e293b);
         white-space: nowrap;
     }
 
     &__status {
         flex: 1;
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         font-weight: 600;
-        padding: 2px 7px;
+        padding: 3px 10px;
         border-radius: 10px;
         background: rgba(100, 116, 139, 0.12);
         color: #64748b;
@@ -63,8 +57,8 @@
         background: none;
         border: none;
         cursor: pointer;
-        font-size: 0.85rem;
-        padding: 2px 4px;
+        font-size: 0.9rem;
+        padding: 2px 6px;
         border-radius: 4px;
         opacity: 0.55;
         transition: opacity 0.15s;
@@ -76,8 +70,8 @@
         color: #fff;
         border: none;
         border-radius: 5px;
-        padding: 3px 10px;
-        font-size: 0.72rem;
+        padding: 4px 14px;
+        font-size: 0.75rem;
         font-weight: 700;
         cursor: pointer;
         transition: background 0.15s;
@@ -97,8 +91,8 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        padding: 8px 4px;
-        gap: 2px;
+        padding: 10px 4px;
+        gap: 3px;
         border-right: 1px solid var(--general-section-1, #e9eff0);
         &:last-child { border-right: none; }
     }
@@ -112,7 +106,7 @@
     }
 
     &__stat-val {
-        font-size: 0.8rem;
+        font-size: 0.88rem;
         font-weight: 700;
         color: var(--text-general, #1e293b);
         white-space: nowrap;
@@ -127,20 +121,20 @@
         overflow-y: auto;
         padding: 6px 0;
         display: flex;
-        flex-direction: column-reverse; // newest at top
+        flex-direction: column-reverse; // newest visually at top
     }
 
     &__log-empty {
-        padding: 20px;
+        padding: 32px;
         text-align: center;
         color: var(--text-less-prominent, #94a3b8);
-        font-size: 0.75rem;
+        font-size: 0.8rem;
     }
 
     &__log-row {
         display: flex;
         gap: 8px;
-        padding: 3px 12px;
+        padding: 4px 16px;
         border-bottom: 1px solid var(--general-section-1, rgba(0,0,0,0.04));
         line-height: 1.4;
 
@@ -156,16 +150,17 @@
 
     &__log-time {
         flex-shrink: 0;
-        font-size: 0.68rem;
+        font-size: 0.7rem;
         color: var(--text-less-prominent, #94a3b8);
         font-variant-numeric: tabular-nums;
         margin-top: 1px;
+        min-width: 48px;
     }
 
     &__log-msg {
         color: var(--text-general, #1e293b);
         word-break: break-word;
-        font-size: 0.75rem;
+        font-size: 0.78rem;
     }
 }
 
@@ -173,8 +168,6 @@
 .theme--dark {
     .v2p {
         background: #1a1f2e;
-        border-left-color: rgba(255, 255, 255, 0.08);
-        box-shadow: -4px 0 16px rgba(0, 0, 0, 0.4);
 
         &__header { background: #141824; border-bottom-color: rgba(255,255,255,0.08); }
         &__title  { color: #e2e8f0; }
@@ -192,18 +185,5 @@
 
         &__log-time { color: #475569; }
         &__log-msg  { color: #cbd5e1; }
-    }
-}
-
-// ── Mobile ────────────────────────────────────────────────────────────────────
-@media screen and (max-width: 767px) {
-    .v2p {
-        width: 100%;
-        top: auto;
-        bottom: 0;
-        height: 55vh;
-        border-left: none;
-        border-top: 1px solid var(--general-section-1, #e9eff0);
-        box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.1);
     }
 }

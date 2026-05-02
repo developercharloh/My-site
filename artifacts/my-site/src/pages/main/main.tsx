@@ -32,6 +32,7 @@ const FreeBots = lazy(() => import('../free-bots'));
 const SignalEngine = lazy(() => import('../signal-engine'));
 const EntryZone = lazy(() => import('../entry-zone'));
 const SpeedBots = lazy(() => import('../speed-bots/speed-bots'));
+const V2PanelTab = lazy(() => import('../v2-panel'));
 
 const AppWrapper = observer(() => {
     const { connectionStatus } = useApiBase();
@@ -63,7 +64,7 @@ const AppWrapper = observer(() => {
     const { clear } = summary_card;
     const { DASHBOARD, BOT_BUILDER } = DBOT_TABS;
     const init_render = React.useRef(true);
-    const hash = ['dashboard', 'bot_builder', 'chart', 'tutorial', 'free_bots', 'analysis_tool', 'entry_zone'];
+    const hash = ['dashboard', 'bot_builder', 'chart', 'tutorial', 'free_bots', 'analysis_tool', 'entry_zone', 'v2_panel'];
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();

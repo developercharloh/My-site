@@ -46,8 +46,6 @@ const LOG_TYPE_CLASS: Record<string, string> = {
 };
 
 export const V2Panel = React.memo(({ status, logs, stats, onStop, onClear }: V2PanelProps) => {
-    // Fix #8: hide the panel entirely while idle (before any run has started)
-    if (status === 'idle') return null;
 
     const isActive  = status === 'scanning' || status === 'trading';
 
