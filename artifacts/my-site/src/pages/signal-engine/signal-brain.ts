@@ -446,9 +446,12 @@ function buildEntry(market: MarketType, direction: string, digits: number[]): st
             : `Last digit < ${b}  (wins on 0–${b - 1},  ${b} digits)`;
     }
     if (market === 'even_odd') {
-        const last = digits[digits.length - 1];
-        const eoS  = streakOf(digits.slice(-20), x => (x % 2 === 0) === (last !== undefined ? last % 2 === 0 : true));
-        return eoS >= 3 ? 'Next tick — after current streak' : 'After 3 confirming ticks';
+        const d100       = digits.slice(-100);
+        const parityDigs = direction === 'EVEN' ? [0, 2, 4, 6, 8] : [1, 3, 5, 7, 9];
+        const cnt        = Array(10).fill(0) as number[];
+        d100.forEach(d => cnt[d]++);
+        const entryDig   = parityDigs.reduce((best, d) => cnt[d] > cnt[best] ? d : best, parityDigs[0]);
+        return `Entry digit: ${entryDig}`;
     }
     const digit = direction.split(' ')[1];
     return direction.startsWith('MATCHES')
