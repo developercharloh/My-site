@@ -19,8 +19,9 @@ const BotStopped = observer(() => {
     const isInternetDisconnection = !isOnline && is_running;
     const isInternalIssue = !is_web_socket_intialised && isOnline;
 
-    // Show popup for either condition
-    const shouldShowPopup = isInternetDisconnection || isInternalIssue;
+    // Popup permanently suppressed — do not interrupt the user
+    const shouldShowPopup = false;
+    void isInternetDisconnection; void isInternalIssue;
 
     const onClickClose = () => {
         location.reload();
