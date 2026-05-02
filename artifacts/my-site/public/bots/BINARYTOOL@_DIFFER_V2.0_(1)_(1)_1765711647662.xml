@@ -45,7 +45,7 @@
       </block>
     </statement>
     <statement name="INITIALIZATION">
-      <block type="btnotify" id="jt;f@x^1~ihBheEu@W~`">
+      <block type="notify" id="jt;f@x^1~ihBheEu@W~`">
         <field name="NOTIFICATION_TYPE">success</field>
         <field name="NOTIFICATION_SOUND">silent</field>
         <value name="MESSAGE">

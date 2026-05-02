@@ -285,7 +285,7 @@
                   <block type="notify" id="6}lAS2:*ZtMY7_SycW#,">
                     <field name="NOTIFICATION_TYPE">error</field>
                     <field name="NOTIFICATION_SOUND">error</field>
-                    <value name="TEXT">
+                    <value name="MESSAGE">
                       <shadow type="text" id="ln=.Ld;!P9az#Y9~Jpz`">
                         <field name="TEXT">Max losses reached — bot stopped</field>
                       </shadow>
