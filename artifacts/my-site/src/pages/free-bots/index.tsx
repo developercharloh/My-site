@@ -358,13 +358,12 @@ const SignalTradeModal: React.FC<{
             store.dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
             onClose();
 
-            // Auto-click the Run button once the workspace has settled
+            // Auto-run via the store — same path the quick-strategy panel uses
             setTimeout(() => {
-                const runBtn = document.querySelector<HTMLButtonElement>(
-                    '#db-animation__run-button, [data-testid="dt_run-panel_run-button"], .run-controls__run-button, button[class*="run"]'
-                );
-                runBtn?.click();
-            }, 700);
+                if (!store.run_panel.is_running) {
+                    store.run_panel.onRunButtonClick();
+                }
+            }, 500);
         } catch (e: any) {
             setState('error');
             setErrMsg(e?.message || 'Failed to launch bot.');

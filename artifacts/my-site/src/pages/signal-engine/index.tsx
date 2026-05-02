@@ -397,7 +397,7 @@ type RunState = 'idle' | 'launching' | 'no-workspace' | 'error';
 function SignalSettingsModal({ signal, rank, onClose }: {
     signal: Signal; rank: number; onClose: () => void;
 }) {
-    const { dashboard } = useStore();
+    const { dashboard, run_panel } = useStore();
     const storageKey = `sig_cfg_${signal.symbol}_${signal.market}`;
     const [cfg, setCfg] = useState<SignalSettings>(() => {
         try {
@@ -473,17 +473,16 @@ function SignalSettingsModal({ signal, rank, onClose }: {
             Blockly.derivWorkspace.cleanUp();
             Blockly.derivWorkspace.clearUndo();
 
-            // Switch to Bot Builder tab — run panel lives there
+            // Switch to Bot Builder tab so the user can see the run panel
             dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
             onClose();
 
-            // Auto-click Run after the tab has rendered
+            // Auto-run via the store — same path the quick-strategy panel uses
             setTimeout(() => {
-                const runBtn = document.querySelector<HTMLButtonElement>(
-                    '#db-animation__run-button, [data-testid="dt_run-panel_run-button"], .run-controls__run-button, button[class*="run"]'
-                );
-                runBtn?.click();
-            }, 700);
+                if (!run_panel.is_running) {
+                    run_panel.onRunButtonClick();
+                }
+            }, 500);
 
         } catch (e: any) {
             setRunState('error');
