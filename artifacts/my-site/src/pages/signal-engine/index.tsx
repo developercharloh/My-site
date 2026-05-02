@@ -9,8 +9,7 @@ import {
 } from './signal-brain';
 import { useStore } from '@/hooks/useStore';
 import { DBOT_TABS } from '@/constants/bot-contents';
-import { botIdFromSignal, fetchAndPatchBot } from '@/utils/bot-patch';
-import { parseXmlV2Config } from '@/utils/xml-v2-parser';
+import { botIdFromSignal, fetchAndPatchBot, parseDigitFrom } from '@/utils/bot-patch';
 
 const ENGINE_KEY    = 'free_bots_engine_mode';
 const V2_CONFIG_KEY = 'free_bots_v2_config';
@@ -428,33 +427,75 @@ function SignalSettingsModal({ signal, rank, onClose }: {
             const stopLoss   = parseFloat(cfg.stopLoss)   || 30;
             const martingale = parseFloat(cfg.martingale) || 2;
 
-            const botId  = botIdFromSignal(signal);
-            const doc    = await fetchAndPatchBot(botId, signal, stake, takeProfit, stopLoss, martingale);
-            const xmlStr = new XMLSerializer().serializeToString(doc.documentElement);
-
             // Persist the chosen engine mode globally
             localStorage.setItem(ENGINE_KEY, engineMode);
             window.dispatchEvent(new StorageEvent('storage', { key: ENGINE_KEY, newValue: engineMode }));
 
             if (engineMode === 'v2') {
-                // ── V2: parse config from patched XML, persist it, fire autostart ─────
-                // DBot's Blockly workspace is NOT touched — loading XML into it would arm
-                // DBot's engine which would then trade in V1 style and block V2 execution.
-                const v2Cfg    = parseXmlV2Config(xmlStr);
+                // ── V2: build config directly from signal — no XML needed ──────────────
+                // XML parsing was unreliable (TYPE_LIST varies per bot file). The signal
+                // already carries the exact market + direction, so we derive V2BotConfig
+                // straight from those values.
+                const entryPoint      = parseDigitFrom(signal.entryPoint);
+                const martingaleLevel = Math.max(3, Math.min(10, Math.round(stopLoss / stake)));
+
+                type ContractKind  = 'DIGITMATCH'|'DIGITDIFF'|'DIGITEVEN'|'DIGITODD'|'DIGITOVER'|'DIGITUNDER';
+                type TradeDir      = 'EVEN'|'ODD'|'OVER'|'UNDER';
+
+                let contractKind: ContractKind;
+                let direction:    TradeDir | undefined;
+                let prediction:   number   | undefined;
+                let barrier:      number   | undefined;
+
+                if (signal.market === 'even_odd') {
+                    const d = signal.direction.trim().toUpperCase();
+                    direction    = d === 'ODD' ? 'ODD' : 'EVEN';
+                    contractKind = d === 'ODD' ? 'DIGITODD' : 'DIGITEVEN';
+
+                } else if (signal.market === 'over_under') {
+                    const parts  = signal.direction.trim().toUpperCase().split(/\s+/);
+                    direction    = parts[0] === 'UNDER' ? 'UNDER' : 'OVER';
+                    barrier      = parseInt(parts[1] ?? '5', 10);
+                    contractKind = direction === 'UNDER' ? 'DIGITUNDER' : 'DIGITOVER';
+
+                } else {
+                    // matches_differs
+                    const parts  = signal.direction.trim().toUpperCase().split(/\s+/);
+                    const isDiff = parts[0] === 'DIFFERS' || parts[0] === 'DIFFER';
+                    contractKind = isDiff ? 'DIGITDIFF' : 'DIGITMATCH';
+                    prediction   = parseInt(parts[1] ?? '0', 10);
+                }
+
+                const v2Cfg = {
+                    symbol: signal.symbol,
+                    contractKind,
+                    direction,
+                    prediction,
+                    barrier,
+                    entryPoint,
+                    initialStake:    stake,
+                    martingale,
+                    martingaleLevel,
+                    takeProfit,
+                    stopLoss,
+                };
+
                 const v2CfgStr = JSON.stringify(v2Cfg);
                 localStorage.setItem(V2_CONFIG_KEY, v2CfgStr);
                 window.dispatchEvent(new StorageEvent('storage', { key: V2_CONFIG_KEY, newValue: v2CfgStr }));
 
                 onClose();
 
-                // Give React one frame to re-render the run panel in V2 mode,
-                // then tell trade-animation to start the V2 engine.
                 setTimeout(() => {
                     window.dispatchEvent(new CustomEvent('deriv-v2-autostart'));
                 }, 400);
 
             } else {
-                // ── V1: load XML into DBot Blockly workspace and auto-run ─────────────
+                // ── V1: fetch XML, load into DBot Blockly workspace, auto-run ──────────
+                const botId  = botIdFromSignal(signal);
+                const doc    = await fetchAndPatchBot(botId, signal, stake, takeProfit, stopLoss, martingale);
+                const xmlStr = new XMLSerializer().serializeToString(doc.documentElement);
+
                 const Blockly = (window as any).Blockly;
                 if (!Blockly?.derivWorkspace) {
                     setRunState('no-workspace');
