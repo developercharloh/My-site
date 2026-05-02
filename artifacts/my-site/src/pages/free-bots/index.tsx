@@ -21,7 +21,7 @@ type BotConfig = {
 const BOTS: BotConfig[] = [
     {
         id: 'matches-signal',
-        name: 'Matches Signal Bot',
+        name: 'Matches Bot',
         emoji: '🎯',
         description:
             'Trades Digit Matches on Volatility 75 (1s) Index. Predicts the last digit will be exactly 4. Flat stake, stops after 6 consecutive losses or when Take Profit is hit.',
@@ -54,6 +54,23 @@ const BOTS: BotConfig[] = [
         ],
         xmlPath: '/bots/BINARYTOOL@_DIFFER_V2.0_(1)_(1)_1765711647662.xml',
         gradient: 'linear-gradient(135deg, #0c1a33 0%, #1e3a5f 50%, #2563eb 100%)',
+    },
+    {
+        id: 'even-odd-scanner',
+        name: 'Even Odd Entry Scanner Bot',
+        emoji: '⚡',
+        description:
+            'Trades Digit Even/Odd on Volatility 100 Index. Scans for optimal entry conditions before placing trades. Martingale recovery on losses with Take Profit and Stop Loss protection.',
+        market: 'Volatility 100 Index (R_100)',
+        strategy: 'Digit Even / Odd · Entry Scanner · Martingale',
+        params: [
+            { label: 'Stake', value: '$1' },
+            { label: 'Take Profit', value: '$20' },
+            { label: 'Stop Loss', value: '$80' },
+            { label: 'Martingale', value: '3.1×' },
+        ],
+        xmlPath: '/bots/BINARYTOOL@EVEN&ODD_AI_BOT_(2)_1765711647663.xml',
+        gradient: 'linear-gradient(135deg, #1a1a0a 0%, #3d3d00 50%, #d4ac0d 100%)',
     },
     {
         id: 'over-destroyer',
