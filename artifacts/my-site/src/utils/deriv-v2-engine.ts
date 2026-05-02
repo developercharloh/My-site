@@ -1,8 +1,14 @@
-// ─── Deriv V2 Direct Engine ───────────────────────────────────────────────────
-// Uses the app's existing authenticated Deriv connection (api_base).
-// No new WebSocket, no token prompt — same session as DBot.
-// When bindStores() is called it feeds every event into DBot's own run-panel
-// stores so Summary / Transactions / Journal all populate normally.
+// ─── Deriv V2 Advanced Engine ─────────────────────────────────────────────────
+// Key difference from V1 / standard DBot:
+//   • A new contract is opened on EVERY tick once in trading mode.
+//   • We do NOT wait for the previous contract to settle before buying the next.
+//   • Each open contract is tracked independently in `openContracts`.
+//   • The only brief lock is `buyInFlight` — set when the buy request is sent,
+//     cleared as soon as the ack arrives (~30-100 ms). This prevents sending two
+//     buy requests for the exact same tick while the first ack is still on the
+//     wire, but it does NOT block the next tick's buy.
+//
+// Result: contract N+1 is opened before contract N settles. ⚡
 
 import { api_base } from '@/external/bot-skeleton/services/api/api-base';
 
@@ -39,7 +45,6 @@ export interface V2BotConfig {
 }
 
 // ─── Store binding interface ──────────────────────────────────────────────────
-// Matches the shape of DBot's MobX stores so the engine can feed the run panel.
 
 export interface V2BoundStores {
     run_panel: {
@@ -59,37 +64,49 @@ export interface V2BoundStores {
         onBotContractEvent: (data: any) => void;
         clear:              ()           => void;
     };
-    /** Wrap in runInAction from the caller side since the engine has no MobX dep. */
     setRunId: (id: string) => void;
+}
+
+// ─── Per-contract tracking ────────────────────────────────────────────────────
+
+interface OpenContract {
+    contractId: string;
+    stake:      number;          // stake used when this contract was bought
+    subId:      string | null;   // proposal_open_contract subscription id
 }
 
 // ─── Engine ───────────────────────────────────────────────────────────────────
 
 export class DerivV2Engine {
-    private config:              V2BotConfig;
-    private stores:              V2BoundStores | null = null;
+    private config:  V2BotConfig;
+    private stores:  V2BoundStores | null = null;
 
-    // req_id namespace — avoid collision with DBot's own req_ids
-    private reqBase:             number = (Math.floor(Date.now() / 1000) % 50000) * 1000;
-    private reqCounter:          number = 0;
-    private myReqIds:            Set<number> = new Set();
+    // req_id namespace
+    private reqBase:    number     = (Math.floor(Date.now() / 1000) % 50000) * 1000;
+    private reqCounter: number     = 0;
+    private myReqIds:   Set<number>= new Set();
 
     // Subscriptions
-    private msgSub:              { unsubscribe: () => void } | null = null;
-    private tickSubId:           string | null = null;
-    private contractSubIds:      Set<string>   = new Set();
+    private msgSub:       { unsubscribe: () => void } | null = null;
+    private tickSubId:    string | null = null;
 
     // Trading state
-    private isRunning:           boolean = false;
-    private waitingForContract:  boolean = false;
-    private tradingMode:         0 | 1   = 0;
-    private currentStake:        number;
-    private lossCount:           number  = 1;
-    private totalProfit:         number  = 0;
-    private wins:                number  = 0;
-    private losses:              number  = 0;
+    private isRunning:    boolean = false;
+    private tradingMode:  0 | 1   = 0;   // 0 = scanning, 1 = trading
+    private currentStake: number;
+    private lossCount:    number  = 1;
+    private totalProfit:  number  = 0;
+    private wins:         number  = 0;
+    private losses:       number  = 0;
 
-    // Local callbacks (used by V2EngineModal; also called when stores are bound)
+    // ── V2-specific: non-blocking multi-contract tracking ─────────────────────
+    // `buyInFlight` is true ONLY for the ~30-100 ms between send and ack.
+    // It is NOT held open while the contract is running.
+    private buyInFlight:    boolean                        = false;
+    private openContracts:  Map<string, OpenContract>     = new Map();
+    private lastTickQuote:  number                        = -1; // debounce same tick
+
+    // Callbacks
     public onLog:    (log: EngineLog)                              => void = () => {};
     public onProfit: (profit: number, wins: number, losses: number) => void = () => {};
     public onStatus: (status: EngineStatus)                        => void = () => {};
@@ -99,12 +116,11 @@ export class DerivV2Engine {
         this.currentStake = config.initialStake;
     }
 
-    // ── Public ────────────────────────────────────────────────────────────────
-
-    /** Bind DBot's MobX stores so all events feed into the run-panel UI. */
     bindStores(stores: V2BoundStores): void {
         this.stores = stores;
     }
+
+    // ── Public ────────────────────────────────────────────────────────────────
 
     start(): void {
         if (this.isRunning) return;
@@ -120,29 +136,28 @@ export class DerivV2Engine {
             return;
         }
 
-        this.isRunning          = true;
-        this.tradingMode        = 0;
-        this.currentStake       = this.config.initialStake;
-        this.lossCount          = 1;
-        this.totalProfit        = 0;
-        this.wins               = 0;
-        this.losses             = 0;
-        this.waitingForContract = false;
-        this.tickSubId          = null;
-        this.contractSubIds     = new Set();
-        this.myReqIds           = new Set();
+        this.isRunning    = true;
+        this.tradingMode  = 0;
+        this.currentStake = this.config.initialStake;
+        this.lossCount    = 1;
+        this.totalProfit  = 0;
+        this.wins         = 0;
+        this.losses       = 0;
+        this.buyInFlight  = false;
+        this.openContracts.clear();
+        this.tickSubId    = null;
+        this.myReqIds     = new Set();
+        this.lastTickQuote = -1;
 
-        // ── Bind to DBot run panel stores ──
         if (this.stores) {
             const runId = `v2-run-${Date.now()}`;
             this.stores.setRunId(runId);
             this.stores.summary_card.clear();
             this.stores.run_panel.setIsRunning(true);
             this.stores.run_panel.toggleDrawer(true);
-            this.stores.run_panel.setContractStage(1); // STARTING
+            this.stores.run_panel.setContractStage(1);
         }
 
-        // Subscribe to the global message stream from the existing connection
         this.msgSub = (api_base.api as any).onMessage().subscribe((raw: any) => {
             try {
                 const msg = raw?.data ? JSON.parse(raw.data) : raw;
@@ -151,7 +166,7 @@ export class DerivV2Engine {
         });
 
         this.onStatus('scanning');
-        this.addLog('V2 Engine started — using existing Deriv session', 'system');
+        this.addLog('⚡ V2 Engine started — overlapping contract mode active', 'system');
         this.subscribeTicks();
     }
 
@@ -162,16 +177,18 @@ export class DerivV2Engine {
             this.rawSend({ forget: this.tickSubId });
             this.tickSubId = null;
         }
-        this.contractSubIds.forEach(id => this.rawSend({ forget: id }));
-        this.contractSubIds.clear();
+        // Forget all open contract subscriptions
+        this.openContracts.forEach(c => {
+            if (c.subId) this.rawSend({ forget: c.subId });
+        });
+        this.openContracts.clear();
 
         this.msgSub?.unsubscribe();
         this.msgSub = null;
 
-        // ── Release run panel stores ──
         if (this.stores) {
             this.stores.run_panel.setIsRunning(false);
-            this.stores.run_panel.setContractStage(0); // NOT_RUNNING
+            this.stores.run_panel.setContractStage(0);
             this.stores.run_panel.setHasOpenContract(false);
         }
 
@@ -200,23 +217,25 @@ export class DerivV2Engine {
         const subId = msg?.subscription?.id as string | undefined;
         const reqId = msg?.req_id            as number | undefined;
 
-        const isMyReq      = reqId !== undefined && this.myReqIds.has(reqId);
-        const isMyTickSub  = subId !== undefined && subId === this.tickSubId;
-        const isMyContract = subId !== undefined && this.contractSubIds.has(subId);
+        const isMyReq     = reqId !== undefined && this.myReqIds.has(reqId);
+        const isMyTickSub = subId !== undefined && subId === this.tickSubId;
+        // A contract update belongs to us if its subscription id is in any open contract
+        const isMyContract = subId !== undefined &&
+            [...this.openContracts.values()].some(c => c.subId === subId);
 
         if (!isMyReq && !isMyTickSub && !isMyContract) return;
 
         if (msg.error) {
             this.addLog(`API error: ${msg.error.message}`, 'error');
             this.stores?.journal.onError(msg.error.message);
-            if (msg.msg_type === 'buy') this.waitingForContract = false;
+            if (msg.msg_type === 'buy') this.buyInFlight = false;
             return;
         }
 
         switch (msg.msg_type) {
             case 'tick':
                 if (subId && !this.tickSubId) this.tickSubId = subId;
-                if (!this.waitingForContract) this.handleTick(msg.tick);
+                this.handleTick(msg.tick);
                 break;
             case 'buy':
                 this.handleBuyAck(msg.buy, subId);
@@ -236,13 +255,25 @@ export class DerivV2Engine {
 
     private handleTick(tick: { quote: number } | undefined): void {
         if (!tick) return;
-        const digit = this.lastDigit(tick.quote);
+
+        const quote = tick.quote;
+        const digit = this.lastDigit(quote);
 
         if (this.tradingMode === 0) {
+            // ── Scanning: wait for entry-point digit ──────────────────────────
             this.addLog(`Digit: ${digit}  |  Waiting for entry: ${this.config.entryPoint}`, 'scan');
             if (digit === this.config.entryPoint) {
                 this.tradingMode = 1;
-                this.addLog('Entry point hit — buying contract immediately', 'info');
+                this.addLog('Entry point hit — V2 continuous trading started ⚡', 'info');
+                this.lastTickQuote = quote;
+                this.buy();
+            }
+        } else {
+            // ── Trading: buy on EVERY new tick — no settlement gate ───────────
+            // Only skip if a buy request is literally in-flight (sent, not yet acked)
+            // OR if this is the same tick quote we already acted on (debounce).
+            if (!this.buyInFlight && quote !== this.lastTickQuote) {
+                this.lastTickQuote = quote;
                 this.buy();
             }
         }
@@ -252,16 +283,19 @@ export class DerivV2Engine {
 
     private buy(): void {
         if (!this.isRunning) return;
-        this.waitingForContract = true;
 
-        // Signal PURCHASE_SENT to run panel
+        // Brief in-flight lock — released on buy ack (not on settlement)
+        this.buyInFlight = true;
+
         if (this.stores) {
             this.stores.run_panel.setContractStage(3); // PURCHASE_SENT
         }
 
-        const ct = this.resolveContractType();
+        const stake = this.currentStake;
+        const ct    = this.resolveContractType();
+
         const params: Record<string, unknown> = {
-            amount:        this.currentStake,
+            amount:        stake,
             basis:         'stake',
             contract_type: ct,
             currency:      'USD',
@@ -276,46 +310,67 @@ export class DerivV2Engine {
             params.barrier = String(this.config.barrier ?? this.config.entryPoint);
         }
 
-        this.addLog(`Buying ${ct}  stake $${this.currentStake.toFixed(2)}`, 'info');
-        this.send({ buy: 1, price: this.currentStake, parameters: params });
+        this.addLog(`⚡ Buying ${ct}  stake $${stake.toFixed(2)}  (${this.openContracts.size} open)`, 'info');
+        this.send({ buy: 1, price: stake, parameters: params });
     }
 
-    private handleBuyAck(buy: Record<string, any> | undefined, subId: string | undefined): void {
+    private handleBuyAck(buy: Record<string, any> | undefined, _subId: string | undefined): void {
+        // Release the brief in-flight lock immediately ─ the NEXT tick can now buy
+        this.buyInFlight = false;
+
         if (!buy) {
             this.addLog('Buy failed — no contract returned', 'error');
-            this.waitingForContract = false;
             this.stores?.run_panel.setContractStage(0);
             return;
         }
 
-        this.addLog(`Contract #${buy.contract_id} opened`, 'info');
+        const contractId = String(buy.contract_id);
 
-        if (subId) this.contractSubIds.add(subId);
+        // Track this contract with the stake that was used
+        const entry: OpenContract = {
+            contractId,
+            stake:  this.currentStake,
+            subId:  null,
+        };
+        this.openContracts.set(contractId, entry);
 
-        // Signal PURCHASE_RECEIVED
+        this.addLog(`Contract #${contractId} opened  (${this.openContracts.size} concurrent)`, 'info');
+
         if (this.stores) {
             this.stores.run_panel.setContractStage(4); // PURCHASE_RECEIVED
             this.stores.run_panel.setHasOpenContract(true);
         }
 
-        // Subscribe for settlement updates
+        // Subscribe for settlement — save the subscription id
         this.send({ proposal_open_contract: 1, contract_id: buy.contract_id, subscribe: 1 });
     }
 
     private handleContract(poc: Record<string, any> | undefined, subId: string | undefined): void {
-        if (!poc?.is_sold) return;
-
-        if (subId) {
-            this.contractSubIds.delete(subId);
-            this.rawSend({ forget: subId });
+        if (!poc?.is_sold) {
+            // Update the subId on the first (non-sold) update so we can forget it later
+            if (poc?.contract_id && subId) {
+                const id  = String(poc.contract_id);
+                const rec = this.openContracts.get(id);
+                if (rec && !rec.subId) {
+                    rec.subId = subId;
+                }
+            }
+            return;
         }
-        this.waitingForContract = false;
+
+        const contractId = String(poc.contract_id);
+        const rec        = this.openContracts.get(contractId);
+
+        // Clean up subscription
+        const effSubId = subId ?? rec?.subId ?? null;
+        if (effSubId) this.rawSend({ forget: effSubId });
+        this.openContracts.delete(contractId);
 
         const profit = parseFloat(poc.profit ?? '0');
         const isWin  = poc.status === 'won';
         this.totalProfit += profit;
 
-        // ── Feed into DBot's run panel stores ──
+        // ── Feed into DBot stores ──
         if (this.stores) {
             this.stores.transactions.onBotContractEvent(poc);
             this.stores.summary_card.onBotContractEvent(poc);
@@ -323,13 +378,16 @@ export class DerivV2Engine {
                 log_type: isWin ? 'profit' : 'lost',
                 extra:    { currency: poc.currency ?? 'USD', profit },
             });
-            this.stores.run_panel.setContractStage(6); // CONTRACT_CLOSED
-            this.stores.run_panel.setHasOpenContract(false);
+            if (this.openContracts.size === 0) {
+                this.stores.run_panel.setHasOpenContract(false);
+                this.stores.run_panel.setContractStage(6); // CONTRACT_CLOSED
+            }
         }
 
+        // ── Update martingale stake for subsequent buys ──
         if (isWin) {
             this.wins++;
-            this.addLog(`WIN  +$${Math.abs(profit).toFixed(2)}  |  P&L: ${this.pnlStr()}`, 'win');
+            this.addLog(`WIN  +$${Math.abs(profit).toFixed(2)}  |  P&L: ${this.pnlStr()}  |  open: ${this.openContracts.size}`, 'win');
             this.currentStake = this.config.initialStake;
             this.lossCount    = 1;
 
@@ -341,7 +399,7 @@ export class DerivV2Engine {
             }
         } else {
             this.losses++;
-            this.addLog(`LOSS -$${Math.abs(profit).toFixed(2)}  |  P&L: ${this.pnlStr()}`, 'loss');
+            this.addLog(`LOSS -$${Math.abs(profit).toFixed(2)}  |  P&L: ${this.pnlStr()}  |  open: ${this.openContracts.size}`, 'loss');
 
             if (this.totalProfit <= -this.config.stopLoss) {
                 this.addLog(`Stop Loss $${this.config.stopLoss.toFixed(2)} reached — stopping`, 'error');
@@ -362,9 +420,6 @@ export class DerivV2Engine {
 
         this.onProfit(this.totalProfit, this.wins, this.losses);
         this.onStatus('trading');
-
-        // Re-buy IMMEDIATELY — no waiting for next tick
-        if (this.isRunning) this.buy();
     }
 
     // ── Private — helpers ─────────────────────────────────────────────────────
