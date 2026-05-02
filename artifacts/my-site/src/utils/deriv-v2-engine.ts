@@ -115,7 +115,7 @@ export class DerivV2Engine {
 
     // Callbacks
     public onLog:    (log: EngineLog)                               => void = () => {};
-    public onProfit: (profit: number, wins: number, losses: number) => void = () => {};
+    public onProfit: (profit: number, wins: number, losses: number, stake: number) => void = () => {};
     public onStatus: (status: EngineStatus)                         => void = () => {};
 
     constructor(config: V2BotConfig) {
@@ -476,7 +476,7 @@ export class DerivV2Engine {
             this.lossCount    = 1;
             if (this.totalProfit >= this.config.takeProfit) {
                 this.addLog(`Take Profit $${this.config.takeProfit.toFixed(2)} reached — stopping`, 'system');
-                this.onProfit(this.totalProfit, this.wins, this.losses);
+                this.onProfit(this.totalProfit, this.wins, this.losses, this.currentStake);
                 this.stop(); return;
             }
         } else {
@@ -487,19 +487,19 @@ export class DerivV2Engine {
             );
             if (this.totalProfit <= -this.config.stopLoss) {
                 this.addLog(`Stop Loss $${this.config.stopLoss.toFixed(2)} reached — stopping`, 'error');
-                this.onProfit(this.totalProfit, this.wins, this.losses);
+                this.onProfit(this.totalProfit, this.wins, this.losses, this.currentStake);
                 this.stop(); return;
             }
             if (this.lossCount >= this.config.martingaleLevel) {
                 this.addLog(`Max ${this.config.martingaleLevel} consecutive losses — stopping`, 'error');
-                this.onProfit(this.totalProfit, this.wins, this.losses);
+                this.onProfit(this.totalProfit, this.wins, this.losses, this.currentStake);
                 this.stop(); return;
             }
             this.currentStake = parseFloat((this.currentStake * this.config.martingale).toFixed(2));
             this.lossCount++;
         }
 
-        this.onProfit(this.totalProfit, this.wins, this.losses);
+        this.onProfit(this.totalProfit, this.wins, this.losses, this.currentStake);
         // Settlement never drives the next buy — ticks do that
     }
 

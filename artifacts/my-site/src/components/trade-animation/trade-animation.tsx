@@ -11,11 +11,12 @@ import { LabelPairedPlayLgFillIcon, LabelPairedSquareLgFillIcon } from '@deriv/q
 import { Localize, localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 import { rudderStackSendRunBotEvent } from '../../analytics/rudderstack-common-events';
-import { DerivV2Engine, type V2BotConfig } from '@/utils/deriv-v2-engine';
+import { DerivV2Engine, type V2BotConfig, type EngineLog, type EngineStatus } from '@/utils/deriv-v2-engine';
 import Button from '../shared_ui/button';
 import Tooltip from '../shared_ui/tooltip/tooltip';
 import CircularWrapper from './circular-wrapper';
 import ContractStageText from './contract-stage-text';
+import { V2Panel } from './v2-panel';
 import './run-panel-tooltip.scss';
 
 const ENGINE_KEY   = 'free_bots_engine_mode';
@@ -43,7 +44,10 @@ const TradeAnimation = observer(({ className, should_show_overlay }: TTradeAnima
         () => localStorage.getItem(ENGINE_KEY) === 'v2'
     );
     const [v2Config, setV2Config] = React.useState<V2BotConfig | null>(readV2Config);
-    const [v2Running, setV2Running] = React.useState(false);
+    const [v2Running,  setV2Running]  = React.useState(false);
+    const [v2Status,   setV2Status]   = React.useState<EngineStatus>('idle');
+    const [v2Logs,     setV2Logs]     = React.useState<EngineLog[]>([]);
+    const [v2Stats,    setV2Stats]    = React.useState({ profit: 0, wins: 0, losses: 0, stake: 0 });
     const v2EngineRef = React.useRef<DerivV2Engine | null>(null);
 
     // Listen for mode and config changes from free-bots page
@@ -67,16 +71,30 @@ const TradeAnimation = observer(({ className, should_show_overlay }: TTradeAnima
         const cfg = readV2Config();
         if (!cfg) return;
 
+        // Reset panel state for fresh run
+        setV2Logs([]);
+        setV2Stats({ profit: 0, wins: 0, losses: 0, stake: cfg.initialStake });
+        setV2Status('connecting');
+
         const engine = new DerivV2Engine(cfg);
         engine.bindStores({
-            run_panel: run_panel as any,
+            run_panel:    run_panel as any,
             transactions: (store as any).transactions,
-            journal: (store as any).journal,
+            journal:      (store as any).journal,
             summary_card: summary_card as any,
-            setRunId: (id: string) => runInAction(() => { (run_panel as any).run_id = id; }),
+            setRunId:     (id: string) => runInAction(() => { (run_panel as any).run_id = id; }),
         });
+
+        // ── Wire V2 Panel callbacks ────────────────────────────────────────────
+        engine.onLog    = (log: EngineLog) => setV2Logs(prev => [log, ...prev].slice(0, 200));
+        engine.onProfit = (profit, wins, losses, stake) =>
+            setV2Stats({ profit, wins, losses, stake });
+        engine.onStatus = (status: EngineStatus) => {
+            setV2Status(status);
+            if (status === 'stopped' || status === 'error') setV2Running(false);
+        };
+
         v2EngineRef.current = engine;
-        engine.onStatus = status => { if (status === 'stopped' || status === 'error') setV2Running(false); };
         engine.start();
         setV2Running(true);
     }, [run_panel, store, summary_card]);
@@ -85,6 +103,11 @@ const TradeAnimation = observer(({ className, should_show_overlay }: TTradeAnima
         v2EngineRef.current?.stop();
         v2EngineRef.current = null;
         setV2Running(false);
+    }, []);
+
+    const handleV2Clear = React.useCallback(() => {
+        setV2Logs([]);
+        setV2Stats({ profit: 0, wins: 0, losses: 0, stake: readV2Config()?.initialStake ?? 0 });
     }, []);
 
     // Switch engine mode at any time — stops the running engine if needed
@@ -290,38 +313,48 @@ const TradeAnimation = observer(({ className, should_show_overlay }: TTradeAnima
         const v2Label    = v2Running ? 'Stop' : '⚡ Run V2';
 
         return (
-            <div className={classNames('animation__wrapper', className)}>
-                <Button
-                    className={v2BtnClass}
-                    id={v2BtnId}
-                    icon={v2Icon}
-                    onClick={v2Running ? handleV2Stop : handleV2Start}
-                    has_effect
-                    primary
-                >
-                    {v2Label}
-                </Button>
-                {engineToggle}
-                <div
-                    className={classNames('animation__container', className, {
-                        'animation--running':   contract_stage > 0,
-                        'animation--completed': show_overlay,
-                    })}
-                >
-                    {show_overlay && <ContractResultOverlay profit={profit} />}
-                    <span className='animation__text'>
-                        <ContractStageText contract_stage={contract_stage} />
-                    </span>
-                    <div className='animation__progress'>
-                        <div className='animation__progress-line'>
-                            <div className={`animation__progress-bar animation__progress-${contract_stage}`} />
+            <>
+                <div className={classNames('animation__wrapper', className)}>
+                    <Button
+                        className={v2BtnClass}
+                        id={v2BtnId}
+                        icon={v2Icon}
+                        onClick={v2Running ? handleV2Stop : handleV2Start}
+                        has_effect
+                        primary
+                    >
+                        {v2Label}
+                    </Button>
+                    {engineToggle}
+                    <div
+                        className={classNames('animation__container', className, {
+                            'animation--running':   v2Running,
+                            'animation--completed': show_overlay,
+                        })}
+                    >
+                        <span className='animation__text'>
+                            <ContractStageText contract_stage={contract_stage} />
+                        </span>
+                        <div className='animation__progress'>
+                            <div className='animation__progress-line'>
+                                <div className={`animation__progress-bar animation__progress-${contract_stage}`} />
+                            </div>
+                            {status_classes.map((status_class, i) => (
+                                <CircularWrapper key={`status_class-${status_class}-${i}`} className={status_class} />
+                            ))}
                         </div>
-                        {status_classes.map((status_class, i) => (
-                            <CircularWrapper key={`status_class-${status_class}-${i}`} className={status_class} />
-                        ))}
                     </div>
                 </div>
-            </div>
+
+                {/* ── Dedicated V2 run panel — visible whenever V2 mode is active ── */}
+                <V2Panel
+                    status={v2Status}
+                    logs={v2Logs}
+                    stats={v2Stats}
+                    onStop={handleV2Stop}
+                    onClear={handleV2Clear}
+                />
+            </>
         );
     }
 

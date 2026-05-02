@@ -1,0 +1,209 @@
+// ── V2 Engine Panel ────────────────────────────────────────────────────────────
+// Fixed right-side drawer that appears when V2 engine is active.
+// Mirrors DBot run-panel positioning so it feels native.
+
+.v2p {
+    position: fixed;
+    top: 48px;          // below DBot header
+    right: 0;
+    width: 320px;
+    height: calc(100vh - 48px);
+    display: flex;
+    flex-direction: column;
+    background: var(--general-main-2, #fff);
+    border-left: 1px solid var(--general-section-1, #e9eff0);
+    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.08);
+    z-index: 200;
+    font-size: 0.78rem;
+    font-family: inherit;
+
+    // ── Header ──────────────────────────────────────────────────
+    &__header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--general-section-1, #e9eff0);
+        background: var(--general-main-1, #f2f3f4);
+        flex-shrink: 0;
+    }
+
+    &__title {
+        font-weight: 700;
+        font-size: 0.82rem;
+        color: var(--text-general, #1e293b);
+        white-space: nowrap;
+    }
+
+    &__status {
+        flex: 1;
+        font-size: 0.72rem;
+        font-weight: 600;
+        padding: 2px 7px;
+        border-radius: 10px;
+        background: rgba(100, 116, 139, 0.12);
+        color: #64748b;
+        white-space: nowrap;
+        text-align: center;
+
+        &--trading  { background: rgba(14, 165, 233, 0.15); color: #0ea5e9; }
+        &--scanning { background: rgba(234, 179, 8,  0.15); color: #ca8a04; }
+        &--error    { background: rgba(239, 68,  68, 0.15); color: #ef4444; }
+        &--stopped  { background: rgba(100, 116, 139, 0.1); color: #94a3b8; }
+    }
+
+    &__header-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+    }
+
+    &__btn-clear {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 0.85rem;
+        padding: 2px 4px;
+        border-radius: 4px;
+        opacity: 0.55;
+        transition: opacity 0.15s;
+        &:hover { opacity: 1; }
+    }
+
+    &__btn-stop {
+        background: #ef4444;
+        color: #fff;
+        border: none;
+        border-radius: 5px;
+        padding: 3px 10px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.15s;
+        &:hover { background: #dc2626; }
+    }
+
+    // ── Stats row ────────────────────────────────────────────────
+    &__stats {
+        display: flex;
+        align-items: stretch;
+        border-bottom: 1px solid var(--general-section-1, #e9eff0);
+        flex-shrink: 0;
+    }
+
+    &__stat {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 8px 4px;
+        gap: 2px;
+        border-right: 1px solid var(--general-section-1, #e9eff0);
+        &:last-child { border-right: none; }
+    }
+
+    &__stat-label {
+        font-size: 0.65rem;
+        color: var(--text-less-prominent, #94a3b8);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        white-space: nowrap;
+    }
+
+    &__stat-val {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: var(--text-general, #1e293b);
+        white-space: nowrap;
+
+        &--pos { color: #10b981; }
+        &--neg { color: #ef4444; }
+    }
+
+    // ── Log ──────────────────────────────────────────────────────
+    &__log-wrap {
+        flex: 1;
+        overflow-y: auto;
+        padding: 6px 0;
+        display: flex;
+        flex-direction: column-reverse; // newest at top
+    }
+
+    &__log-empty {
+        padding: 20px;
+        text-align: center;
+        color: var(--text-less-prominent, #94a3b8);
+        font-size: 0.75rem;
+    }
+
+    &__log-row {
+        display: flex;
+        gap: 8px;
+        padding: 3px 12px;
+        border-bottom: 1px solid var(--general-section-1, rgba(0,0,0,0.04));
+        line-height: 1.4;
+
+        &:hover { background: rgba(100, 116, 139, 0.05); }
+
+        &--win    { border-left: 3px solid #10b981; }
+        &--loss   { border-left: 3px solid #ef4444; }
+        &--error  { border-left: 3px solid #f97316; }
+        &--info   { border-left: 3px solid #0ea5e9; }
+        &--scan   { border-left: 3px solid transparent; opacity: 0.65; }
+        &--system { border-left: 3px solid #8b5cf6; opacity: 0.85; }
+    }
+
+    &__log-time {
+        flex-shrink: 0;
+        font-size: 0.68rem;
+        color: var(--text-less-prominent, #94a3b8);
+        font-variant-numeric: tabular-nums;
+        margin-top: 1px;
+    }
+
+    &__log-msg {
+        color: var(--text-general, #1e293b);
+        word-break: break-word;
+        font-size: 0.75rem;
+    }
+}
+
+// ── Dark theme ────────────────────────────────────────────────────────────────
+.theme--dark {
+    .v2p {
+        background: #1a1f2e;
+        border-left-color: rgba(255, 255, 255, 0.08);
+        box-shadow: -4px 0 16px rgba(0, 0, 0, 0.4);
+
+        &__header { background: #141824; border-bottom-color: rgba(255,255,255,0.08); }
+        &__title  { color: #e2e8f0; }
+
+        &__stat       { border-right-color: rgba(255,255,255,0.08); }
+        &__stat-label { color: #64748b; }
+        &__stat-val   { color: #e2e8f0; }
+
+        &__stats  { border-bottom-color: rgba(255,255,255,0.08); }
+
+        &__log-row {
+            border-bottom-color: rgba(255,255,255,0.05);
+            &--scan { opacity: 0.5; }
+        }
+
+        &__log-time { color: #475569; }
+        &__log-msg  { color: #cbd5e1; }
+    }
+}
+
+// ── Mobile ────────────────────────────────────────────────────────────────────
+@media screen and (max-width: 767px) {
+    .v2p {
+        width: 100%;
+        top: auto;
+        bottom: 0;
+        height: 55vh;
+        border-left: none;
+        border-top: 1px solid var(--general-section-1, #e9eff0);
+        box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.1);
+    }
+}
