@@ -347,6 +347,226 @@
     }
 }
 
+// ─── Load AI button on signal card ────────────────────────────────────────────
+.se-signal-card {
+    &__ai-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        margin-top: 0.15rem;
+        padding: 0.22rem 0.55rem;
+        border-radius: 999px;
+        border: 1px solid rgba(99, 102, 241, 0.35);
+        background: rgba(99, 102, 241, 0.08);
+        color: #6366f1;
+        font-size: 0.58rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        cursor: pointer;
+        transition: background 0.18s, border-color 0.18s;
+        width: 100%;
+        justify-content: center;
+
+        &:hover {
+            background: rgba(99, 102, 241, 0.18);
+            border-color: rgba(99, 102, 241, 0.6);
+        }
+        svg { flex-shrink: 0; }
+    }
+}
+
+// ─── Signal Settings Modal ────────────────────────────────────────────────────
+.se-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(3px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.se-modal {
+    background: var(--general-main-1, #fff);
+    border-radius: 1.2rem;
+    width: 100%;
+    max-width: 360px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.25);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+
+    &__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1rem 1.1rem 0.8rem;
+        border-bottom: 1px solid rgba(100, 116, 139, 0.1);
+    }
+
+    &__title {
+        font-size: 0.9rem;
+        font-weight: 800;
+        color: var(--text-general, #1e293b);
+        letter-spacing: -0.01em;
+    }
+
+    &__close {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        border: none;
+        background: rgba(100, 116, 139, 0.1);
+        color: var(--text-less-prominent, #64748b);
+        cursor: pointer;
+        transition: background 0.15s;
+        &:hover { background: rgba(100, 116, 139, 0.2); }
+    }
+
+    // Signal info card at top
+    &__info-card {
+        margin: 0.8rem 1rem;
+        border-radius: 0.8rem;
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(16, 185, 129, 0.08) 100%);
+        border: 1px solid rgba(99, 102, 241, 0.15);
+        padding: 0.75rem 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+    }
+
+    &__info-left {
+        display: flex;
+        flex-direction: column;
+        gap: 0.18rem;
+    }
+
+    &__info-row-label {
+        font-size: 0.6rem;
+        font-weight: 600;
+        color: var(--text-less-prominent, #94a3b8);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    &__info-sym {
+        font-size: 0.72rem;
+        font-weight: 800;
+        color: #6366f1;
+        line-height: 1.2;
+        max-width: 120px;
+    }
+
+    &__info-right {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.18rem;
+    }
+
+    &__info-dir {
+        font-size: 0.85rem;
+        font-weight: 900;
+        font-family: 'JetBrains Mono', monospace;
+    }
+
+    &__info-meta {
+        font-size: 0.6rem;
+        font-weight: 600;
+        color: var(--text-less-prominent, #94a3b8);
+        white-space: nowrap;
+    }
+
+    // 2×2 input grid
+    &__inputs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.6rem;
+        padding: 0.2rem 1rem 0.8rem;
+    }
+
+    &__field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+    }
+
+    &__field-label {
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: var(--text-general, #334155);
+    }
+
+    &__field-hint {
+        font-size: 0.6rem;
+        font-weight: 600;
+        color: var(--text-less-prominent, #94a3b8);
+    }
+
+    &__input {
+        width: 100%;
+        padding: 0.55rem 0.7rem;
+        border-radius: 0.6rem;
+        border: 1.5px solid rgba(100, 116, 139, 0.2);
+        background: rgba(100, 116, 139, 0.06);
+        color: var(--text-general, #1e293b);
+        font-size: 0.85rem;
+        font-weight: 700;
+        font-family: 'JetBrains Mono', monospace;
+        outline: none;
+        box-sizing: border-box;
+        transition: border-color 0.15s;
+
+        &:focus { border-color: #6366f1; background: rgba(99, 102, 241, 0.05); }
+
+        // hide number spinners
+        &::-webkit-inner-spin-button,
+        &::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        -moz-appearance: textfield;
+    }
+
+    // Footer buttons
+    &__footer {
+        display: flex;
+        gap: 0.6rem;
+        padding: 0.8rem 1rem 1rem;
+        border-top: 1px solid rgba(100, 116, 139, 0.1);
+    }
+
+    &__btn {
+        flex: 1;
+        padding: 0.65rem 1rem;
+        border-radius: 0.7rem;
+        border: none;
+        font-size: 0.75rem;
+        font-weight: 800;
+        cursor: pointer;
+        transition: opacity 0.15s, transform 0.1s;
+        letter-spacing: 0.02em;
+
+        &:active { transform: scale(0.97); }
+
+        &--cancel {
+            background: rgba(100, 116, 139, 0.15);
+            color: var(--text-less-prominent, #64748b);
+            &:hover { background: rgba(100, 116, 139, 0.25); }
+        }
+
+        &--run {
+            background: #10b981;
+            color: #fff;
+            &:hover { opacity: 0.9; }
+        }
+    }
+}
+
 // ─── Circle size overrides (smaller than entry-zone) ─────────────────────────
 .se-root {
     .ez-quadrants  { gap: 0.1rem; }

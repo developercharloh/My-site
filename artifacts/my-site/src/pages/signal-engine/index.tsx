@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TrendingUp, TrendingDown, ChevronDown, Wifi, WifiOff, Loader2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, ChevronDown, Wifi, WifiOff, Loader2, Bot, X } from 'lucide-react';
 import '../entry-zone/entry-zone.scss';
 import './signal-engine.scss';
 import {
@@ -380,6 +380,96 @@ function ScanStatusRow({ statuses }: { statuses: Record<string, 'connecting'|'li
     );
 }
 
+// ─── Signal Settings Modal ────────────────────────────────────────────────────
+
+interface SignalSettings {
+    stake:      string;
+    takeProfit: string;
+    stopLoss:   string;
+    martingale: string;
+}
+
+function SignalSettingsModal({ signal, rank, onClose }: {
+    signal: Signal; rank: number; onClose: () => void;
+}) {
+    const storageKey = `sig_cfg_${signal.symbol}_${signal.market}`;
+    const [cfg, setCfg] = useState<SignalSettings>(() => {
+        try {
+            const raw = localStorage.getItem(storageKey);
+            if (raw) return JSON.parse(raw) as SignalSettings;
+        } catch { /* ignore */ }
+        return { stake: '0.5', takeProfit: '10', stopLoss: '30', martingale: '2' };
+    });
+    const [ran, setRan] = useState(false);
+    const color = MARKET_COLOR[signal.market];
+
+    function handleRun() {
+        localStorage.setItem(storageKey, JSON.stringify(cfg));
+        setRan(true);
+        setTimeout(() => { setRan(false); onClose(); }, 1200);
+    }
+
+    const fields: { label: string; key: keyof SignalSettings; hint: string; step: string }[] = [
+        { label: 'Stake',       key: 'stake',      hint: '$', step: '0.01' },
+        { label: 'Take Profit', key: 'takeProfit',  hint: '$', step: '0.01' },
+        { label: 'Stop Loss',   key: 'stopLoss',    hint: '$', step: '0.01' },
+        { label: 'Martingale',  key: 'martingale',  hint: '×', step: '0.1'  },
+    ];
+
+    return (
+        <div className='se-modal-overlay' onClick={onClose}>
+            <motion.div className='se-modal'
+                initial={{ opacity:0, scale:0.94, y:24 }} animate={{ opacity:1, scale:1, y:0 }}
+                exit={{ opacity:0, scale:0.94, y:24 }} transition={{ duration:0.22, ease:'easeOut' }}
+                onClick={e => e.stopPropagation()}>
+
+                {/* Header */}
+                <div className='se-modal__header'>
+                    <span className='se-modal__title'>Signal Settings</span>
+                    <button className='se-modal__close' onClick={onClose}><X size={16}/></button>
+                </div>
+
+                {/* Signal info card */}
+                <div className='se-modal__info-card'>
+                    <div className='se-modal__info-left'>
+                        <span className='se-modal__info-row-label'>Selected:</span>
+                        <span className='se-modal__info-sym'>{signal.symbolLabel}</span>
+                    </div>
+                    <div className='se-modal__info-right'>
+                        <span className='se-modal__info-dir' style={{ color }}>{signal.direction}</span>
+                        <span className='se-modal__info-meta'>Rank #{rank} | Confidence: {signal.confidence}%</span>
+                    </div>
+                </div>
+
+                {/* Inputs 2×2 */}
+                <div className='se-modal__inputs'>
+                    {fields.map(({ label, key, hint, step }) => (
+                        <div key={key} className='se-modal__field'>
+                            <label className='se-modal__field-label'>
+                                {label} <span className='se-modal__field-hint'>{hint}</span>
+                            </label>
+                            <input
+                                className='se-modal__input'
+                                type='number' min='0' step={step}
+                                value={cfg[key]}
+                                onChange={e => setCfg(p => ({ ...p, [key]: e.target.value }))}
+                            />
+                        </div>
+                    ))}
+                </div>
+
+                {/* Footer */}
+                <div className='se-modal__footer'>
+                    <button className='se-modal__btn se-modal__btn--cancel' onClick={onClose}>Cancel</button>
+                    <button className='se-modal__btn se-modal__btn--run' onClick={handleRun}>
+                        {ran ? '✓ Saved!' : 'Save and Run'}
+                    </button>
+                </div>
+            </motion.div>
+        </div>
+    );
+}
+
 // ─── Signal Card ──────────────────────────────────────────────────────────────
 
 const MARKET_LABEL: Record<MarketType, string> = {
@@ -389,8 +479,8 @@ const MARKET_COLOR: Record<MarketType, string> = {
     over_under:'#6366f1', even_odd:'#10b981', matches_differs:'#f59e0b',
 };
 
-function SignalCard({ signal, now, winResult }: {
-    signal: Signal; now: number; winResult?: boolean;
+function SignalCard({ signal, now, winResult, onLoadAI }: {
+    signal: Signal; now: number; winResult?: boolean; onLoadAI: () => void;
 }) {
     const remaining = signal.expiresAt - now;
     const ttl       = signal.expiresAt - signal.createdAt; // 60 000 or 120 000
@@ -460,6 +550,10 @@ function SignalCard({ signal, now, winResult }: {
 
             <div className='se-signal-card__entry'>{signal.entryPoint}</div>
 
+            <button className='se-signal-card__ai-btn' onClick={onLoadAI}>
+                <Bot size={11} /> Load AI Signal
+            </button>
+
             <div className='se-signal-card__ttl-track'>
                 <motion.div className='se-signal-card__ttl-fill'
                     style={{ background: urgent ? '#ef4444' : color }}
@@ -507,6 +601,9 @@ const SignalEngine = () => {
     const [signals,   setSignals]   = useState<Signal[]>([]);
     const mlWeightsRef              = useRef<MLWeights>(initialMLWeights());
     const now                       = useNow(1000);
+
+    // Signal settings modal
+    const [settingsSignal, setSettingsSignal] = useState<{ signal: Signal; rank: number } | null>(null);
 
     // Win rate tracking
     const winRecordsRef = useRef<WinRecord[]>([]);
@@ -676,14 +773,26 @@ const SignalEngine = () => {
                         </div>
                     ) : (
                         <AnimatePresence>
-                            {displaySignals.map(sig => (
-                                <SignalCard key={sig.id} signal={sig} now={now} winResult={winMap.get(sig.id)} />
+                            {displaySignals.map((sig, idx) => (
+                                <SignalCard key={sig.id} signal={sig} now={now} winResult={winMap.get(sig.id)}
+                                    onLoadAI={() => setSettingsSignal({ signal: sig, rank: idx + 1 })} />
                             ))}
                         </AnimatePresence>
                     )}
                 </div>
             </div>
         </div>
+
+        {/* ── Signal Settings Modal ── */}
+        <AnimatePresence>
+            {settingsSignal && (
+                <SignalSettingsModal
+                    signal={settingsSignal.signal}
+                    rank={settingsSignal.rank}
+                    onClose={() => setSettingsSignal(null)}
+                />
+            )}
+        </AnimatePresence>
     );
 };
 
