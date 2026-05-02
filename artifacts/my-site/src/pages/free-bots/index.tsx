@@ -1,14 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useStore } from '@/hooks/useStore';
 import { DBOT_TABS } from '@/constants/bot-contents';
 import { parseDigitFrom, fetchAndPatchBot, type BotSignal } from '@/utils/bot-patch';
+import V2EngineModal from './V2EngineModal';
+import type { BotConfig } from './types';
 import './free-bots.scss';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type BotStatus = 'idle' | 'loading' | 'loaded' | 'error';
-
+type EngineMode = 'v1' | 'v2';
 type LiveSignal = BotSignal;
 
 interface SignalSettings {
@@ -17,19 +19,6 @@ interface SignalSettings {
     stopLoss:   string;
     martingale: string;
 }
-
-type BotConfig = {
-    id:          string;
-    name:        string;
-    emoji:       string;
-    description: string;
-    market:      string;
-    strategy:    string;
-    params:      { label: string; value: string }[];
-    xmlPath:     string;
-    gradient:    string;
-    signalKey?:  string;
-};
 
 // ─── Signal helpers ───────────────────────────────────────────────────────────
 
@@ -68,7 +57,7 @@ function confColor(conf: number): string {
     return conf >= 70 ? '#10b981' : conf >= 60 ? '#eab308' : '#ef4444';
 }
 
-// ─── BOTS config ─────────────────────────────────────────────────────────────
+// ─── BOTS config ──────────────────────────────────────────────────────────────
 
 const BOTS: BotConfig[] = [
     {
@@ -89,6 +78,7 @@ const BOTS: BotConfig[] = [
         xmlPath: '/bots/Matches_Signal_Bot.xml',
         gradient: 'linear-gradient(135deg, #1a0533 0%, #3b0764 50%, #7c3aed 100%)',
         signalKey: 'fb_signal_matches',
+        v2Enabled: true,
     },
     {
         id: 'differ-v2',
@@ -108,6 +98,7 @@ const BOTS: BotConfig[] = [
         xmlPath: '/bots/BINARYTOOL@_DIFFER_V2.0_(1)_(1)_1765711647662.xml',
         gradient: 'linear-gradient(135deg, #0c1a33 0%, #1e3a5f 50%, #2563eb 100%)',
         signalKey: 'fb_signal_differs',
+        v2Enabled: true,
     },
     {
         id: 'even-odd-scanner',
@@ -126,6 +117,7 @@ const BOTS: BotConfig[] = [
         xmlPath: '/bots/BINARYTOOL@EVEN_ODD_THUNDER_AI_PRO_BOT_1765711647662.xml',
         gradient: 'linear-gradient(135deg, #1a1a0a 0%, #3d3d00 50%, #d4ac0d 100%)',
         signalKey: 'fb_signal_even_odd',
+        v2Enabled: true,
     },
     {
         id: 'over-under-signal',
@@ -145,6 +137,7 @@ const BOTS: BotConfig[] = [
         xmlPath: '/bots/OverUnder_Signal_Bot.xml',
         gradient: 'linear-gradient(135deg, #0f1f3d 0%, #1a3a6b 50%, #6366f1 100%)',
         signalKey: 'fb_signal_over_under',
+        v2Enabled: true,
     },
     {
         id: 'over-destroyer',
@@ -186,6 +179,62 @@ const BOTS: BotConfig[] = [
     },
 ];
 
+// ─── Engine selector dropdown ─────────────────────────────────────────────────
+
+const ENGINE_KEY = 'free_bots_engine_mode';
+
+const EngineSelector: React.FC<{
+    mode:    EngineMode;
+    onChange: (m: EngineMode) => void;
+}> = ({ mode, onChange }) => {
+    const [open, setOpen] = useState(false);
+    const ref = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    const labels: Record<EngineMode, string> = {
+        v1: '⚙️ Classic V1',
+        v2: '⚡ Advanced V2',
+    };
+
+    return (
+        <div className='fb-engine-selector' ref={ref}>
+            <button
+                className={`fb-engine-selector__btn fb-engine-selector__btn--${mode}`}
+                onClick={() => setOpen(p => !p)}
+            >
+                <span>{labels[mode]}</span>
+                <span className='fb-engine-selector__arrow'>{open ? '▲' : '▼'}</span>
+            </button>
+
+            {open && (
+                <div className='fb-engine-selector__dropdown'>
+                    <button
+                        className={`fb-engine-selector__option ${mode === 'v1' ? 'fb-engine-selector__option--active' : ''}`}
+                        onClick={() => { onChange('v1'); setOpen(false); }}
+                    >
+                        <div className='fb-engine-selector__opt-title'>⚙️ Classic V1 — DBot</div>
+                        <div className='fb-engine-selector__opt-desc'>Loads bot into Deriv's standard DBot engine</div>
+                    </button>
+                    <button
+                        className={`fb-engine-selector__option ${mode === 'v2' ? 'fb-engine-selector__option--active' : ''}`}
+                        onClick={() => { onChange('v2'); setOpen(false); }}
+                    >
+                        <div className='fb-engine-selector__opt-title'>⚡ Advanced V2 — Direct</div>
+                        <div className='fb-engine-selector__opt-desc'>Connects directly to Deriv API — zero-overhead execution</div>
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+};
+
 // ─── Signal Trade Modal ───────────────────────────────────────────────────────
 
 const SignalTradeModal: React.FC<{
@@ -214,17 +263,13 @@ const SignalTradeModal: React.FC<{
         setErrMsg('');
         try {
             const Blockly = (window as any).Blockly;
-            if (!Blockly?.derivWorkspace) {
-                setState('no-ws');
-                return;
-            }
+            if (!Blockly?.derivWorkspace) { setState('no-ws'); return; }
 
             const stake      = parseFloat(cfg.stake)      || 0.5;
             const takeProfit = parseFloat(cfg.takeProfit) || 10;
             const stopLoss   = parseFloat(cfg.stopLoss)   || 30;
             const martingale = parseFloat(cfg.martingale) || 2;
 
-            // Fetch and patch the real bot XML (same file as Free Bots section)
             const doc    = await fetchAndPatchBot(botId, signal, stake, takeProfit, stopLoss, martingale);
             const xmlStr = new XMLSerializer().serializeToString(doc.documentElement);
             const dom    = Blockly.utils.xml.textToDom(xmlStr);
@@ -236,11 +281,8 @@ const SignalTradeModal: React.FC<{
             store.dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
             onClose();
 
-            // Auto-run via the store — same path the quick-strategy panel uses
             setTimeout(() => {
-                if (!store.run_panel.is_running) {
-                    store.run_panel.onRunButtonClick();
-                }
+                if (!store.run_panel.is_running) store.run_panel.onRunButtonClick();
             }, 500);
         } catch (e: any) {
             setState('error');
@@ -249,10 +291,7 @@ const SignalTradeModal: React.FC<{
     }
 
     const cc = confColor(signal.confidence);
-
-    // Derive display labels for what will be injected
-    const injectedSymbol = signal.symbolLabel
-        .replace('Volatility ', 'V').replace(' Index', '').replace(' (1s)', 's');
+    const injectedSymbol = signal.symbolLabel.replace('Volatility ', 'V').replace(' Index', '').replace(' (1s)', 's');
     const injectedDigit  = botId === 'even-odd-scanner'
         ? parseDigitFrom(signal.entryPoint)
         : parseDigitFrom(signal.direction);
@@ -265,14 +304,11 @@ const SignalTradeModal: React.FC<{
                         <span className='fb-modal__direction'>{signal.direction}</span>
                         <span className='fb-modal__sym'>{signal.symbolLabel}</span>
                         <span className='fb-modal__entry'>{signal.entryPoint}</span>
-                        <span className='fb-modal__conf' style={{ color: cc }}>
-                            {signal.confidence}% confidence
-                        </span>
+                        <span className='fb-modal__conf' style={{ color: cc }}>{signal.confidence}% confidence</span>
                     </div>
                     <button className='fb-modal__close' onClick={onClose}>✕</button>
                 </div>
 
-                {/* Wire summary — what the bot will actually receive */}
                 <div className='fb-modal__wire-summary'>
                     <span className='fb-modal__wire-item'>📡 Market: <strong>{injectedSymbol}</strong></span>
                     <span className='fb-modal__wire-item'>🎯 Entry: <strong>Digit {injectedDigit}</strong></span>
@@ -309,9 +345,7 @@ const SignalTradeModal: React.FC<{
                 )}
 
                 <div className='fb-modal__footer'>
-                    <button className='fb-modal__btn fb-modal__btn--cancel' onClick={onClose} disabled={state === 'launching'}>
-                        Cancel
-                    </button>
+                    <button className='fb-modal__btn fb-modal__btn--cancel' onClick={onClose} disabled={state === 'launching'}>Cancel</button>
                     <button className='fb-modal__btn fb-modal__btn--run' onClick={handleRun} disabled={state === 'launching'}>
                         {state === 'launching' ? '⏳ Launching…' : '🚀 Load Signal & Run'}
                     </button>
@@ -338,11 +372,12 @@ const SignalBadge: React.FC<{ signal: LiveSignal; onClick: () => void }> = ({ si
 
 // ─── Bot Card ─────────────────────────────────────────────────────────────────
 
-const BotCard: React.FC<{ bot: BotConfig }> = observer(({ bot }) => {
+const BotCard: React.FC<{ bot: BotConfig; engineMode: EngineMode }> = observer(({ bot, engineMode }) => {
     const store = useStore();
-    const [status,    setStatus]    = useState<BotStatus>('idle');
-    const [errorMsg,  setErrorMsg]  = useState('');
-    const [showModal, setShowModal] = useState(false);
+    const [status,     setStatus]     = useState<BotStatus>('idle');
+    const [errorMsg,   setErrorMsg]   = useState('');
+    const [showSignal, setShowSignal] = useState(false);
+    const [showV2,     setShowV2]     = useState(false);
 
     const signal = useSignal(bot.signalKey);
 
@@ -374,6 +409,8 @@ const BotCard: React.FC<{ bot: BotConfig }> = observer(({ bot }) => {
         }
     };
 
+    const isV2Mode = engineMode === 'v2' && bot.v2Enabled;
+
     return (
         <>
             <div className='free-bots__card'>
@@ -389,7 +426,7 @@ const BotCard: React.FC<{ bot: BotConfig }> = observer(({ bot }) => {
                     <p className='free-bots__card-desc'>{bot.description}</p>
 
                     {signal && (
-                        <SignalBadge signal={signal} onClick={() => setShowModal(true)} />
+                        <SignalBadge signal={signal} onClick={() => setShowSignal(true)} />
                     )}
 
                     {status === 'error' && (
@@ -397,18 +434,37 @@ const BotCard: React.FC<{ bot: BotConfig }> = observer(({ bot }) => {
                     )}
 
                     <div className='free-bots__card-actions'>
-                        <button
-                            className={`free-bots__card-btn free-bots__card-btn--load ${status === 'loading' ? 'free-bots__card-btn--busy' : ''}`}
-                            onClick={loadBot}
-                            disabled={status === 'loading'}
-                        >
-                            {status === 'loading' ? '⏳ Loading…' : status === 'loaded' ? '✅ Loaded' : '📂 Load Bot'}
-                        </button>
+                        {/* V1 mode: show normal Load Bot button */}
+                        {!isV2Mode && (
+                            <button
+                                className={`free-bots__card-btn free-bots__card-btn--load ${status === 'loading' ? 'free-bots__card-btn--busy' : ''}`}
+                                onClick={loadBot}
+                                disabled={status === 'loading'}
+                            >
+                                {status === 'loading' ? '⏳ Loading…' : status === 'loaded' ? '✅ Loaded' : '📂 Load Bot'}
+                            </button>
+                        )}
 
-                        {signal && (
+                        {/* V2 mode: show V2 launch button (or "coming soon" for unsupported bots) */}
+                        {engineMode === 'v2' && (
+                            bot.v2Enabled ? (
+                                <button
+                                    className='free-bots__card-btn free-bots__card-btn--v2'
+                                    onClick={() => setShowV2(true)}
+                                >
+                                    ⚡ V2 Launch
+                                </button>
+                            ) : (
+                                <button className='free-bots__card-btn free-bots__card-btn--v2soon' disabled>
+                                    ⚡ V2 Coming Soon
+                                </button>
+                            )
+                        )}
+
+                        {signal && !isV2Mode && (
                             <button
                                 className='free-bots__card-btn free-bots__card-btn--signal'
-                                onClick={() => setShowModal(true)}
+                                onClick={() => setShowSignal(true)}
                             >
                                 ⚡ Trade Signal
                             </button>
@@ -417,12 +473,21 @@ const BotCard: React.FC<{ bot: BotConfig }> = observer(({ bot }) => {
                 </div>
             </div>
 
-            {showModal && signal && (
+            {/* Signal modal (V1 only) */}
+            {showSignal && signal && (
                 <SignalTradeModal
                     botId={bot.id}
                     xmlPath={bot.xmlPath}
                     signal={signal}
-                    onClose={() => setShowModal(false)}
+                    onClose={() => setShowSignal(false)}
+                />
+            )}
+
+            {/* V2 engine modal */}
+            {showV2 && (
+                <V2EngineModal
+                    bot={bot}
+                    onClose={() => setShowV2(false)}
                 />
             )}
         </>
@@ -432,18 +497,43 @@ const BotCard: React.FC<{ bot: BotConfig }> = observer(({ bot }) => {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const FreeBots = observer(() => {
+    const [engineMode, setEngineMode] = useState<EngineMode>(() => {
+        try { return (localStorage.getItem(ENGINE_KEY) as EngineMode) || 'v1'; } catch { return 'v1'; }
+    });
+
+    const handleModeChange = (m: EngineMode) => {
+        setEngineMode(m);
+        try { localStorage.setItem(ENGINE_KEY, m); } catch { /* ignore */ }
+    };
+
     return (
         <div className='free-bots'>
             <div className='free-bots__header'>
-                <h1 className='free-bots__title'>Free Trading Bots</h1>
-                <p className='free-bots__subtitle'>
-                    Ready-to-use bots — load directly into the Bot Builder, or tap <strong>Trade Signal</strong> to wire a live signal into the bot and run it instantly.
-                </p>
+                <div className='free-bots__header-top'>
+                    <div className='free-bots__header-text'>
+                        <h1 className='free-bots__title'>Free Trading Bots</h1>
+                        <p className='free-bots__subtitle'>
+                            Ready-to-use bots — load into Bot Builder, or tap <strong>Trade Signal</strong> to wire a live signal and run instantly.
+                        </p>
+                    </div>
+                    <EngineSelector mode={engineMode} onChange={handleModeChange} />
+                </div>
+
+                {engineMode === 'v2' && (
+                    <div className='free-bots__v2-banner'>
+                        <span className='free-bots__v2-banner-icon'>⚡</span>
+                        <div>
+                            <strong>Advanced V2 Engine active</strong> — bots connect directly to Deriv's WebSocket API.
+                            Re-buys fire the instant each contract settles, with zero DBot overhead.
+                            You'll need a Deriv API token to run.
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div className='free-bots__grid'>
                 {BOTS.map(bot => (
-                    <BotCard key={bot.id} bot={bot} />
+                    <BotCard key={bot.id} bot={bot} engineMode={engineMode} />
                 ))}
             </div>
 
