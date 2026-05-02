@@ -28,7 +28,7 @@ const V2PanelTab = observer(() => {
                 tradeRecords={tradeRecords}
                 stats={stats}
                 onStop={() => v2EngineStore.stop()}
-                onClear={() => v2EngineStore.clearLogs()}
+                onClear={() => v2EngineStore.clearAll()}
             />
         </div>
     );

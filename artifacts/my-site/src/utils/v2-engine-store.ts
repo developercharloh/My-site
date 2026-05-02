@@ -89,6 +89,11 @@ class V2EngineStore {
         this.logs = [];
     }
 
+    clearAll(): void {
+        this.logs         = [];
+        this.tradeRecords = [];
+    }
+
     reset(initialStake = 0): void {
         this.status       = 'idle';
         this.logs         = [];

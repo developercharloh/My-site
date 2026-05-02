@@ -85,7 +85,7 @@ export const V2Panel = React.memo(({ status, logs, tradeRecords, stats, onStop, 
                     {statusLabel(status)}
                 </span>
                 <div className='v2p__header-actions'>
-                    <button className='v2p__btn-clear' onClick={onClear} title='Clear log'>🗑</button>
+                    <button className='v2p__btn-clear' onClick={onClear} title='Clear log & trades'>🗑</button>
                     {isActive && (
                         <button className='v2p__btn-stop' onClick={onStop}>■ Stop</button>
                     )}
