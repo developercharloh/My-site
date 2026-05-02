@@ -128,6 +128,25 @@ const BOTS: BotConfig[] = [
         signalKey: 'fb_signal_even_odd',
     },
     {
+        id: 'over-under-signal',
+        name: 'Over Under Bot',
+        emoji: '📊',
+        description:
+            'Trades Digit Over/Under using live signal intelligence. Scans every tick — enters only when the last digit equals the signal barrier, then bets OVER or UNDER exactly as the signal directs. Martingale recovery on losses with Take Profit guard.',
+        market: 'Signal-driven (any Volatility Index)',
+        strategy: 'Digit Over / Under · Signal Direction · Entry Point Scanner',
+        params: [
+            { label: 'Entry Point', value: 'Barrier digit' },
+            { label: 'Direction', value: 'OVER / UNDER (from signal)' },
+            { label: 'Stake', value: '$0.5' },
+            { label: 'Take Profit', value: '$10' },
+            { label: 'Max Losses', value: '6' },
+        ],
+        xmlPath: '/bots/OverUnder_Signal_Bot.xml',
+        gradient: 'linear-gradient(135deg, #0f1f3d 0%, #1a3a6b 50%, #6366f1 100%)',
+        signalKey: 'fb_signal_over_under',
+    },
+    {
         id: 'over-destroyer',
         name: 'Over Destroyer Bot',
         emoji: '📈📉',

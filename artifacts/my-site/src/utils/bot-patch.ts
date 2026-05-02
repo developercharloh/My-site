@@ -21,13 +21,15 @@ export interface BlockPatch {
 // ─── Bot ID → XML path mapping ────────────────────────────────────────────────
 
 export const BOT_XML_PATHS: Record<string, string> = {
-    'matches-signal':    '/bots/Matches_Signal_Bot.xml',
-    'differ-v2':         '/bots/BINARYTOOL@_DIFFER_V2.0_(1)_(1)_1765711647662.xml',
-    'even-odd-scanner':  '/bots/BINARYTOOL@EVEN_ODD_THUNDER_AI_PRO_BOT_1765711647662.xml',
+    'matches-signal':     '/bots/Matches_Signal_Bot.xml',
+    'differ-v2':          '/bots/BINARYTOOL@_DIFFER_V2.0_(1)_(1)_1765711647662.xml',
+    'even-odd-scanner':   '/bots/BINARYTOOL@EVEN_ODD_THUNDER_AI_PRO_BOT_1765711647662.xml',
+    'over-under-signal':  '/bots/OverUnder_Signal_Bot.xml',
 };
 
 // Resolve which bot to use from a signal's market + direction
 export function botIdFromSignal(signal: Pick<BotSignal, 'market' | 'direction'>): string {
+    if (signal.market === 'over_under')      return 'over-under-signal';
     if (signal.market === 'matches_differs') {
         return signal.direction.toUpperCase().startsWith('DIFFERS')
             ? 'differ-v2'
@@ -152,6 +154,21 @@ export function getBotPatches(
                 { blockId: ':Vn+w]Y.(QKzgKKENIfo',   numValue: takeProfit }, // Target Profit
                 { blockId: 'eo_ep_init_fixed',         numValue: entry },     // entry point
             ];
+
+        case 'over-under-signal': {
+            const dirText = signal.direction.split(' ')[0].toUpperCase(); // "OVER" or "UNDER"
+            const barrier = parseDigitFrom(signal.direction);             // barrier digit
+            return [
+                { blockId: 'ou_dir_init',         textValue: dirText },         // Direction: OVER or UNDER
+                { blockId: 'ou_barrier_init',      numValue: barrier },          // Barrier digit
+                { blockId: 'ou_stake_init',        numValue: stake },            // Stake
+                { blockId: 'ou_initial_stake_init',numValue: stake },            // InitialStake (same as Stake)
+                { blockId: 'ou_tp_init',           numValue: takeProfit },       // TakeProfit
+                { blockId: 'ou_mart_level_init',   numValue: martingaleLevel },  // MartingaleLevel
+                { blockId: 'ou_mart_init',         numValue: martingale },       // Martingale
+                { blockId: 'ou_ep_init',           numValue: barrier },          // entry point (= barrier)
+            ];
+        }
 
         default:
             return [];

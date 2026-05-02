@@ -764,6 +764,8 @@ const SignalEngine = () => {
                                 .sort((a, b) => b.confidence - a.confidence)[0];
         const topEO     = active.filter(s => s.market === 'even_odd')
                                 .sort((a, b) => b.confidence - a.confidence)[0];
+        const topOU     = active.filter(s => s.market === 'over_under')
+                                .sort((a, b) => b.confidence - a.confidence)[0];
 
         const push = (key: string, sig: Signal | undefined) => {
             if (!sig) return;
@@ -777,9 +779,10 @@ const SignalEngine = () => {
                 savedAt:     now,
             }));
         };
-        push('fb_signal_matches',  topMatch);
-        push('fb_signal_differs',  topDiffer);
-        push('fb_signal_even_odd', topEO);
+        push('fb_signal_matches',    topMatch);
+        push('fb_signal_differs',    topDiffer);
+        push('fb_signal_even_odd',   topEO);
+        push('fb_signal_over_under', topOU);
         window.dispatchEvent(new Event('fb_signal_update'));
     }, [signals]);
 
