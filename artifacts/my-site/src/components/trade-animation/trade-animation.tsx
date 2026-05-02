@@ -1,6 +1,7 @@
 import React from 'react';
 import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
+import { runInAction } from 'mobx';
 import ContractResultOverlay from '@/components/contract-result-overlay';
 import { DBOT_TABS } from '@/constants/bot-contents';
 import { contract_stages } from '@/constants/contract-stage';
@@ -10,11 +11,19 @@ import { LabelPairedPlayLgFillIcon, LabelPairedSquareLgFillIcon } from '@deriv/q
 import { Localize, localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 import { rudderStackSendRunBotEvent } from '../../analytics/rudderstack-common-events';
+import { DerivV2Engine, type V2BotConfig } from '@/utils/deriv-v2-engine';
 import Button from '../shared_ui/button';
 import Tooltip from '../shared_ui/tooltip/tooltip';
 import CircularWrapper from './circular-wrapper';
 import ContractStageText from './contract-stage-text';
 import './run-panel-tooltip.scss';
+
+const ENGINE_KEY   = 'free_bots_engine_mode';
+const V2_CFG_KEY   = 'free_bots_v2_config';
+
+function readV2Config(): V2BotConfig | null {
+    try { return JSON.parse(localStorage.getItem(V2_CFG_KEY) || 'null'); } catch { return null; }
+}
 
 type TTradeAnimation = {
     className?: string;
@@ -24,9 +33,59 @@ type TTradeAnimation = {
 const TradeAnimation = observer(({ className, should_show_overlay }: TTradeAnimation) => {
     const { dashboard, run_panel, summary_card, blockly_store } = useStore();
     const { client } = useStore();
+    const store = useStore();
     const { active_tab } = dashboard;
     const { has_active_bot, has_saved_bots } = blockly_store;
     const { isMobile } = useDevice();
+
+    // ── V2 Engine state ───────────────────────────────────────────────────────
+    const [isV2Mode, setIsV2Mode] = React.useState<boolean>(
+        () => localStorage.getItem(ENGINE_KEY) === 'v2'
+    );
+    const [v2Config, setV2Config] = React.useState<V2BotConfig | null>(readV2Config);
+    const [v2Running, setV2Running] = React.useState(false);
+    const v2EngineRef = React.useRef<DerivV2Engine | null>(null);
+
+    // Listen for mode and config changes from free-bots page
+    React.useEffect(() => {
+        const handler = (e: StorageEvent) => {
+            if (e.key === ENGINE_KEY) setIsV2Mode(e.newValue === 'v2');
+            if (e.key === V2_CFG_KEY) {
+                try { setV2Config(e.newValue ? JSON.parse(e.newValue) : null); } catch { setV2Config(null); }
+            }
+        };
+        window.addEventListener('storage', handler);
+        return () => window.removeEventListener('storage', handler);
+    }, []);
+
+    // Clean up V2 engine on unmount
+    React.useEffect(() => {
+        return () => { v2EngineRef.current?.stop(); };
+    }, []);
+
+    const handleV2Start = React.useCallback(() => {
+        const cfg = readV2Config();
+        if (!cfg) return;
+
+        const engine = new DerivV2Engine(cfg);
+        engine.bindStores({
+            run_panel: run_panel as any,
+            transactions: (store as any).transactions,
+            journal: (store as any).journal,
+            summary_card: summary_card as any,
+            setRunId: (id: string) => runInAction(() => { (run_panel as any).run_id = id; }),
+        });
+        v2EngineRef.current = engine;
+        engine.onStatus = status => { if (status === 'stopped' || status === 'error') setV2Running(false); };
+        engine.start();
+        setV2Running(true);
+    }, [run_panel, store, summary_card]);
+
+    const handleV2Stop = React.useCallback(() => {
+        v2EngineRef.current?.stop();
+        v2EngineRef.current = null;
+        setV2Running(false);
+    }, []);
 
     const { is_contract_completed, profit } = summary_card;
     const {
@@ -181,6 +240,51 @@ const TradeAnimation = observer(({ className, should_show_overlay }: TTradeAnima
         }
     };
 
+    // ── V2 mode: show ⚡ Run V2 / Stop button, keep animation container ─────────
+    if (isV2Mode && v2Config) {
+        const v2BtnClass = v2Running ? 'animation__stop-button' : 'animation__run-button';
+        const v2BtnId    = v2Running ? 'db-animation__stop-button' : 'db-animation__run-button';
+        const v2Icon     = v2Running
+            ? <LabelPairedSquareLgFillIcon fill='#fff' />
+            : <LabelPairedPlayLgFillIcon  fill='#fff' />;
+        const v2Label    = v2Running ? 'Stop' : '⚡ Run V2';
+
+        return (
+            <div className={classNames('animation__wrapper', className)}>
+                <Button
+                    className={v2BtnClass}
+                    id={v2BtnId}
+                    icon={v2Icon}
+                    onClick={v2Running ? handleV2Stop : handleV2Start}
+                    has_effect
+                    primary
+                >
+                    {v2Label}
+                </Button>
+                <div
+                    className={classNames('animation__container', className, {
+                        'animation--running':   contract_stage > 0,
+                        'animation--completed': show_overlay,
+                    })}
+                >
+                    {show_overlay && <ContractResultOverlay profit={profit} />}
+                    <span className='animation__text'>
+                        <ContractStageText contract_stage={contract_stage} />
+                    </span>
+                    <div className='animation__progress'>
+                        <div className='animation__progress-line'>
+                            <div className={`animation__progress-bar animation__progress-${contract_stage}`} />
+                        </div>
+                        {status_classes.map((status_class, i) => (
+                            <CircularWrapper key={`status_class-${status_class}-${i}`} className={status_class} />
+                        ))}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // ── V1 mode (default DBot run/stop) ───────────────────────────────────────
     return (
         <div className={classNames('animation__wrapper', className)}>
             {should_show_tooltip ? (

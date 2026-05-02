@@ -3,9 +3,11 @@ import { observer } from 'mobx-react-lite';
 import { useStore } from '@/hooks/useStore';
 import { DBOT_TABS } from '@/constants/bot-contents';
 import { parseDigitFrom, fetchAndPatchBot, type BotSignal } from '@/utils/bot-patch';
-import V2EngineModal from './V2EngineModal';
+import { parseXmlV2Config } from '@/utils/xml-v2-parser';
 import type { BotConfig } from './types';
 import './free-bots.scss';
+
+const V2_CONFIG_KEY = 'free_bots_v2_config';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -377,7 +379,6 @@ const BotCard: React.FC<{ bot: BotConfig; engineMode: EngineMode }> = observer((
     const [status,     setStatus]     = useState<BotStatus>('idle');
     const [errorMsg,   setErrorMsg]   = useState('');
     const [showSignal, setShowSignal] = useState(false);
-    const [showV2,     setShowV2]     = useState(false);
 
     const signal = useSignal(bot.signalKey);
 
@@ -400,6 +401,14 @@ const BotCard: React.FC<{ bot: BotConfig; engineMode: EngineMode }> = observer((
             Blockly.Xml.clearWorkspaceAndLoadFromXml(dom, Blockly.derivWorkspace);
             Blockly.derivWorkspace.cleanUp();
             Blockly.derivWorkspace.clearUndo();
+
+            // V2 mode: parse XML and save config so bot builder can run with V2 engine
+            if (engineMode === 'v2' && bot.v2Enabled) {
+                const v2Cfg = parseXmlV2Config(xmlText);
+                const v2CfgStr = JSON.stringify(v2Cfg);
+                localStorage.setItem(V2_CONFIG_KEY, v2CfgStr);
+                window.dispatchEvent(new StorageEvent('storage', { key: V2_CONFIG_KEY, newValue: v2CfgStr }));
+            }
 
             setStatus('loaded');
             dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
@@ -434,8 +443,25 @@ const BotCard: React.FC<{ bot: BotConfig; engineMode: EngineMode }> = observer((
                     )}
 
                     <div className='free-bots__card-actions'>
-                        {/* V1 mode: show normal Load Bot button */}
-                        {!isV2Mode && (
+                        {/* V2 mode: same Load-into-builder flow, just saves parsed config too */}
+                        {engineMode === 'v2' && (
+                            bot.v2Enabled ? (
+                                <button
+                                    className={`free-bots__card-btn free-bots__card-btn--v2 ${status === 'loading' ? 'free-bots__card-btn--busy' : ''}`}
+                                    onClick={loadBot}
+                                    disabled={status === 'loading'}
+                                >
+                                    {status === 'loading' ? '⏳ Loading…' : status === 'loaded' ? '✅ Loaded — Run V2 in Builder' : '⚡ V2 Load'}
+                                </button>
+                            ) : (
+                                <button className='free-bots__card-btn free-bots__card-btn--v2soon' disabled>
+                                    ⚡ V2 Coming Soon
+                                </button>
+                            )
+                        )}
+
+                        {/* V1 mode: normal Load Bot button */}
+                        {engineMode !== 'v2' && (
                             <button
                                 className={`free-bots__card-btn free-bots__card-btn--load ${status === 'loading' ? 'free-bots__card-btn--busy' : ''}`}
                                 onClick={loadBot}
@@ -445,23 +471,7 @@ const BotCard: React.FC<{ bot: BotConfig; engineMode: EngineMode }> = observer((
                             </button>
                         )}
 
-                        {/* V2 mode: show V2 launch button (or "coming soon" for unsupported bots) */}
-                        {engineMode === 'v2' && (
-                            bot.v2Enabled ? (
-                                <button
-                                    className='free-bots__card-btn free-bots__card-btn--v2'
-                                    onClick={() => setShowV2(true)}
-                                >
-                                    ⚡ V2 Launch
-                                </button>
-                            ) : (
-                                <button className='free-bots__card-btn free-bots__card-btn--v2soon' disabled>
-                                    ⚡ V2 Coming Soon
-                                </button>
-                            )
-                        )}
-
-                        {signal && !isV2Mode && (
+                        {signal && engineMode !== 'v2' && (
                             <button
                                 className='free-bots__card-btn free-bots__card-btn--signal'
                                 onClick={() => setShowSignal(true)}
@@ -483,13 +493,6 @@ const BotCard: React.FC<{ bot: BotConfig; engineMode: EngineMode }> = observer((
                 />
             )}
 
-            {/* V2 engine modal */}
-            {showV2 && (
-                <V2EngineModal
-                    bot={bot}
-                    onClose={() => setShowV2(false)}
-                />
-            )}
         </>
     );
 });
@@ -515,6 +518,11 @@ const FreeBots = observer(() => {
     const handleModeChange = (m: EngineMode) => {
         setEngineMode(m);
         try { localStorage.setItem(ENGINE_KEY, m); } catch { /* ignore */ }
+        // Clear V2 config when switching back to V1 so bot builder reverts to normal Run
+        if (m === 'v1') {
+            try { localStorage.removeItem(V2_CONFIG_KEY); } catch { /* ignore */ }
+            window.dispatchEvent(new StorageEvent('storage', { key: V2_CONFIG_KEY, newValue: null }));
+        }
         window.dispatchEvent(new StorageEvent('storage', { key: ENGINE_KEY, newValue: m }));
     };
 
@@ -535,9 +543,9 @@ const FreeBots = observer(() => {
                     <div className='free-bots__v2-banner'>
                         <span className='free-bots__v2-banner-icon'>⚡</span>
                         <div>
-                            <strong>Advanced V2 Engine active</strong> — bots connect directly to Deriv's WebSocket API.
-                            Re-buys fire the instant each contract settles, with zero DBot overhead.
-                            You'll need a Deriv API token to run.
+                            <strong>V2 Engine active</strong> — click <strong>⚡ V2 Load</strong> to load your bot into
+                            the Bot Builder, then press <strong>⚡ Run V2</strong> in the builder to execute at full speed.
+                            Transactions and journal appear in the Run Panel — same as V1, but faster.
                         </div>
                     </div>
                 )}
