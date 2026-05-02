@@ -183,10 +183,8 @@ export class DerivV2Engine {
         }
 
         this.msgSub = (api_base.api as any).onMessage().subscribe((raw: any) => {
-            try {
-                const msg = raw?.data ? JSON.parse(raw.data) : raw;
-                this.handle(msg);
-            } catch { /* ignore */ }
+            const msg = raw?.data ?? raw;   // .data is already a parsed object
+            this.handle(msg);
         });
 
         this.onStatus('scanning');
