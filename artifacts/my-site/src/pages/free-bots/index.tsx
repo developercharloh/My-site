@@ -20,6 +20,42 @@ type BotConfig = {
 
 const BOTS: BotConfig[] = [
     {
+        id: 'matches-signal',
+        name: 'Matches Signal Bot',
+        emoji: '🎯',
+        description:
+            'Trades Digit Matches on Volatility 75 (1s) Index. Predicts the last digit will be exactly 4. Flat stake, stops after 6 consecutive losses or when Take Profit is hit.',
+        market: 'Volatility 75 (1s) Index (1HZ75V)',
+        strategy: 'Digit Matches · Flat Stake',
+        params: [
+            { label: 'Stake', value: '$10' },
+            { label: 'Take Profit', value: '$15' },
+            { label: 'Prediction', value: 'Digit 4' },
+            { label: 'Max Losses', value: '6' },
+            { label: 'Martingale', value: '1×' },
+        ],
+        xmlPath: '/bots/Matches_Signal_Bot.xml',
+        gradient: 'linear-gradient(135deg, #1a0533 0%, #3b0764 50%, #7c3aed 100%)',
+    },
+    {
+        id: 'differ-v2',
+        name: 'Differ V2 Bot',
+        emoji: '🔀',
+        description:
+            'Trades Digit Differs on Volatility 100 Index. Waits for entry point digit 9, then bets the last digit will NOT be 9. Martingale recovery on losses with Take Profit and Stop Loss.',
+        market: 'Volatility 100 Index (R_100)',
+        strategy: 'Digit Differs · Martingale · Entry Point',
+        params: [
+            { label: 'Stake', value: '$1' },
+            { label: 'Take Profit', value: '$1' },
+            { label: 'Stop Loss', value: '$10' },
+            { label: 'Martingale', value: '2.5×' },
+            { label: 'Entry / Prediction', value: 'Digit 9' },
+        ],
+        xmlPath: '/bots/BINARYTOOL@_DIFFER_V2.0_(1)_(1)_1765711647662.xml',
+        gradient: 'linear-gradient(135deg, #0c1a33 0%, #1e3a5f 50%, #2563eb 100%)',
+    },
+    {
         id: 'over-destroyer',
         name: 'Over Destroyer Bot',
         emoji: '📈📉',
