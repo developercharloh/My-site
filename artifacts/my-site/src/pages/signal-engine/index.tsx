@@ -428,10 +428,12 @@ function SignalSettingsModal({ signal, rank, onClose }: {
             const martingale = parseFloat(cfg.martingale) || 2;
 
             // Resolve to the same real XML file used in Free Bots section
-            const botId = botIdFromSignal(signal);
-            const doc   = await fetchAndPatchBot(botId, signal, stake, takeProfit, stopLoss, martingale);
+            const botId  = botIdFromSignal(signal);
+            const doc    = await fetchAndPatchBot(botId, signal, stake, takeProfit, stopLoss, martingale);
+            const xmlStr = new XMLSerializer().serializeToString(doc.documentElement);
+            const dom    = Blockly.utils.xml.textToDom(xmlStr);
 
-            Blockly.Xml.clearWorkspaceAndLoadFromXml(doc.documentElement, Blockly.derivWorkspace);
+            Blockly.Xml.clearWorkspaceAndLoadFromXml(dom, Blockly.derivWorkspace);
             Blockly.derivWorkspace.cleanUp();
             Blockly.derivWorkspace.clearUndo();
 

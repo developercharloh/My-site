@@ -206,9 +206,11 @@ const SignalTradeModal: React.FC<{
             const martingale = parseFloat(cfg.martingale) || 2;
 
             // Fetch and patch the real bot XML (same file as Free Bots section)
-            const doc = await fetchAndPatchBot(botId, signal, stake, takeProfit, stopLoss, martingale);
+            const doc    = await fetchAndPatchBot(botId, signal, stake, takeProfit, stopLoss, martingale);
+            const xmlStr = new XMLSerializer().serializeToString(doc.documentElement);
+            const dom    = Blockly.utils.xml.textToDom(xmlStr);
 
-            Blockly.Xml.clearWorkspaceAndLoadFromXml(doc.documentElement, Blockly.derivWorkspace);
+            Blockly.Xml.clearWorkspaceAndLoadFromXml(dom, Blockly.derivWorkspace);
             Blockly.derivWorkspace.cleanUp();
             Blockly.derivWorkspace.clearUndo();
 
