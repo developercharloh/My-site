@@ -410,8 +410,8 @@ function SignalSettingsModal({ signal, rank, onClose }: {
     const [errMsg,   setErrMsg]   = useState('');
     const color = MARKET_COLOR[signal.market];
 
-    function parseEntryDigit(): number {
-        const m = signal.entryPoint.match(/\d+/);
+    function parseDigitFrom(str: string): number {
+        const m = str.match(/\d+/);
         return m ? parseInt(m[0], 10) : 0;
     }
 
@@ -431,30 +431,31 @@ function SignalSettingsModal({ signal, rank, onClose }: {
             const takeProfit = parseFloat(cfg.takeProfit) || 10;
             const stopLoss   = parseFloat(cfg.stopLoss)   || 30;
             const martingale = parseFloat(cfg.martingale) || 2;
-            const digit      = parseEntryDigit();
 
             let xmlText: string;
 
             if (signal.market === 'matches_differs') {
                 const contract = signal.direction.toUpperCase().startsWith('MATCHES')
                     ? 'DIGITMATCH' : 'DIGITDIFF';
-                // martingaleLevel = how many losses can be covered before stopLoss is hit
+                // prediction digit comes from the direction string: "MATCHES 4" → 4, "DIFFERS 9" → 9
+                const prediction     = parseDigitFrom(signal.direction);
                 const martingaleLevel = Math.max(3, Math.min(10, Math.round(stopLoss / stake)));
                 xmlText = generateMatchesDiffersXml({
                     symbol: signal.symbol,
                     contract,
-                    prediction:      digit,
+                    prediction,
                     stake,
                     takeProfit,
                     martingale,
                     martingaleLevel,
                 });
             } else {
-                // even_odd (and future over_under fallback)
+                // even_odd — entryDigit comes from entryPoint ("Digit 4" → 4)
+                const entryDigit = parseDigitFrom(signal.entryPoint);
                 xmlText = generateEvenOddXml({
                     symbol:     signal.symbol,
                     direction:  signal.direction.toUpperCase() === 'ODD' ? 'ODD' : 'EVEN',
-                    entryDigit: digit,
+                    entryDigit,
                     stake,
                     takeProfit,
                     stopLoss,

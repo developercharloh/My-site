@@ -1,10 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useStore } from '@/hooks/useStore';
 import { DBOT_TABS } from '@/constants/bot-contents';
+import { generateEvenOddXml, generateMatchesDiffersXml } from '../signal-engine/generate-bot-xml';
 import './free-bots.scss';
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
 type BotStatus = 'idle' | 'loading' | 'loaded' | 'error';
+
+interface LiveSignal {
+    symbol:      string;
+    symbolLabel: string;
+    direction:   string;
+    entryPoint:  string;
+    confidence:  number;
+    market:      string;
+    savedAt:     number;
+}
+
+interface SignalSettings {
+    stake:      string;
+    takeProfit: string;
+    stopLoss:   string;
+    martingale: string;
+}
 
 type BotConfig = {
     id: string;
@@ -16,7 +36,52 @@ type BotConfig = {
     params: { label: string; value: string }[];
     xmlPath: string;
     gradient: string;
+    signalKey?: string;
 };
+
+// ─── Signal helpers ───────────────────────────────────────────────────────────
+
+const SIGNAL_TTL = 5 * 60 * 1000; // 5 minutes
+
+function readSignal(key: string): LiveSignal | null {
+    try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return null;
+        const sig = JSON.parse(raw) as LiveSignal;
+        if (Date.now() - sig.savedAt > SIGNAL_TTL) return null;
+        return sig;
+    } catch { return null; }
+}
+
+function useSignal(key: string | undefined): LiveSignal | null {
+    const [signal, setSignal] = useState<LiveSignal | null>(() => key ? readSignal(key) : null);
+
+    useEffect(() => {
+        if (!key) return;
+        const refresh = () => setSignal(readSignal(key));
+        window.addEventListener('fb_signal_update', refresh);
+        window.addEventListener('storage', refresh);
+        const interval = setInterval(refresh, 15_000);
+        return () => {
+            window.removeEventListener('fb_signal_update', refresh);
+            window.removeEventListener('storage', refresh);
+            clearInterval(interval);
+        };
+    }, [key]);
+
+    return signal;
+}
+
+function parseDigitFrom(str: string): number {
+    const m = str.match(/\d+/);
+    return m ? parseInt(m[0], 10) : 0;
+}
+
+function confColor(conf: number): string {
+    return conf >= 70 ? '#10b981' : conf >= 60 ? '#eab308' : '#ef4444';
+}
+
+// ─── BOTS config ──────────────────────────────────────────────────────────────
 
 const BOTS: BotConfig[] = [
     {
@@ -36,6 +101,7 @@ const BOTS: BotConfig[] = [
         ],
         xmlPath: '/bots/Matches_Signal_Bot.xml',
         gradient: 'linear-gradient(135deg, #1a0533 0%, #3b0764 50%, #7c3aed 100%)',
+        signalKey: 'fb_signal_matches',
     },
     {
         id: 'differ-v2',
@@ -54,6 +120,7 @@ const BOTS: BotConfig[] = [
         ],
         xmlPath: '/bots/BINARYTOOL@_DIFFER_V2.0_(1)_(1)_1765711647662.xml',
         gradient: 'linear-gradient(135deg, #0c1a33 0%, #1e3a5f 50%, #2563eb 100%)',
+        signalKey: 'fb_signal_differs',
     },
     {
         id: 'even-odd-scanner',
@@ -71,6 +138,7 @@ const BOTS: BotConfig[] = [
         ],
         xmlPath: '/bots/BINARYTOOL@EVEN_ODD_THUNDER_AI_PRO_BOT_1765711647662.xml',
         gradient: 'linear-gradient(135deg, #1a1a0a 0%, #3d3d00 50%, #d4ac0d 100%)',
+        signalKey: 'fb_signal_even_odd',
     },
     {
         id: 'over-destroyer',
@@ -112,12 +180,169 @@ const BOTS: BotConfig[] = [
     },
 ];
 
+// ─── Signal Trade Modal ───────────────────────────────────────────────────────
+
+const SignalTradeModal: React.FC<{
+    botId:   string;
+    signal:  LiveSignal;
+    onClose: () => void;
+}> = ({ botId, signal, onClose }) => {
+    const store = useStore();
+    const storageKey = `fb_cfg_${botId}`;
+
+    const [cfg, setCfg] = useState<SignalSettings>(() => {
+        try {
+            const raw = localStorage.getItem(storageKey);
+            if (raw) return JSON.parse(raw) as SignalSettings;
+        } catch { /* ignore */ }
+        return { stake: '0.5', takeProfit: '10', stopLoss: '30', martingale: '2' };
+    });
+
+    const [state, setState] = useState<'idle' | 'launching' | 'no-ws' | 'error'>('idle');
+    const [errMsg, setErrMsg] = useState('');
+
+    async function handleRun() {
+        localStorage.setItem(storageKey, JSON.stringify(cfg));
+        setState('launching');
+        setErrMsg('');
+        try {
+            const Blockly = (window as any).Blockly;
+            if (!Blockly?.derivWorkspace) {
+                setState('no-ws');
+                return;
+            }
+
+            const stake      = parseFloat(cfg.stake)      || 0.5;
+            const takeProfit = parseFloat(cfg.takeProfit) || 10;
+            const stopLoss   = parseFloat(cfg.stopLoss)   || 30;
+            const martingale = parseFloat(cfg.martingale) || 2;
+
+            let xmlText: string;
+
+            if (signal.market === 'matches_differs') {
+                const contract = signal.direction.toUpperCase().startsWith('MATCHES')
+                    ? 'DIGITMATCH' : 'DIGITDIFF';
+                const prediction      = parseDigitFrom(signal.direction);
+                const martingaleLevel = Math.max(3, Math.min(10, Math.round(stopLoss / stake)));
+                xmlText = generateMatchesDiffersXml({
+                    symbol: signal.symbol, contract, prediction,
+                    stake, takeProfit, martingale, martingaleLevel,
+                });
+            } else {
+                const entryDigit = parseDigitFrom(signal.entryPoint);
+                xmlText = generateEvenOddXml({
+                    symbol:     signal.symbol,
+                    direction:  signal.direction.toUpperCase() === 'ODD' ? 'ODD' : 'EVEN',
+                    entryDigit, stake, takeProfit, stopLoss, martingale,
+                });
+            }
+
+            const parsed = new DOMParser().parseFromString(xmlText, 'text/xml');
+            if (parsed.querySelector('parsererror')) throw new Error('Bot XML parse error.');
+            Blockly.Xml.clearWorkspaceAndLoadFromXml(parsed.documentElement, Blockly.derivWorkspace);
+            Blockly.derivWorkspace.cleanUp();
+            Blockly.derivWorkspace.clearUndo();
+
+            store.dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
+            onClose();
+
+            setTimeout(() => {
+                const runBtn = document.querySelector<HTMLButtonElement>(
+                    '#db-animation__run-button, [data-testid="dt_run-panel_run-button"], .run-controls__run-button, button[class*="run"]'
+                );
+                runBtn?.click();
+            }, 700);
+        } catch (e: any) {
+            setState('error');
+            setErrMsg(e?.message || 'Failed to launch bot.');
+        }
+    }
+
+    const cc = confColor(signal.confidence);
+
+    return (
+        <div className='fb-modal-overlay' onClick={onClose}>
+            <div className='fb-modal' onClick={e => e.stopPropagation()}>
+                <div className='fb-modal__header'>
+                    <div className='fb-modal__signal-info'>
+                        <span className='fb-modal__direction'>{signal.direction}</span>
+                        <span className='fb-modal__sym'>{signal.symbolLabel}</span>
+                        <span className='fb-modal__entry'>{signal.entryPoint}</span>
+                        <span className='fb-modal__conf' style={{ color: cc }}>
+                            {signal.confidence}% confidence
+                        </span>
+                    </div>
+                    <button className='fb-modal__close' onClick={onClose}>✕</button>
+                </div>
+
+                <div className='fb-modal__fields'>
+                    {([
+                        { label: 'Stake ($)',       key: 'stake'      as const, step: '0.01' },
+                        { label: 'Take Profit ($)', key: 'takeProfit' as const, step: '0.5'  },
+                        { label: 'Stop Loss ($)',   key: 'stopLoss'   as const, step: '0.5'  },
+                        { label: 'Martingale (×)',  key: 'martingale' as const, step: '0.1'  },
+                    ]).map(f => (
+                        <div key={f.key} className='fb-modal__field'>
+                            <label>{f.label}</label>
+                            <input
+                                type='number' step={f.step} min='0'
+                                value={cfg[f.key]}
+                                onChange={e => setCfg(c => ({ ...c, [f.key]: e.target.value }))}
+                                disabled={state === 'launching'}
+                            />
+                        </div>
+                    ))}
+                </div>
+
+                {state === 'no-ws' && (
+                    <div className='fb-modal__warn'>
+                        ⚠️ Open the <strong>Bot Builder</strong> tab once to initialise the workspace, then try again.
+                        <button onClick={() => setState('idle')}>OK</button>
+                    </div>
+                )}
+                {state === 'error' && (
+                    <div className='fb-modal__error'>{errMsg} <button onClick={() => setState('idle')}>Retry</button></div>
+                )}
+
+                <div className='fb-modal__footer'>
+                    <button className='fb-modal__btn fb-modal__btn--cancel' onClick={onClose} disabled={state === 'launching'}>
+                        Cancel
+                    </button>
+                    <button className='fb-modal__btn fb-modal__btn--run' onClick={handleRun} disabled={state === 'launching'}>
+                        {state === 'launching' ? '⏳ Launching…' : '🚀 Save & Run'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ─── Signal Badge ─────────────────────────────────────────────────────────────
+
+const SignalBadge: React.FC<{ signal: LiveSignal; onClick: () => void }> = ({ signal, onClick }) => {
+    const cc = confColor(signal.confidence);
+    return (
+        <div className='fb-signal-badge' onClick={onClick} title='Live signal available — click to trade it'>
+            <span className='fb-signal-badge__dot' style={{ background: cc }} />
+            <span className='fb-signal-badge__dir'>{signal.direction}</span>
+            <span className='fb-signal-badge__sym'>{signal.symbolLabel.replace('Volatility ', 'V').replace(' Index', '')}</span>
+            <span className='fb-signal-badge__conf' style={{ color: cc }}>{signal.confidence}%</span>
+            <span className='fb-signal-badge__cta'>Trade Signal →</span>
+        </div>
+    );
+};
+
+// ─── Bot Card ─────────────────────────────────────────────────────────────────
+
 const BotCard: React.FC<{ bot: BotConfig }> = observer(({ bot }) => {
     const store = useStore();
     const [status, setStatus] = useState<BotStatus>('idle');
     const [errorMsg, setErrorMsg] = useState('');
+    const [showModal, setShowModal] = useState(false);
 
-    const loadBot = async (run: boolean) => {
+    const signal = useSignal(bot.signalKey);
+
+    const loadBot = async () => {
         if (!store) return;
         const { dashboard } = store;
         setStatus('loading');
@@ -139,15 +364,6 @@ const BotCard: React.FC<{ bot: BotConfig }> = observer(({ bot }) => {
 
             setStatus('loaded');
             dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
-
-            if (run) {
-                setTimeout(() => {
-                    const runBtn = document.querySelector<HTMLButtonElement>(
-                        '[data-testid="dt_run-panel_run-button"], .run-controls__run-button, button[class*="run"]'
-                    );
-                    runBtn?.click();
-                }, 600);
-            }
         } catch (err: any) {
             setStatus('error');
             setErrorMsg(err?.message || 'Failed to load bot.');
@@ -155,35 +371,60 @@ const BotCard: React.FC<{ bot: BotConfig }> = observer(({ bot }) => {
     };
 
     return (
-        <div className='free-bots__card'>
-            <div className='free-bots__card-header' style={{ background: bot.gradient }}>
-                <span className='free-bots__card-emoji'>{bot.emoji}</span>
-                <div className='free-bots__card-header-text'>
-                    <h2 className='free-bots__card-name'>{bot.name}</h2>
-                    <span className='free-bots__card-strategy'>{bot.strategy}</span>
+        <>
+            <div className='free-bots__card'>
+                <div className='free-bots__card-header' style={{ background: bot.gradient }}>
+                    <span className='free-bots__card-emoji'>{bot.emoji}</span>
+                    <div className='free-bots__card-header-text'>
+                        <h2 className='free-bots__card-name'>{bot.name}</h2>
+                        <span className='free-bots__card-strategy'>{bot.strategy}</span>
+                    </div>
+                </div>
+
+                <div className='free-bots__card-body'>
+                    <p className='free-bots__card-desc'>{bot.description}</p>
+
+                    {signal && (
+                        <SignalBadge signal={signal} onClick={() => setShowModal(true)} />
+                    )}
+
+                    {status === 'error' && (
+                        <div className='free-bots__card-error'>{errorMsg}</div>
+                    )}
+
+                    <div className='free-bots__card-actions'>
+                        <button
+                            className={`free-bots__card-btn free-bots__card-btn--load ${status === 'loading' ? 'free-bots__card-btn--busy' : ''}`}
+                            onClick={loadBot}
+                            disabled={status === 'loading'}
+                        >
+                            {status === 'loading' ? '⏳ Loading…' : status === 'loaded' ? '✅ Loaded' : '📂 Load Bot'}
+                        </button>
+
+                        {signal && (
+                            <button
+                                className='free-bots__card-btn free-bots__card-btn--signal'
+                                onClick={() => setShowModal(true)}
+                            >
+                                ⚡ Trade Signal
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
 
-            <div className='free-bots__card-body'>
-                <p className='free-bots__card-desc'>{bot.description}</p>
-
-                {status === 'error' && (
-                    <div className='free-bots__card-error'>{errorMsg}</div>
-                )}
-
-                <div className='free-bots__card-actions'>
-                    <button
-                        className={`free-bots__card-btn free-bots__card-btn--load ${status === 'loading' ? 'free-bots__card-btn--busy' : ''}`}
-                        onClick={() => loadBot(false)}
-                        disabled={status === 'loading'}
-                    >
-                        {status === 'loading' ? '⏳ Loading…' : status === 'loaded' ? '✅ Loaded' : '📂 Load Bot'}
-                    </button>
-                </div>
-            </div>
-        </div>
+            {showModal && signal && (
+                <SignalTradeModal
+                    botId={bot.id}
+                    signal={signal}
+                    onClose={() => setShowModal(false)}
+                />
+            )}
+        </>
     );
 });
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 const FreeBots = observer(() => {
     return (
@@ -191,7 +432,7 @@ const FreeBots = observer(() => {
             <div className='free-bots__header'>
                 <h1 className='free-bots__title'>Free Trading Bots</h1>
                 <p className='free-bots__subtitle'>
-                    Ready-to-use bots — load directly into the Bot Builder and run with one click.
+                    Ready-to-use bots — load directly into the Bot Builder, or tap <strong>Trade Signal</strong> to run one instantly from a live signal.
                 </p>
             </div>
 
