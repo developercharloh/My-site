@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useStore } from '@/hooks/useStore';
 import { DBOT_TABS } from '@/constants/bot-contents';
-import { generateEvenOddXml, generateMatchesDiffersXml } from '../signal-engine/generate-bot-xml';
 import './free-bots.scss';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -27,21 +26,21 @@ interface SignalSettings {
 }
 
 type BotConfig = {
-    id: string;
-    name: string;
-    emoji: string;
+    id:          string;
+    name:        string;
+    emoji:       string;
     description: string;
-    market: string;
-    strategy: string;
-    params: { label: string; value: string }[];
-    xmlPath: string;
-    gradient: string;
-    signalKey?: string;
+    market:      string;
+    strategy:    string;
+    params:      { label: string; value: string }[];
+    xmlPath:     string;
+    gradient:    string;
+    signalKey?:  string;
 };
 
 // ─── Signal helpers ───────────────────────────────────────────────────────────
 
-const SIGNAL_TTL = 5 * 60 * 1000; // 5 minutes
+const SIGNAL_TTL = 5 * 60 * 1000;
 
 function readSignal(key: string): LiveSignal | null {
     try {
@@ -79,6 +78,116 @@ function parseDigitFrom(str: string): number {
 
 function confColor(conf: number): string {
     return conf >= 70 ? '#10b981' : conf >= 60 ? '#eab308' : '#ef4444';
+}
+
+// ─── XML Patching ─────────────────────────────────────────────────────────────
+// Walks the bot XML by block ID and updates math_number values in-place.
+
+interface BlockPatch {
+    blockId:  string;
+    numValue: number;
+}
+
+function patchBotXml(
+    xmlText: string,
+    symbol:  string,
+    patches: BlockPatch[],
+): Document {
+    const parser = new DOMParser();
+    const doc    = parser.parseFromString(xmlText, 'text/xml');
+
+    // 1. Patch SYMBOL_LIST (first match = market block)
+    const allFields = doc.getElementsByTagName('field');
+    for (let i = 0; i < allFields.length; i++) {
+        if (allFields[i].getAttribute('name') === 'SYMBOL_LIST') {
+            allFields[i].textContent = symbol;
+            break;
+        }
+    }
+
+    // 2. Patch numeric initialisation values by variables_set block ID
+    const allBlocks = doc.getElementsByTagName('block');
+    for (let i = 0; i < allBlocks.length; i++) {
+        const block = allBlocks[i];
+        const bid   = block.getAttribute('id') ?? '';
+        const patch = patches.find(p => p.blockId === bid);
+        if (!patch) continue;
+
+        // Descend: variables_set → value[name=VALUE] → math_number → field[name=NUM]
+        const children = block.childNodes;
+        for (let j = 0; j < children.length; j++) {
+            const node = children[j] as Element;
+            if (node.nodeType !== 1) continue;
+            if (node.tagName !== 'value' && node.nodeName !== 'value') continue;
+            if (node.getAttribute('name') !== 'VALUE') continue;
+
+            const mathBlocks = node.getElementsByTagName('block');
+            for (let k = 0; k < mathBlocks.length; k++) {
+                if (mathBlocks[k].getAttribute('type') === 'math_number') {
+                    const numFields = mathBlocks[k].getElementsByTagName('field');
+                    for (let m = 0; m < numFields.length; m++) {
+                        if (numFields[m].getAttribute('name') === 'NUM') {
+                            numFields[m].textContent = String(patch.numValue);
+                        }
+                    }
+                    break;
+                }
+            }
+            break;
+        }
+    }
+
+    return doc;
+}
+
+// ─── Per-bot patch maps ───────────────────────────────────────────────────────
+// Block IDs sourced directly from each bot's INITIALIZATION chain.
+
+function getBotPatches(
+    botId:       string,
+    signal:      LiveSignal,
+    stake:       number,
+    takeProfit:  number,
+    stopLoss:    number,
+    martingale:  number,
+): BlockPatch[] {
+    const digit = parseDigitFrom(signal.direction);   // prediction / entry
+    const entry = parseDigitFrom(signal.entryPoint);  // only Even Odd uses entryPoint separately
+    const martingaleLevel = Math.max(3, Math.min(10, Math.round(stopLoss / stake)));
+
+    switch (botId) {
+        case 'matches-signal':
+            return [
+                { blockId: '!BDtc{tIb5~vb#O@Ogky', numValue: digit },           // Prediction
+                { blockId: 'Dww98I}prRuVxr_mn~}k',  numValue: stake },           // Stake
+                { blockId: 'P@g)b:jeg|/F)mD8%X,w',  numValue: stake },           // InitialStake
+                { blockId: 't0b1vxY9xaXc@*IwT7C{',  numValue: takeProfit },      // TakeProfit
+                { blockId: 'tuMdgDH=EiDY~j.b%n;]',  numValue: martingaleLevel }, // MartingaleLevel
+                { blockId: 'zHWiC2`O-~qH2R`7]FaG',  numValue: martingale },      // Martingale
+                { blockId: 'ep_matches_init',         numValue: digit },           // entry point
+            ];
+
+        case 'differ-v2':
+            return [
+                { blockId: '%,Z?it?u3w,4)WTx2Hq:',  numValue: stake },      // stake
+                { blockId: '/a.5Q3QDR2c)VR/XZvD-',  numValue: digit },      // entry point
+                { blockId: 'ij(6Iu2cn[H}M;H3Y%9[',  numValue: digit },      // prediction
+                { blockId: 's;EQ~zMi)cPYPc-kzha`',  numValue: martingale }, // martingale
+                { blockId: ';N@3iS.2#]xK[5,E{gCO',  numValue: takeProfit }, // take profit
+                { blockId: 'h~GA!H78SVi}._e5N:ur',   numValue: stopLoss },  // stop loss
+            ];
+
+        case 'even-odd-scanner':
+            return [
+                { blockId: 'Wa]y_n3s-T4*h(bmYz+k',  numValue: stake },      // Stake
+                { blockId: 'Z:R@MLC*=N3%meT)IuPt',   numValue: stopLoss },  // Max Loss
+                { blockId: ':Vn+w]Y.(QKzgKKENIfo',   numValue: takeProfit }, // Target Profit
+                { blockId: 'eo_ep_init_fixed',         numValue: entry },     // entry point
+            ];
+
+        default:
+            return [];
+    }
 }
 
 // ─── BOTS config ──────────────────────────────────────────────────────────────
@@ -184,10 +293,11 @@ const BOTS: BotConfig[] = [
 
 const SignalTradeModal: React.FC<{
     botId:   string;
+    xmlPath: string;
     signal:  LiveSignal;
     onClose: () => void;
-}> = ({ botId, signal, onClose }) => {
-    const store = useStore();
+}> = ({ botId, xmlPath, signal, onClose }) => {
+    const store      = useStore();
     const storageKey = `fb_cfg_${botId}`;
 
     const [cfg, setCfg] = useState<SignalSettings>(() => {
@@ -198,7 +308,7 @@ const SignalTradeModal: React.FC<{
         return { stake: '0.5', takeProfit: '10', stopLoss: '30', martingale: '2' };
     });
 
-    const [state, setState] = useState<'idle' | 'launching' | 'no-ws' | 'error'>('idle');
+    const [state,  setState]  = useState<'idle' | 'launching' | 'no-ws' | 'error'>('idle');
     const [errMsg, setErrMsg] = useState('');
 
     async function handleRun() {
@@ -217,35 +327,25 @@ const SignalTradeModal: React.FC<{
             const stopLoss   = parseFloat(cfg.stopLoss)   || 30;
             const martingale = parseFloat(cfg.martingale) || 2;
 
-            let xmlText: string;
+            // Fetch the real static bot XML
+            const res = await fetch(xmlPath);
+            if (!res.ok) throw new Error(`HTTP ${res.status} fetching bot XML.`);
+            const rawXml = await res.text();
 
-            if (signal.market === 'matches_differs') {
-                const contract = signal.direction.toUpperCase().startsWith('MATCHES')
-                    ? 'DIGITMATCH' : 'DIGITDIFF';
-                const prediction      = parseDigitFrom(signal.direction);
-                const martingaleLevel = Math.max(3, Math.min(10, Math.round(stopLoss / stake)));
-                xmlText = generateMatchesDiffersXml({
-                    symbol: signal.symbol, contract, prediction,
-                    stake, takeProfit, martingale, martingaleLevel,
-                });
-            } else {
-                const entryDigit = parseDigitFrom(signal.entryPoint);
-                xmlText = generateEvenOddXml({
-                    symbol:     signal.symbol,
-                    direction:  signal.direction.toUpperCase() === 'ODD' ? 'ODD' : 'EVEN',
-                    entryDigit, stake, takeProfit, stopLoss, martingale,
-                });
-            }
+            // Patch symbol + all financial parameters directly in the DOM
+            const patches = getBotPatches(botId, signal, stake, takeProfit, stopLoss, martingale);
+            const doc     = patchBotXml(rawXml, signal.symbol, patches);
 
-            const parsed = new DOMParser().parseFromString(xmlText, 'text/xml');
-            if (parsed.querySelector('parsererror')) throw new Error('Bot XML parse error.');
-            Blockly.Xml.clearWorkspaceAndLoadFromXml(parsed.documentElement, Blockly.derivWorkspace);
+            if (doc.querySelector('parsererror')) throw new Error('Bot XML parse error — check the bot file.');
+
+            Blockly.Xml.clearWorkspaceAndLoadFromXml(doc.documentElement, Blockly.derivWorkspace);
             Blockly.derivWorkspace.cleanUp();
             Blockly.derivWorkspace.clearUndo();
 
             store.dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
             onClose();
 
+            // Auto-click the Run button once the workspace has settled
             setTimeout(() => {
                 const runBtn = document.querySelector<HTMLButtonElement>(
                     '#db-animation__run-button, [data-testid="dt_run-panel_run-button"], .run-controls__run-button, button[class*="run"]'
@@ -260,6 +360,13 @@ const SignalTradeModal: React.FC<{
 
     const cc = confColor(signal.confidence);
 
+    // Derive display labels for what will be injected
+    const injectedSymbol = signal.symbolLabel
+        .replace('Volatility ', 'V').replace(' Index', '').replace(' (1s)', 's');
+    const injectedDigit  = botId === 'even-odd-scanner'
+        ? parseDigitFrom(signal.entryPoint)
+        : parseDigitFrom(signal.direction);
+
     return (
         <div className='fb-modal-overlay' onClick={onClose}>
             <div className='fb-modal' onClick={e => e.stopPropagation()}>
@@ -273,6 +380,13 @@ const SignalTradeModal: React.FC<{
                         </span>
                     </div>
                     <button className='fb-modal__close' onClick={onClose}>✕</button>
+                </div>
+
+                {/* Wire summary — what the bot will actually receive */}
+                <div className='fb-modal__wire-summary'>
+                    <span className='fb-modal__wire-item'>📡 Market: <strong>{injectedSymbol}</strong></span>
+                    <span className='fb-modal__wire-item'>🎯 Entry: <strong>Digit {injectedDigit}</strong></span>
+                    <span className='fb-modal__wire-item'>⬇️ Will scan ticks until entry digit appears, then trade</span>
                 </div>
 
                 <div className='fb-modal__fields'>
@@ -309,7 +423,7 @@ const SignalTradeModal: React.FC<{
                         Cancel
                     </button>
                     <button className='fb-modal__btn fb-modal__btn--run' onClick={handleRun} disabled={state === 'launching'}>
-                        {state === 'launching' ? '⏳ Launching…' : '🚀 Save & Run'}
+                        {state === 'launching' ? '⏳ Launching…' : '🚀 Load Signal & Run'}
                     </button>
                 </div>
             </div>
@@ -322,12 +436,12 @@ const SignalTradeModal: React.FC<{
 const SignalBadge: React.FC<{ signal: LiveSignal; onClick: () => void }> = ({ signal, onClick }) => {
     const cc = confColor(signal.confidence);
     return (
-        <div className='fb-signal-badge' onClick={onClick} title='Live signal available — click to trade it'>
+        <div className='fb-signal-badge' onClick={onClick} title='Live signal — click to wire it to this bot'>
             <span className='fb-signal-badge__dot' style={{ background: cc }} />
             <span className='fb-signal-badge__dir'>{signal.direction}</span>
             <span className='fb-signal-badge__sym'>{signal.symbolLabel.replace('Volatility ', 'V').replace(' Index', '')}</span>
             <span className='fb-signal-badge__conf' style={{ color: cc }}>{signal.confidence}%</span>
-            <span className='fb-signal-badge__cta'>Trade Signal →</span>
+            <span className='fb-signal-badge__cta'>Load Signal →</span>
         </div>
     );
 };
@@ -336,8 +450,8 @@ const SignalBadge: React.FC<{ signal: LiveSignal; onClick: () => void }> = ({ si
 
 const BotCard: React.FC<{ bot: BotConfig }> = observer(({ bot }) => {
     const store = useStore();
-    const [status, setStatus] = useState<BotStatus>('idle');
-    const [errorMsg, setErrorMsg] = useState('');
+    const [status,    setStatus]    = useState<BotStatus>('idle');
+    const [errorMsg,  setErrorMsg]  = useState('');
     const [showModal, setShowModal] = useState(false);
 
     const signal = useSignal(bot.signalKey);
@@ -416,6 +530,7 @@ const BotCard: React.FC<{ bot: BotConfig }> = observer(({ bot }) => {
             {showModal && signal && (
                 <SignalTradeModal
                     botId={bot.id}
+                    xmlPath={bot.xmlPath}
                     signal={signal}
                     onClose={() => setShowModal(false)}
                 />
@@ -432,7 +547,7 @@ const FreeBots = observer(() => {
             <div className='free-bots__header'>
                 <h1 className='free-bots__title'>Free Trading Bots</h1>
                 <p className='free-bots__subtitle'>
-                    Ready-to-use bots — load directly into the Bot Builder, or tap <strong>Trade Signal</strong> to run one instantly from a live signal.
+                    Ready-to-use bots — load directly into the Bot Builder, or tap <strong>Trade Signal</strong> to wire a live signal into the bot and run it instantly.
                 </p>
             </div>
 
