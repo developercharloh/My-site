@@ -302,33 +302,94 @@
           </block>
         </statement>
         <statement name="ELSE">
-          <block type="controls_if" id="ep_gate_differ">
-            <value name="IF0">
-              <block type="logic_compare" id="ep_cmp_differ">
-                <field name="OP">EQ</field>
-                <value name="A">
-                  <block type="last_digit" id="ld_ep_differ"></block>
-                </value>
-                <value name="B">
-                  <block type="variables_get" id="ep_get_d">
-                    <field name="VAR" id="z7Y?uR%,6:kZF-hveHHJ">entry point</field>
-                  </block>
-                </value>
-              </block>
+          <block type="variables_set" id="set_ld_d_scan">
+            <field name="VAR" id="=vygHf%sA2@$1Yfid2]J">last digit</field>
+            <value name="VALUE">
+              <block type="last_digit" id="ld_d_block"></block>
             </value>
-            <statement name="DO0">
-              <block type="variables_set" id="set_tm_on_differ">
-                <field name="VAR" id="tm_differ_id">trading mode</field>
-                <value name="VALUE">
-                  <block type="math_number" id="tm_on_d"><field name="NUM">1</field></block>
-                </value>
+            <next>
+              <block type="text_join" id="scan_join_d">
+                <field name="VARIABLE" id="=uKc.Ml.UT`3!-(j=%L3">text</field>
+                <statement name="STACK">
+                  <block type="text_statement" id="scan_d_s1">
+                    <value name="TEXT">
+                      <shadow type="text"><field name="TEXT">Last digit: </field></shadow>
+                    </value>
+                    <next>
+                      <block type="text_statement" id="scan_d_s2">
+                        <value name="TEXT">
+                          <shadow type="text"><field name="TEXT"></field></shadow>
+                          <block type="variables_get" id="scan_d_ld_get">
+                            <field name="VAR" id="=vygHf%sA2@$1Yfid2]J">last digit</field>
+                          </block>
+                        </value>
+                        <next>
+                          <block type="text_statement" id="scan_d_s3">
+                            <value name="TEXT">
+                              <shadow type="text"><field name="TEXT"> | Entry: </field></shadow>
+                            </value>
+                            <next>
+                              <block type="text_statement" id="scan_d_s4">
+                                <value name="TEXT">
+                                  <shadow type="text"><field name="TEXT"></field></shadow>
+                                  <block type="variables_get" id="scan_d_ep_get">
+                                    <field name="VAR" id="z7Y?uR%,6:kZF-hveHHJ">entry point</field>
+                                  </block>
+                                </value>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </statement>
                 <next>
-                  <block type="purchase" id="3gY]+Jgf|.cUv=kM+t=1">
-                    <field name="PURCHASE_LIST">DIGITDIFF</field>
+                  <block type="notify" id="scan_notify_d">
+                    <field name="NOTIFICATION_TYPE">success</field>
+                    <field name="NOTIFICATION_SOUND">silent</field>
+                    <value name="MESSAGE">
+                      <shadow type="text"><field name="TEXT">scanning</field></shadow>
+                      <block type="variables_get" id="scan_d_txt_get">
+                        <field name="VAR" id="=uKc.Ml.UT`3!-(j=%L3">text</field>
+                      </block>
+                    </value>
+                    <next>
+                      <block type="controls_if" id="ep_gate_differ">
+                        <value name="IF0">
+                          <block type="logic_compare" id="ep_cmp_differ">
+                            <field name="OP">EQ</field>
+                            <value name="A">
+                              <block type="variables_get" id="ld_ep_d_get">
+                                <field name="VAR" id="=vygHf%sA2@$1Yfid2]J">last digit</field>
+                              </block>
+                            </value>
+                            <value name="B">
+                              <block type="variables_get" id="ep_get_d">
+                                <field name="VAR" id="z7Y?uR%,6:kZF-hveHHJ">entry point</field>
+                              </block>
+                            </value>
+                          </block>
+                        </value>
+                        <statement name="DO0">
+                          <block type="variables_set" id="set_tm_on_differ">
+                            <field name="VAR" id="tm_differ_id">trading mode</field>
+                            <value name="VALUE">
+                              <block type="math_number" id="tm_on_d"><field name="NUM">1</field></block>
+                            </value>
+                            <next>
+                              <block type="purchase" id="3gY]+Jgf|.cUv=kM+t=1">
+                                <field name="PURCHASE_LIST">DIGITDIFF</field>
+                              </block>
+                            </next>
+                          </block>
+                        </statement>
+                      </block>
+                    </next>
                   </block>
                 </next>
               </block>
-            </statement>
+            </next>
           </block>
         </statement>
       </block>

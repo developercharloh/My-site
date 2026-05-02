@@ -972,6 +972,31 @@
           <block type="last_digit" id="ld_eo_block"></block>
         </value>
         <next>
+          <block type="controls_if" id="re_force_tm_eo">
+            <value name="IF0">
+              <block type="logic_compare" id="re_force_cmp_eo">
+                <field name="OP">EQ</field>
+                <value name="A">
+                  <block type="variables_get" id="re_force_get_tm">
+                    <field name="VAR" id="tm_eo_id">trading mode</field>
+                  </block>
+                </value>
+                <value name="B">
+                  <block type="math_number" id="re_force_one"><field name="NUM">1</field></block>
+                </value>
+              </block>
+            </value>
+            <statement name="DO0">
+              <block type="variables_set" id="re_force_set_ld">
+                <field name="VAR" id="eo_last_digit_id">last digit</field>
+                <value name="VALUE">
+                  <block type="variables_get" id="re_force_get_ep">
+                    <field name="VAR" id="eo_entry_pt_id">entry point</field>
+                  </block>
+                </value>
+              </block>
+            </statement>
+            <next>
           <block type="text_join" id="scan_join_eo">
             <field name="VARIABLE" id="[x07AAvnEQUXBGmSZ5Mm">text</field>
             <statement name="STACK">
@@ -1501,6 +1526,8 @@
                   </block>
                 </next>
               </block>
+            </next>
+          </block>
             </next>
           </block>
         </next>
