@@ -29,11 +29,22 @@ interface Vote { model: string; market: MarketType; direction: string; confidenc
 // OVER  barriers: checked 6→1 (tightest first)
 // UNDER barriers: checked 3→8 (tightest first)
 //
-// Signal fires when ≥ 3 models agree on the SAME direction AND avg conf ≥ 58 %
-// Recency gate: last 20 ticks must also confirm direction (10 pp above expected)
-// TTL: 60 s for 1HZ* (1-second) indices, 120 s for R_* (standard) indices
-const MIN_AGREE    = 3;
-const MIN_CONF     = 52;         // lowered 58 → 52 so Over/Under fires more readily
+// Per-market thresholds — matches/differs is held to a much stricter bar
+// because digit-level predictions are statistically harder than parity/range.
+// Over/Under and Even/Odd: fire when ≥ 3 of 5 models agree, avg conf ≥ 52 %.
+// Matches/Differs:         fire when ≥ 5 of 5 models agree, avg conf ≥ 70 %.
+// Recency gate: last 20 ticks must also confirm direction.
+// TTL: 60 s for 1HZ* (1-second) indices, 120 s for R_* (standard) indices.
+const MIN_AGREE_MAP: Record<MarketType, number> = {
+    over_under:      3,
+    even_odd:        3,
+    matches_differs: 5,
+};
+const MIN_CONF_MAP: Record<MarketType, number> = {
+    over_under:      52,
+    even_odd:        52,
+    matches_differs: 70,
+};
 const EDGE_PCT     = 0.06;       // 6 pp above expected = model detection threshold
 const RECENCY_EDGE = 0.06;       // lowered 0.10 → 0.06 — recency gate was killing valid signals
 
@@ -191,7 +202,7 @@ function modelStatistical(digits: number[]): Vote[] {
     const minR = Math.min(...cnt) / n;
     if (maxR > 0.16) votes.push({ model: 'Statistical', market: 'matches_differs',
         direction: `MATCHES ${topDigitOf(d)}`,   confidence: clamp((maxR - 0.10) * 600) });
-    else if (minR < 0.04) votes.push({ model: 'Statistical', market: 'matches_differs',
+    if (minR < 0.06) votes.push({ model: 'Statistical', market: 'matches_differs',
         direction: `DIFFERS ${leastDigitOf(d)}`, confidence: clamp((0.10 - minR) * 600) });
 
     return votes;
@@ -233,7 +244,7 @@ function modelBayesian(digits: number[]): Vote[] {
     if (maxPost > 0.17 && maxDig >= 0)
         votes.push({ model: 'Bayesian', market: 'matches_differs',
             direction: `MATCHES ${maxDig}`, confidence: clamp((maxPost - 0.10) * 600) });
-    else if (minPost < 0.04 && minDig >= 0)
+    if (minPost < 0.06 && minDig >= 0)
         votes.push({ model: 'Bayesian', market: 'matches_differs',
             direction: `DIFFERS ${minDig}`, confidence: clamp((0.10 - minPost) * 600) });
 
@@ -314,10 +325,58 @@ function modelML(digits: number[], wts: MLWeights): Vote[] {
     d100.forEach(d => cntD100[d]++);
     const minCnt = Math.min(...cntD100);
     const minDig = cntD100.indexOf(minCnt);
-    if (minCnt / d100.length < 0.05) {
+    if (minCnt / d100.length < 0.07) {
         votes.push({ model: 'ML Classifier', market: 'matches_differs',
             direction: `DIFFERS ${minDig}`,
             confidence: clamp((0.10 - minCnt / d100.length) * 600) });
+    }
+
+    return votes;
+}
+
+// ─── MODEL 5 — Frequency Bias (wide-window distribution) ─────────────────────
+// Uses a 200-tick window with a Z-score test to detect digits that are
+// statistically over-represented (MATCHES) or under-represented (DIFFERS).
+// Always picks the GLOBAL rarest/most-frequent digit so it converges with
+// the other models on the same digit.
+
+function modelFrequency(digits: number[]): Vote[] {
+    if (digits.length < 80) return [];
+    const d = digits.slice(-200);
+    const n = d.length;
+    const cnt = Array(10).fill(0) as number[];
+    d.forEach(x => cnt[x]++);
+
+    const expected = n / 10;
+    const sigma    = Math.sqrt(n * 0.1 * 0.9); // binomial std dev
+
+    let maxC = -1, maxD = 0;
+    let minC = n + 1, minD = 0;
+    for (let i = 0; i < 10; i++) {
+        if (cnt[i] > maxC) { maxC = cnt[i]; maxD = i; }
+        if (cnt[i] < minC) { minC = cnt[i]; minD = i; }
+    }
+
+    const votes: Vote[] = [];
+    const maxZ = (maxC - expected) / sigma;
+    const minZ = (expected - minC) / sigma;
+
+    // ~1.5σ ≈ top/bottom ~7% of normal distribution — detectable bias
+    if (maxZ > 1.5) {
+        votes.push({ model: 'Frequency Bias', market: 'matches_differs',
+            direction: `MATCHES ${maxD}`, confidence: clamp(60 + maxZ * 8) });
+    }
+    if (minZ > 1.5) {
+        votes.push({ model: 'Frequency Bias', market: 'matches_differs',
+            direction: `DIFFERS ${minD}`, confidence: clamp(60 + minZ * 8) });
+    }
+
+    // Also vote on Even/Odd if there's a strong wide-window parity bias
+    const evenR = d.filter(x => x % 2 === 0).length / n;
+    if (Math.abs(evenR - 0.5) > 0.07) {
+        votes.push({ model: 'Frequency Bias', market: 'even_odd',
+            direction: evenR > 0.5 ? 'EVEN' : 'ODD',
+            confidence: barrierConf(Math.max(evenR, 1 - evenR), 0.50) });
     }
 
     return votes;
@@ -422,12 +481,14 @@ function buildConsensus(votes: Vote[], volStatus: VolatilityStatus) {
     const results: Array<{ market: MarketType; direction: string; models: string[]; confidence: number }> = [];
 
     for (const market of MARKETS) {
-        const mv = votes.filter(v => v.market === market);
+        const mv         = votes.filter(v => v.market === market);
+        const minAgree   = MIN_AGREE_MAP[market];
+        const minConf    = MIN_CONF_MAP[market];
 
         if (market === 'over_under') {
             for (const prefix of ['OVER', 'UNDER'] as const) {
                 const group = mv.filter(v => v.direction.startsWith(prefix));
-                if (group.length < MIN_AGREE) continue;
+                if (group.length < minAgree) continue;
                 const dirCounts = new Map<string, Vote[]>();
                 group.forEach(v => {
                     const arr = dirCounts.get(v.direction) ?? [];
@@ -440,24 +501,52 @@ function buildConsensus(votes: Vote[], volStatus: VolatilityStatus) {
                         best = vs; bestDir = dir;
                     }
                 });
-                if (best.length < MIN_AGREE) {
+                if (best.length < minAgree) {
                     best    = group;
                     bestDir = [...dirCounts.entries()].sort((a, b) => b[1].length - a[1].length)[0]?.[0] ?? group[0].direction;
                 }
                 const avgConf = group.reduce((s, v) => s + v.confidence, 0) / group.length;
-                if (avgConf < MIN_CONF) continue;
+                if (avgConf < minConf) continue;
                 results.push({ market, direction: bestDir, models: group.map(v => v.model), confidence: Math.round(avgConf) });
             }
             continue;
         }
 
+        if (market === 'matches_differs') {
+            // Split into MATCHES vs DIFFERS prefixes (just like OVER/UNDER), then
+            // within each prefix find the digit most models converged on. This
+            // lets DIFFERS actually fire even when models pick slightly different
+            // rare digits, by counting per-digit consensus inside the prefix.
+            for (const prefix of ['MATCHES', 'DIFFERS'] as const) {
+                const group = mv.filter(v => v.direction.startsWith(prefix));
+                if (group.length < minAgree) continue;
+                const digCounts = new Map<string, Vote[]>();
+                group.forEach(v => {
+                    const arr = digCounts.get(v.direction) ?? [];
+                    arr.push(v);
+                    digCounts.set(v.direction, arr);
+                });
+                let best: Vote[] = []; let bestDir = '';
+                digCounts.forEach((vs, dir) => {
+                    if (vs.length > best.length) { best = vs; bestDir = dir; }
+                });
+                // Require the consensus digit itself to have enough model agreement
+                if (best.length < minAgree) continue;
+                const avgConf = best.reduce((s, v) => s + v.confidence, 0) / best.length;
+                if (avgConf < minConf) continue;
+                results.push({ market, direction: bestDir, models: best.map(v => v.model), confidence: Math.round(avgConf) });
+            }
+            continue;
+        }
+
+        // even_odd
         const groups = new Map<string, Vote[]>();
         mv.forEach(v => { const g = groups.get(v.direction) ?? []; g.push(v); groups.set(v.direction, g); });
         let best: Vote[] = []; let bestDir = '';
         groups.forEach((vs, dir) => { if (vs.length > best.length) { best = vs; bestDir = dir; } });
-        if (best.length < MIN_AGREE) continue;
+        if (best.length < minAgree) continue;
         const avgConf = best.reduce((s, v) => s + v.confidence, 0) / best.length;
-        if (avgConf < MIN_CONF) continue;
+        if (avgConf < minConf) continue;
         results.push({ market, direction: bestDir, models: best.map(v => v.model), confidence: Math.round(avgConf) });
     }
     return results;
@@ -503,6 +592,7 @@ export function analyzeSignals(
         ...modelBayesian(digits),
         ...modelML(digits, weights),
         ...modelStreak(digits),
+        ...modelFrequency(digits),
     ];
 
     const { status: volStatus } = modelVolatility(digits, tickTimes);
