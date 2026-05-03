@@ -66,23 +66,23 @@ const PWAInstallModal: React.FC = () => {
             return [
                 localize("Look for the install icon in your browser's address bar."),
                 localize('Click the install button or use the browser menu.'),
-                localize('Follow the prompts to install Deriv Bot.'),
+                localize('Follow the prompts to install Mr CharlohFX.'),
             ];
         } else if (isIOS) {
             return [
-                localize('Open Deriv Bot in your browser.'),
+                localize('Open Mr CharlohFX in your browser.'),
                 localize('Tap the share icon (for iOS Safari)'),
                 localize('Select "Add to Home screen".'),
             ];
         } else if (isAndroid) {
             return [
-                localize('Open Deriv Bot in your browser.'),
+                localize('Open Mr CharlohFX in your browser.'),
                 localize('Tap the menu (on Chrome) or share icon (for iOS Safari)'),
                 localize('Select "Add to Home screen".'),
             ];
         } else {
             return [
-                localize('Open Deriv Bot in your browser.'),
+                localize('Open Mr CharlohFX in your browser.'),
                 localize('Tap the menu (on Chrome) or share icon (for iOS Safari)'),
                 localize('Select "Add to Home screen".'),
             ];
@@ -94,11 +94,11 @@ const PWAInstallModal: React.FC = () => {
             <div className='pwa-install-modal__description'>
                 <Text size='xs' color='prominent'>
                     {isPWALaunch
-                        ? localize("Welcome to Deriv Bot! You're using the mobile app version.")
+                        ? localize("Welcome to Mr CharlohFX! You're using the mobile app version.")
                         : isDesktop
-                          ? localize('Install Deriv Bot as a desktop app for faster access and a native experience!')
+                          ? localize('Install Mr CharlohFX as a desktop app for faster access and a native experience!')
                           : localize(
-                                "We're excited to announce that Deriv Bot platform is now a Progressive Web App (PWA)!"
+                                "We're excited to announce that Mr CharlohFX platform is now a Progressive Web App (PWA)!"
                             )}
                 </Text>
             </div>
@@ -164,7 +164,7 @@ const PWAInstallModal: React.FC = () => {
     const modalContent = isMobile ? (
         <MobileFullPageModal
             is_modal_open={isOpen}
-            page_header_text={localize('Install Deriv Bot')}
+            page_header_text={localize('Install Mr CharlohFX')}
             pageHeaderReturnFn={handleClose}
             renderPageFooterChildren={() => renderFooterButton()}
             className='pwa-install-modal'
@@ -176,7 +176,7 @@ const PWAInstallModal: React.FC = () => {
         <Modal
             is_open={isOpen}
             toggleModal={handleClose}
-            title={isDesktop ? localize('Install Deriv Bot') : localize('Introducing our installable app')}
+            title={isDesktop ? localize('Install Mr CharlohFX') : localize('Introducing our installable app')}
             has_close_icon={true}
             is_title_centered={false}
             className='pwa-install-modal'
