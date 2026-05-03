@@ -13,8 +13,8 @@ const EuAccounts = ({
 }: TEuAccounts) => {
     const account_switcher_title_eu =
         modifiedMFAccountList?.length === 0 || !is_low_risk_country
-            ? localize('Deriv accounts')
-            : localize('Eu Deriv accounts');
+            ? localize('accounts')
+            : localize('Eu accounts');
     return (
         <UIAccountSwitcher.AccountsPanel
             isOpen
