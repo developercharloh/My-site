@@ -10,20 +10,10 @@ import {
     MarketSlot,
 } from './tri-engine';
 
-const SYMBOLS = [
-    { value: '1HZ10V',  label: 'Vol 10 (1s)' },
-    { value: '1HZ25V',  label: 'Vol 25 (1s)' },
-    { value: '1HZ50V',  label: 'Vol 50 (1s)' },
-    { value: '1HZ75V',  label: 'Vol 75 (1s)' },
-    { value: '1HZ100V', label: 'Vol 100 (1s)' },
-    { value: 'R_10',    label: 'Vol 10 Index' },
-    { value: 'R_25',    label: 'Vol 25 Index' },
-    { value: 'R_50',    label: 'Vol 50 Index' },
-    { value: 'R_75',    label: 'Vol 75 Index' },
-    { value: 'R_100',   label: 'Vol 100 Index' },
-];
+import { DERIV_VOLATILITIES, DERIV_VOL_CODES } from '../../utils/deriv-volatilities';
+const SYMBOLS = DERIV_VOLATILITIES.map(v => ({ value: v.code, label: v.label }));
 
-const SCAN_SYMBOLS = ['R_10','R_25','R_50','R_75','R_100','1HZ10V','1HZ25V','1HZ50V','1HZ75V','1HZ100V'];
+const SCAN_SYMBOLS = DERIV_VOL_CODES;
 
 // Over barrier options: 0–8 (win if last digit > barrier)
 const OVER_OPTIONS  = [0,1,2,3,4,5,6,7,8].map(v => ({ value: v, label: `Over ${v}` }));

@@ -14,39 +14,27 @@ import { botIdFromSignal, fetchAndPatchBot, parseDigitFrom, prefetchBotXml } fro
 const ENGINE_KEY    = 'free_bots_engine_mode';
 const V2_CONFIG_KEY = 'free_bots_v2_config';
 
-// ─── All 13 volatility symbols ────────────────────────────────────────────────
+// ─── All Deriv volatility symbols ────────────────────────────────────────────
+import {
+    DERIV_VOL_CODES,
+    DERIV_VOL_SHORT,
+    DERIV_VOL_LONG,
+    DERIV_CONTINUOUS_VOLATILITIES,
+    DERIV_STANDARD_VOLATILITIES,
+} from '../../utils/deriv-volatilities';
 
-const ALL_SYMBOLS = [
-    '1HZ10V','1HZ25V','1HZ50V','1HZ75V','1HZ100V',
-    '1HZ15V','1HZ30V','1HZ90V',
-    'R_10','R_25','R_50','R_75','R_100',
-] as const;
-type Sym = typeof ALL_SYMBOLS[number];
+const ALL_SYMBOLS = DERIV_VOL_CODES;
+type Sym = string;
 
-const SYM_SHORT: Record<string, string> = {
-    '1HZ10V':'V10s', '1HZ15V':'V15s', '1HZ25V':'V25s', '1HZ30V':'V30s',
-    '1HZ50V':'V50s', '1HZ75V':'V75s', '1HZ90V':'V90s', '1HZ100V':'V100s',
-    'R_10':'V10',    'R_25':'V25',    'R_50':'V50',
-    'R_75':'V75',    'R_100':'V100',
-};
-const SYM_LONG: Record<string, string> = {
-    '1HZ10V':'Volatility 10 (1s) Index',   '1HZ15V':'Volatility 15 (1s) Index',
-    '1HZ25V':'Volatility 25 (1s) Index',   '1HZ30V':'Volatility 30 (1s) Index',
-    '1HZ50V':'Volatility 50 (1s) Index',   '1HZ75V':'Volatility 75 (1s) Index',
-    '1HZ90V':'Volatility 90 (1s) Index',   '1HZ100V':'Volatility 100 (1s) Index',
-    'R_10':'Volatility 10 Index',   'R_25':'Volatility 25 Index',
-    'R_50':'Volatility 50 Index',   'R_75':'Volatility 75 Index',
-    'R_100':'Volatility 100 Index',
-};
+const SYM_SHORT = DERIV_VOL_SHORT;
+const SYM_LONG  = DERIV_VOL_LONG;
 
 const DERIV_WS = 'wss://ws.binaryws.com/websockets/v3?app_id=1';
 const BUF_SIZE = 300;
 
 const DISPLAY_MARKETS = [
-    { group: 'Volatility (1s) Indices', items: [
-        '1HZ10V','1HZ15V','1HZ25V','1HZ30V','1HZ50V','1HZ75V','1HZ90V','1HZ100V',
-    ] },
-    { group: 'Volatility Indices', items: ['R_10','R_25','R_50','R_75','R_100'] },
+    { group: 'Volatility (1s) Indices', items: DERIV_CONTINUOUS_VOLATILITIES.map(v => v.code) },
+    { group: 'Volatility Indices',      items: DERIV_STANDARD_VOLATILITIES.map(v => v.code)   },
 ];
 
 // ─── Win rate tracking ────────────────────────────────────────────────────────

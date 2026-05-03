@@ -13,6 +13,10 @@ import {
     type DTStatus,
     type DTContractEvent,
 } from '@/utils/dtrader-engine';
+import {
+    DERIV_CONTINUOUS_VOLATILITIES,
+    DERIV_STANDARD_VOLATILITIES,
+} from '../../utils/deriv-volatilities';
 import './dtrader.scss';
 
 // ─── Symbol categories — full Deriv manual-trading universe ──────────────────
@@ -24,24 +28,13 @@ import './dtrader.scss';
 type SymbolEntry = { value: string; label: string; group: string };
 
 const FALLBACK_SYMBOLS: SymbolEntry[] = [
-    // Continuous (1-second) volatility indices — full Deriv lineup
-    { value: '1HZ10V',  label: 'Volatility 10 (1s)',  group: 'Volatility (1s)' },
-    { value: '1HZ15V',  label: 'Volatility 15 (1s)',  group: 'Volatility (1s)' },
-    { value: '1HZ25V',  label: 'Volatility 25 (1s)',  group: 'Volatility (1s)' },
-    { value: '1HZ30V',  label: 'Volatility 30 (1s)',  group: 'Volatility (1s)' },
-    { value: '1HZ50V',  label: 'Volatility 50 (1s)',  group: 'Volatility (1s)' },
-    { value: '1HZ75V',  label: 'Volatility 75 (1s)',  group: 'Volatility (1s)' },
-    { value: '1HZ90V',  label: 'Volatility 90 (1s)',  group: 'Volatility (1s)' },
-    { value: '1HZ100V', label: 'Volatility 100 (1s)', group: 'Volatility (1s)' },
-    { value: '1HZ150V', label: 'Volatility 150 (1s)', group: 'Volatility (1s)' },
-    { value: '1HZ200V', label: 'Volatility 200 (1s)', group: 'Volatility (1s)' },
-    { value: '1HZ250V', label: 'Volatility 250 (1s)', group: 'Volatility (1s)' },
-    // Standard (2-second tick) volatility — full Deriv lineup
-    { value: 'R_10',    label: 'Volatility 10',  group: 'Volatility' },
-    { value: 'R_25',    label: 'Volatility 25',  group: 'Volatility' },
-    { value: 'R_50',    label: 'Volatility 50',  group: 'Volatility' },
-    { value: 'R_75',    label: 'Volatility 75',  group: 'Volatility' },
-    { value: 'R_100',   label: 'Volatility 100', group: 'Volatility' },
+    // ── Volatility indices — sourced from canonical deriv-volatilities ──
+    ...DERIV_CONTINUOUS_VOLATILITIES.map(v => ({
+        value: v.code, label: v.label.replace(' Index', ''), group: 'Volatility (1s)',
+    })),
+    ...DERIV_STANDARD_VOLATILITIES.map(v => ({
+        value: v.code, label: v.label.replace(' Index', ''), group: 'Volatility',
+    })),
     // Boom/Crash
     { value: 'BOOM300N', label: 'Boom 300',  group: 'Boom & Crash' },
     { value: 'BOOM500',  label: 'Boom 500',  group: 'Boom & Crash' },

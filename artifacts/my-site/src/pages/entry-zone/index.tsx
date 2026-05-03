@@ -28,19 +28,9 @@ import './entry-zone.scss';
 const DERIV_WS    = 'wss://ws.binaryws.com/websockets/v3?app_id=1';
 const TICK_COUNT  = 1000;
 
-type Symbol = { code: string; label: string; tickEvery: 1 | 2 };
-const SYMBOLS: Symbol[] = [
-    { code: 'R_10',    label: 'Volatility 10',     tickEvery: 2 },
-    { code: 'R_25',    label: 'Volatility 25',     tickEvery: 2 },
-    { code: 'R_50',    label: 'Volatility 50',     tickEvery: 2 },
-    { code: 'R_75',    label: 'Volatility 75',     tickEvery: 2 },
-    { code: 'R_100',   label: 'Volatility 100',    tickEvery: 2 },
-    { code: '1HZ10V',  label: 'Vol 10 (1s)',       tickEvery: 1 },
-    { code: '1HZ25V',  label: 'Vol 25 (1s)',       tickEvery: 1 },
-    { code: '1HZ50V',  label: 'Vol 50 (1s)',       tickEvery: 1 },
-    { code: '1HZ75V',  label: 'Vol 75 (1s)',       tickEvery: 1 },
-    { code: '1HZ100V', label: 'Vol 100 (1s)',      tickEvery: 1 },
-];
+import { DERIV_VOLATILITIES, type DerivVolatility } from '../../utils/deriv-volatilities';
+type Symbol = DerivVolatility;
+const SYMBOLS: Symbol[] = DERIV_VOLATILITIES;
 
 type MarketKind = 'even_odd' | 'matches_differs' | 'over_under' | 'rise_fall';
 const MARKETS: { id: MarketKind; label: string; emoji: string; sub: string }[] = [
@@ -359,13 +349,13 @@ const EntryZone: React.FC = () => {
                         value={symbol}
                         onChange={e => setSymbol(e.target.value)}
                     >
-                        <optgroup label='2-second ticks'>
-                            {SYMBOLS.filter(s => s.tickEvery === 2).map(s => (
+                        <optgroup label='Continuous (1s ticks — faster)'>
+                            {SYMBOLS.filter(s => s.tickEvery === 1).map(s => (
                                 <option key={s.code} value={s.code}>{s.label}</option>
                             ))}
                         </optgroup>
-                        <optgroup label='1-second ticks (faster)'>
-                            {SYMBOLS.filter(s => s.tickEvery === 1).map(s => (
+                        <optgroup label='Standard (2s ticks)'>
+                            {SYMBOLS.filter(s => s.tickEvery === 2).map(s => (
                                 <option key={s.code} value={s.code}>{s.label}</option>
                             ))}
                         </optgroup>
