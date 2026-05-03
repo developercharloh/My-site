@@ -344,9 +344,9 @@
         border: 2px solid transparent;
         transition: transform 0.15s ease, box-shadow 0.15s ease;
         min-width: 0; min-height: 48px;
-        // Cap circle size on desktop so they don't become enormous
-        max-height: 80px;
-        max-width: 80px;
+        // Cap circle size — hard 56 px on desktop, 48 px floor on mobile
+        max-height: 56px;
+        max-width: 56px;
         // Centre each capped circle within its grid cell
         justify-self: center;
         width: 100%;
@@ -772,4 +772,43 @@
     }
     .dtp:not(:has(.dtp__buy-btn)) .dtp__buy-feedback   { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
     .dtp:not(:has(.dtp__cashout-btn)):not(:has(.dtp__buy-btn)) .dtp__buy-feedback { bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+}
+
+// ── Laptop / desktop D-Trader enhancements (min-width: 900px) ────────────────
+@media (min-width: 900px) {
+    // 1. Hide the utility header row (Cashier / Reports / Free Bots / Analysis Tool)
+    //    whenever D-Trader is on screen — frees ~49px of vertical room.
+    //    Uses CSS :has() which is supported in all modern browsers (Chrome 105+, Firefox 121+, Safari 15.4+).
+    body:has(.dtp) .app-header__menu {
+        display: none !important;
+    }
+
+    // 2. Remove the excess padding inside .main so D-Trader gets the full height.
+    .main:has(.dtp) {
+        padding: 4px 8px;
+    }
+
+    // 3. Propagate height through the tab chain so .dtp { height: 100% } works.
+    .main:has(.dtp) .dc-tabs {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    .main:has(.dtp) .dc-tabs__content {
+        flex: 1;
+        height: 0;          // flex child trick: overrides auto so flex: 1 gives real pixels
+        overflow: hidden;
+    }
+
+    // 4. Tighten the digit frequency card top margin now that it lives inside the form
+    .dtp__digits-card {
+        margin-top: 0;
+    }
+
+    // 5. Constrain the digit grid column width to prevent any cell exceeding the max
+    .dtp__digits-grid {
+        grid-template-columns: repeat(5, minmax(0, 56px));
+        justify-content: center;
+        gap: 10px;
+    }
 }
