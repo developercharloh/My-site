@@ -43,73 +43,104 @@
         />
         <title>Build a trading bot without coding | Deriv Bot.</title>
         <style>
-            :root {
-                font-size: 62.5%;
-            }
-            /* Initial paint skeleton — shown before React/JS finishes loading.
-               Removed automatically once #root has children. */
+            :root { font-size: 62.5%; }
+
+            /* ── Full-screen branded splash — visible from byte 0, before JS loads ── */
             #initial-shell {
                 position: fixed;
                 inset: 0;
-                background: #ffffff;
-                display: flex;
-                flex-direction: column;
-                z-index: 1;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            }
-            #initial-shell__topbar {
-                height: 48px;
-                background: #f2f3f4;
-                border-bottom: 1px solid #e6e9e9;
-                display: flex;
-                align-items: center;
-                padding: 0 16px;
-                gap: 12px;
-            }
-            #initial-shell__brand {
-                width: 28px;
-                height: 28px;
-                border-radius: 6px;
-                background: #ff444f;
-            }
-            #initial-shell__brand-text {
-                font-weight: 700;
-                color: #333;
-                font-size: 14px;
-                letter-spacing: 0.3px;
-            }
-            #initial-shell__center {
-                flex: 1;
+                z-index: 99999;
+                background: #050a0d;
                 display: flex;
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
-                gap: 18px;
+                overflow: hidden;
+                transition: opacity 0.55s ease;
             }
-            #initial-shell__dots {
-                display: inline-flex;
-                gap: 4px;
+            #initial-shell.hidden {
+                opacity: 0;
+                pointer-events: none;
             }
-            #initial-shell__dots span {
-                width: 8px;
-                height: 22px;
-                border-radius: 2px;
-                background: #85acb0;
-                animation: shellPulse 1s ease-in-out infinite;
+
+            /* grid lines */
+            #initial-shell::before {
+                content: '';
+                position: absolute;
+                inset: 0;
+                background-image:
+                    linear-gradient(rgba(212,175,55,0.05) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(212,175,55,0.05) 1px, transparent 1px);
+                background-size: 44px 44px;
+                animation: shellGrid 24s linear infinite;
             }
-            #initial-shell__dots span:nth-child(2) { animation-delay: 0.1s; }
-            #initial-shell__dots span:nth-child(3) { animation-delay: 0.2s; }
-            #initial-shell__dots span:nth-child(4) { animation-delay: 0.3s; }
-            #initial-shell__dots span:nth-child(5) { animation-delay: 0.4s; }
-            @keyframes shellPulse {
-                0%, 100% { opacity: 0.35; transform: scaleY(0.7); }
-                50%      { opacity: 1;    transform: scaleY(1); }
+            @keyframes shellGrid {
+                from { background-position: 0 0; }
+                to   { background-position: 44px 44px; }
             }
-            #initial-shell__label {
-                color: #555;
-                font-size: 13px;
+
+            /* gold glow */
+            #initial-shell__glow {
+                position: absolute;
+                width: min(520px, 90vw);
+                height: min(520px, 90vw);
+                border-radius: 50%;
+                background: radial-gradient(circle,
+                    rgba(212,175,55,0.18) 0%,
+                    rgba(34,85,34,0.10) 45%,
+                    transparent 70%);
+                animation: shellGlow 2.4s ease-in-out infinite alternate;
             }
-            #initial-shell.hidden { display: none; }
+            @keyframes shellGlow {
+                from { transform: scale(0.92); opacity: 0.7; }
+                to   { transform: scale(1.06); opacity: 1; }
+            }
+
+            /* logo */
+            #initial-shell__logo {
+                position: relative;
+                display: block;
+                width: min(320px, 78vw);
+                height: min(320px, 78vw);
+                object-fit: contain;
+                border-radius: 28px;
+                user-select: none;
+                animation: shellLogoIn 0.7s cubic-bezier(0.34,1.56,0.64,1) 0.1s both;
+                filter: drop-shadow(0 0 40px rgba(212,175,55,0.45))
+                        drop-shadow(0 0 80px rgba(34,85,34,0.30));
+            }
+            @keyframes shellLogoIn {
+                from { opacity: 0; transform: scale(0.72); }
+                to   { opacity: 1; transform: scale(1); }
+            }
+
+            /* progress bar */
+            #initial-shell__bar {
+                position: absolute;
+                bottom: 0; left: 0; right: 0;
+                height: 3px;
+                background: rgba(212,175,55,0.12);
+            }
+            #initial-shell__bar::after {
+                content: '';
+                display: block;
+                height: 100%;
+                width: 0%;
+                background: linear-gradient(90deg, #d4af37, #f0d060, #4ade80, #d4af37);
+                background-size: 200% 100%;
+                border-radius: 0 2px 2px 0;
+                animation:
+                    shellBarFill    12s cubic-bezier(0.4,0,0.2,1) 0.1s both,
+                    shellBarShimmer  1.6s linear 0.1s infinite;
+            }
+            @keyframes shellBarFill {
+                from { width: 0%; }
+                to   { width: 100%; }
+            }
+            @keyframes shellBarShimmer {
+                from { background-position: 200% 0; }
+                to   { background-position: -200% 0; }
+            }
         </style>
     </head>
 
@@ -118,16 +149,9 @@
         <div id="popup_root" class="popup-root"></div>
         <div id="root"></div>
         <div id="initial-shell" aria-hidden="true">
-            <div id="initial-shell__topbar">
-                <div id="initial-shell__brand"></div>
-                <div id="initial-shell__brand-text">Deriv Bot</div>
-            </div>
-            <div id="initial-shell__center">
-                <div id="initial-shell__dots">
-                    <span></span><span></span><span></span><span></span><span></span>
-                </div>
-                <div id="initial-shell__label">Loading your trading workspace…</div>
-            </div>
+            <div id="initial-shell__glow"></div>
+            <img id="initial-shell__logo" src="/logo.png" alt="Trader CharlohFX" draggable="false" />
+            <div id="initial-shell__bar"></div>
         </div>
         <script>
             // Hide the inline shell as soon as React renders anything into #root.
