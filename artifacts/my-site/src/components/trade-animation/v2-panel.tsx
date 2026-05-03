@@ -223,6 +223,13 @@ export const V2Panel = React.memo(({ status, logs, tradeRecords, stats, alert, o
                                         )}
                                         <span className='v2p__trade-stake'>${ r.stake.toFixed(2)}</span>
                                     </div>
+                                    {(r.triggerPrice || r.exitPrice) && (
+                                        <div className='v2p__trade-row-prices'>
+                                            <span className='v2p__trade-price'>{r.triggerPrice ?? '—'}</span>
+                                            <span className='v2p__trade-price-arrow'>→</span>
+                                            <span className='v2p__trade-price'>{r.exitPrice ?? '—'}</span>
+                                        </div>
+                                    )}
                                     <div className='v2p__trade-row3'>
                                         <span className='v2p__trade-time'>{r.time}</span>
                                         <span className='v2p__trade-pnl' style={{ color: pnlColor }}>

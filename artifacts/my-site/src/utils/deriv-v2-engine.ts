@@ -78,13 +78,21 @@ export interface TradeRecord {
     entryPoint:    number;     // digit the engine scans for to start buying
     triggerDigit:  number;     // digit when this particular buy was placed
     exitDigit:     number | null; // last digit of the exit tick
+    triggerPrice:  string | null; // full price quote at the trigger tick
+    exitPrice:     string | null; // full price quote at the exit tick (from Deriv)
     stake:         number;
     profit:        number;
     totalPnl:      number;     // cumulative P&L after this trade settles
     isWin:         boolean;
 }
 
-interface OpenContract { contractId: string; stake: number; subId: string | null; triggerDigit: number; }
+interface OpenContract {
+    contractId:   string;
+    stake:        number;
+    subId:        string | null;
+    triggerDigit: number;
+    triggerPrice: string | null;
+}
 interface ReadyProposal { id: string; price: number; }
 
 // ─── Engine ───────────────────────────────────────────────────────────────────
@@ -109,6 +117,7 @@ export class DerivV2Engine {
     private isRunning:     boolean = false;
     private chainActive:   boolean = false;
     private lastTickDigit: number  = 0;
+    private lastTickQuote: string  = '';   // full price string of the last tick
     private currentStake:  number;
     private lossCount:     number  = 1;
     private totalProfit:   number  = 0;
@@ -160,6 +169,7 @@ export class DerivV2Engine {
         this.isRunning         = true;
         this.chainActive       = false;
         this.lastTickDigit     = 0;
+        this.lastTickQuote     = '';
         this.readyProposal     = null;
         this.proposalInflight  = false;
         this.tickWaiting       = false;
@@ -293,10 +303,11 @@ export class DerivV2Engine {
         this.send({ ticks: this.config.symbol, subscribe: 1 }, 'tick_sub');
     }
 
-    private handleTick(tick: { quote: number } | undefined): void {
+    private handleTick(tick: { quote: number; pip_size?: number } | undefined): void {
         if (!tick) return;
         const digit = this.lastDigit(tick.quote);
         this.lastTickDigit = digit;
+        this.lastTickQuote = this.formatQuote(tick.quote, tick.pip_size);
 
         if (!this.chainActive) {
             this.addLog(`Digit: ${digit}  |  Waiting for entry: ${this.config.entryPoint}`, 'scan');
@@ -420,6 +431,7 @@ export class DerivV2Engine {
             stake:        this.currentStake,
             subId:        null,
             triggerDigit: this.lastTickDigit,
+            triggerPrice: this.lastTickQuote || null,
         });
 
         if (this.stores) {
@@ -461,10 +473,12 @@ export class DerivV2Engine {
         const isWin  = poc.status === 'won';
         this.totalProfit += profit;
 
-        // Extract exit digit from the exit tick display value
+        // Extract exit digit + full exit price from the exit tick display value
         const exitTickStr  = poc.exit_tick_display_value as string | undefined;
         const exitDigit    = exitTickStr ? this.lastDigit(parseFloat(exitTickStr)) : null;
+        const exitPrice    = exitTickStr ?? null;
         const triggerDigit = rec?.triggerDigit ?? 0;
+        const triggerPrice = rec?.triggerPrice ?? null;
         const tradeStake   = rec?.stake ?? this.currentStake;
 
         // Emit a structured trade record for the journal
@@ -475,6 +489,8 @@ export class DerivV2Engine {
             entryPoint:    this.config.entryPoint,
             triggerDigit,
             exitDigit,
+            triggerPrice,
+            exitPrice,
             stake:         tradeStake,
             profit,
             totalPnl:      this.totalProfit,
@@ -496,10 +512,15 @@ export class DerivV2Engine {
             }
         }
 
+        // Compact "price → price" string for the text log
+        const priceMove = (triggerPrice || exitPrice)
+            ? `  ${triggerPrice ?? '?'} → ${exitPrice ?? '?'}`
+            : '';
+
         if (isWin) {
             this.wins++;
             this.addLog(
-                `✅ WIN  +$${Math.abs(profit).toFixed(2)}  exit:${exitDigit ?? '?'}  stake:$${tradeStake.toFixed(2)}  P&L:${this.pnlStr()}`,
+                `✅ WIN  +$${Math.abs(profit).toFixed(2)}${priceMove}  exit:${exitDigit ?? '?'}  stake:$${tradeStake.toFixed(2)}  P&L:${this.pnlStr()}`,
                 'win'
             );
             this.currentStake = this.config.initialStake;
@@ -513,7 +534,7 @@ export class DerivV2Engine {
         } else {
             this.losses++;
             this.addLog(
-                `❌ LOSS -$${Math.abs(profit).toFixed(2)}  exit:${exitDigit ?? '?'}  stake:$${tradeStake.toFixed(2)}  P&L:${this.pnlStr()}`,
+                `❌ LOSS -$${Math.abs(profit).toFixed(2)}${priceMove}  exit:${exitDigit ?? '?'}  stake:$${tradeStake.toFixed(2)}  P&L:${this.pnlStr()}`,
                 'loss'
             );
             if (this.totalProfit <= -this.config.stopLoss) {
@@ -565,6 +586,19 @@ export class DerivV2Engine {
     private lastDigit(quote: number): number {
         const s = quote.toString().replace(/^.*\./, '');
         return parseInt(s[s.length - 1] ?? '0', 10);
+    }
+
+    // Format a tick quote as a fixed-precision string. Deriv volatility indices
+    // typically expose pip_size = 2..5; if missing we infer from the quote
+    // itself so the string keeps every digit (including the trailing one used
+    // for digit contracts).
+    private formatQuote(quote: number, pipSize?: number): string {
+        if (typeof pipSize === 'number' && pipSize > 0) return quote.toFixed(pipSize);
+        const s = quote.toString();
+        const dot = s.indexOf('.');
+        if (dot === -1) return quote.toFixed(2);
+        const decimals = s.length - dot - 1;
+        return quote.toFixed(Math.min(Math.max(decimals, 2), 8));
     }
 
     private pnlStr(): string {
