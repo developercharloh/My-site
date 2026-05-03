@@ -1,0 +1,28 @@
+#!/bin/bash
+# Auto-push every commit to GitHub origin/<current-branch> using GITHUB_TOKEN.
+# Runs in the background so commits never feel slow, and failures
+# (no token, no network, etc.) never block the commit itself.
+
+set +e
+
+LOG=/tmp/auto-push.log
+
+(
+    if [ -z "$GITHUB_TOKEN" ]; then
+        echo "[$(date -Iseconds)] skip: GITHUB_TOKEN not set" >> "$LOG"
+        exit 0
+    fi
+
+    BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null)
+    if [ -z "$BRANCH" ]; then
+        echo "[$(date -Iseconds)] skip: detached HEAD" >> "$LOG"
+        exit 0
+    fi
+
+    echo "[$(date -Iseconds)] pushing $BRANCH..." >> "$LOG"
+    git -c "credential.helper=!f() { echo username=x-access-token; echo password=$GITHUB_TOKEN; }; f" \
+        push origin "$BRANCH" >> "$LOG" 2>&1
+    echo "[$(date -Iseconds)] done (exit $?)" >> "$LOG"
+) &
+
+exit 0
