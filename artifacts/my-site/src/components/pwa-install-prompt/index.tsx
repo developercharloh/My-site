@@ -62,10 +62,10 @@ const PwaInstallPrompt: React.FC = () => {
     };
 
     return (
-        <div className='pwa-install' role='dialog' aria-label='Install Deriv Bot'>
+        <div className='pwa-install' role='dialog' aria-label='Install Mr CharlohFX'>
             <div className='pwa-install__icon'>📱</div>
             <div className='pwa-install__body'>
-                <strong className='pwa-install__title'>Install Deriv Bot</strong>
+                <strong className='pwa-install__title'>Install Mr CharlohFX</strong>
                 <span className='pwa-install__sub'>Add to your home screen for one-tap access &amp; offline support.</span>
             </div>
             <div className='pwa-install__actions'>
