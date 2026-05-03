@@ -107,14 +107,39 @@ interface AISignal {
 /**
  * Per-symbol signal validity, in seconds.
  *
- * The signal is computed from the last 1000 ticks. A reasonable validity
- * window is one where new ticks haven't yet shifted the distribution
- * meaningfully — ~10% turnover. So:
- *   • 1-second tick symbols → 100s of new ticks ≈ 90s validity (safety margin)
- *   • 2-second tick symbols → 200s of new ticks ≈ 180s validity
+ * The signal is computed from the last 1000 ticks. We extend the window
+ * far enough that the trader has time to:
+ *   • Switch to DBot, configure trade type / barrier / duration / stake
+ *   • OR open SmartTrader and place the manual trade
+ * That's realistically 3–6 minutes the first time. So:
+ *   • 1-second tick symbols → 5 minutes  (300 new ticks ≈ 30% turnover)
+ *   • 2-second tick symbols → 7 minutes  (210 new ticks ≈ 21% turnover)
+ *
+ * We let the user act on the dominant trend even after some drift —
+ * volatility-index distributions are stable enough over these windows
+ * that the call usually still holds. The countdown still warns them as
+ * the freshness fades.
  */
 const validityMsForSymbol = (sym: { tickEvery: number }): number =>
-    (sym.tickEvery === 1 ? 90 : 180) * 1000;
+    (sym.tickEvery === 1 ? 300 : 420) * 1000;
+
+/**
+ * Minimum win-probability bar a signal must clear to be shown to the
+ * trader. Below this we show a "no valid signal" message instead of a
+ * weak call. These are tuned per market so each beats its own baseline
+ * by a meaningful margin:
+ *
+ *   • Even/Odd       — baseline 50%, require ≥ 53%
+ *   • Over/Under     — baseline depends on barrier; require ≥ 65%
+ *   • Matches/Differs — baseline ~90% on Differs; require ≥ 88%
+ *   • Rise/Fall      — baseline 50%, require ≥ 54%
+ */
+const MIN_WIN_PROB: Record<MarketKind, number> = {
+    even_odd:        0.53,
+    over_under:      0.65,
+    matches_differs: 0.88,
+    rise_fall:       0.54,
+};
 
 /** Format ms remaining as M:SS (or "0:00" when expired). */
 const fmtRemaining = (ms: number): string => {
@@ -147,9 +172,10 @@ const lastDigit = (q: number, pip: number): number => {
 const EntryZone: React.FC = () => {
     const [symbol,  setSymbol]  = useState<string>('R_100');
     const [market,  setMarket]  = useState<MarketKind>('over_under');
-    const [status,  setStatus]  = useState<'idle' | 'scanning' | 'ready' | 'error'>('idle');
+    const [status,  setStatus]  = useState<'idle' | 'scanning' | 'ready' | 'no-signal' | 'error'>('idle');
     const [progress, setProgress] = useState<number>(0);
     const [signal,  setSignal]  = useState<AISignal | null>(null);
+    const [noSignalReason, setNoSignalReason] = useState<string>('');
     const [error,   setError]   = useState<string>('');
     const [stage,   setStage]   = useState<ScanStageId>('connect');
     const [tickCounter, setTickCounter] = useState<number>(0);
@@ -450,6 +476,7 @@ const EntryZone: React.FC = () => {
         cleanupWs();
         setStatus('scanning');
         setSignal(null);
+        setNoSignalReason('');
         setError('');
         setProgress(0);
         setStage('connect');
@@ -529,10 +556,37 @@ const EntryZone: React.FC = () => {
                     finish(); clearTimeout(failTimer);
                     setTickCounter(rawPrices.length);
                     setProgress(100);
-                    setSignal(sig);
-                    setNow(Date.now());
-                    setStatus('ready');
                     cleanupWs();
+
+                    // ── Strength gate ────────────────────────────────────
+                    const minProb       = MIN_WIN_PROB[market];
+                    const probTooLow    = sig.probability < minProb;
+                    const noSigDigits   = sig.entryDigits.length === 0;
+                    const weakDigits    = sig.entryDigits.length > 0
+                        && sig.entryDigits.every(e => e.conditional < minProb);
+
+                    if (probTooLow || noSigDigits || weakDigits) {
+                        const reasons: string[] = [];
+                        if (probTooLow) {
+                            reasons.push(
+                                `Win probability is only ${(sig.probability * 100).toFixed(1)}% — below the ${(minProb * 100).toFixed(0)}% bar required for ${MARKETS.find(m => m.id === market)?.label}.`
+                            );
+                        }
+                        if (noSigDigits) {
+                            reasons.push('No last-digit trigger cleared the 95% confidence test.');
+                        } else if (weakDigits) {
+                            reasons.push(
+                                `Entry digits found (${sig.entryDigits.map(e => e.digit).join(', ')}) but their conditional win-rates are too weak to recommend.`
+                            );
+                        }
+                        setNoSignalReason(reasons.join(' '));
+                        setSignal(null);
+                        setStatus('no-signal');
+                    } else {
+                        setSignal(sig);
+                        setNow(Date.now());
+                        setStatus('ready');
+                    }
                 }, 680);
             }
         };
@@ -674,6 +728,33 @@ const EntryZone: React.FC = () => {
                     <div className='ai-alert ai-alert--err'>⚠️ {error}</div>
                 )}
             </section>
+
+            {/* No valid signal */}
+            {status === 'no-signal' && (
+                <section className='ai-nosignal'>
+                    <div className='ai-nosignal__icon'>🚫</div>
+                    <h2 className='ai-nosignal__title'>No valid signal right now</h2>
+                    <p className='ai-nosignal__sub'>
+                        On <strong>{symObj.label}</strong> · {MARKETS.find(m => m.id === market)?.label}, the current 1000-tick window doesn't show a strong enough edge to recommend a trade.
+                    </p>
+                    <div className='ai-nosignal__reason'>
+                        <div className='ai-nosignal__reason-title'>Why</div>
+                        <p>{noSignalReason}</p>
+                    </div>
+                    <div className='ai-nosignal__tips'>
+                        <div className='ai-nosignal__tips-title'>What to try</div>
+                        <ul>
+                            <li>Re-scan in 30–60 seconds — the tape changes constantly.</li>
+                            <li>Try a <strong>different market</strong> (Even/Odd, Matches/Differs, Over/Under, Rise/Fall) — one of them often has a clear edge.</li>
+                            <li>Try a <strong>different volatility</strong> — calmer indices like R_25 sometimes show stronger digit biases than fast ones.</li>
+                            <li>Don't force a trade. The tool stays silent on purpose when the data isn't strong enough.</li>
+                        </ul>
+                    </div>
+                    <button type='button' className='ai-nosignal__rescan' onClick={launch}>
+                        🔄 Re-scan now
+                    </button>
+                </section>
+            )}
 
             {/* Result */}
             {status === 'ready' && signal && (
