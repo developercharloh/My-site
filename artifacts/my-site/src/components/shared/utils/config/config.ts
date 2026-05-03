@@ -187,6 +187,12 @@ export const generateOAuthURL = () => {
     // third-party hosts like charloz.replit.app or *.onrender.com).
     original_url.searchParams.set('app_id', String(getAppId()));
 
+    // For the primary custom domain, force the callback to go to /callback
+    // so the dedicated callback page processes the tokens instead of the root.
+    if (hostname === 'mrcharlohfx.site' || hostname === 'www.mrcharlohfx.site') {
+        original_url.searchParams.set('redirect_uri', 'https://mrcharlohfx.site/callback');
+    }
+
     // First priority: Check for configured server URLs (for QA/testing environments)
     const configured_server_url = (LocalStorageUtils.getValue(LocalStorageConstants.configServerURL) ||
         localStorage.getItem('config.server_url')) as string;
