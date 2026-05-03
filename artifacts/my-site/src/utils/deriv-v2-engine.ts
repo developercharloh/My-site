@@ -162,7 +162,7 @@ export class DerivV2Engine {
             this.onStatus('error'); return;
         }
         if (!api_base.is_authorized) {
-            this.addLog('Not authorized — log in to your Deriv account first.', 'error');
+            this.addLog('Not authorized — log in to your account first.', 'error');
             this.onStatus('error'); return;
         }
 
