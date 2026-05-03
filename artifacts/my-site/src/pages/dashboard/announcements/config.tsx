@@ -92,7 +92,7 @@ export const ANNOUNCEMENTS: Record<string, TAnnouncement> = {
     MOVING_STRATEGIES_ANNOUNCE: {
         announcement: {
             id: 'MOVING_STRATEGIES_ANNOUNCE',
-            main_title: localize('Moving strategies to Deriv Bot'),
+            main_title: localize('Moving strategies to Mr CharlohFX'),
             confirm_button_text: localize('Import strategy'),
             base_classname: 'announcement-dialog',
             title: (
@@ -104,7 +104,7 @@ export const ANNOUNCEMENTS: Record<string, TAnnouncement> = {
             numbered_content: [
                 {
                     id: 0,
-                    text: localize('Download your strategy in XML format and import it to Deriv Bot.'),
+                    text: localize('Download your strategy in XML format and import it to Mr CharlohFX.'),
                 },
                 {
                     id: 1,
@@ -120,7 +120,7 @@ export const ANNOUNCEMENTS: Record<string, TAnnouncement> = {
                     id: 0,
                     text: (
                         <Localize
-                            i18n_default_text='<0>Note</0>: Uploading complex strategies may take some time. Saving them from Deriv Bot ensures quicker access later. If you have questions, contact us via <1/>.'
+                            i18n_default_text='<0>Note</0>: Uploading complex strategies may take some time. Saving them from Mr CharlohFX ensures quicker access later. If you have questions, contact us via <1/>.'
                             components={[<strong key={0} />, <OpenLiveChatLink className='' key={1} />]}
                         />
                     ),
@@ -146,7 +146,7 @@ export const ANNOUNCEMENTS: Record<string, TAnnouncement> = {
             base_classname: 'announcement-dialog',
             title: (
                 <Localize
-                    i18n_default_text='We have updated our Blockly system in Deriv Bot from <0>version 3 to version 10</0>. This brings:'
+                    i18n_default_text='We have updated our Blockly system in Mr CharlohFX from <0>version 3 to version 10</0>. This brings:'
                     components={[<strong key={0} />]}
                 />
             ),
@@ -182,7 +182,7 @@ export const ANNOUNCEMENTS: Record<string, TAnnouncement> = {
     ACCUMULATOR_ANNOUNCE: {
         announcement: {
             id: 'ACCUMULATOR_ANNOUNCE',
-            main_title: localize('Accumulators now on Deriv Bot'),
+            main_title: localize('Accumulators now on Mr CharlohFX'),
             confirm_button_text: localize('Try now'),
             cancel_button_text: localize('Learn more'),
             base_classname: 'announcement-dialog',
@@ -212,7 +212,7 @@ export const ANNOUNCEMENTS: Record<string, TAnnouncement> = {
     PWA_INSTALL_ANNOUNCE: {
         announcement: {
             id: 'PWA_INSTALL_ANNOUNCE',
-            main_title: localize('Install Deriv Bot as an App'),
+            main_title: localize('Install Mr CharlohFX as an App'),
             confirm_button_text: localize('Install Now'),
             cancel_button_text: localize('Maybe later'),
             base_classname: 'announcement-dialog announcement-dialog--pwa',
@@ -223,7 +223,7 @@ export const ANNOUNCEMENTS: Record<string, TAnnouncement> = {
                 {
                     id: 0,
                     text: localize(
-                        'Install Deriv Bot directly on your device for faster access and better performance.'
+                        'Install Mr CharlohFX directly on your device for faster access and better performance.'
                     ),
                 },
                 {
@@ -273,8 +273,8 @@ export const BOT_ANNOUNCEMENTS_LIST: TAnnouncementItem[] = [
     {
         id: 'PWA_INSTALL_ANNOUNCE',
         icon: IconAnnounce,
-        title: localize('Install Deriv Bot as an App'),
-        message: localize('Get faster access and better performance by installing Deriv Bot on your device.'),
+        title: localize('Install Mr CharlohFX as an App'),
+        message: localize('Get faster access and better performance by installing Mr CharlohFX on your device.'),
         date: '29 August 2025 00:00 UTC',
         buttonAction: BUTTON_ACTION_TYPE.MODAL_BUTTON_ACTION,
         actionText: '',
@@ -291,7 +291,7 @@ export const BOT_ANNOUNCEMENTS_LIST: TAnnouncementItem[] = [
     {
         id: 'MOVING_STRATEGIES_ANNOUNCE',
         icon: IconAnnounce,
-        title: localize('Moving strategies to Deriv Bot'),
+        title: localize('Moving strategies to Mr CharlohFX'),
         message: localize('Follow these steps to smoothly transfer your strategies'),
         date: '1 August 2024 00:00 UTC',
         buttonAction: BUTTON_ACTION_TYPE.MODAL_BUTTON_ACTION,
@@ -301,7 +301,7 @@ export const BOT_ANNOUNCEMENTS_LIST: TAnnouncementItem[] = [
         id: 'BLOCKLY_ANNOUNCE',
         icon: IconAnnounce,
         title: localize('Google Blockly v10 update'),
-        message: localize('We have updated our Blockly system in Deriv Bot from version 3 to version 10.'),
+        message: localize('We have updated our Blockly system in Mr CharlohFX from version 3 to version 10.'),
         date: '24 July 2024 00:00 UTC',
         buttonAction: BUTTON_ACTION_TYPE.MODAL_BUTTON_ACTION,
         actionText: '',
@@ -309,7 +309,7 @@ export const BOT_ANNOUNCEMENTS_LIST: TAnnouncementItem[] = [
     {
         id: 'ACCUMULATOR_ANNOUNCE',
         icon: IconAnnounce,
-        title: localize('Accumulators is now on Deriv Bot'),
+        title: localize('Accumulators is now on Mr CharlohFX'),
         message: localize('Boost your trading strategy with Accumulators.'),
         date: '2 July 2024 00:00 UTC',
         buttonAction: BUTTON_ACTION_TYPE.MODAL_BUTTON_ACTION,
