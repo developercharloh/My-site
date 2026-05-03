@@ -11,6 +11,7 @@ import {
     type DTPosition,
     type DTProposal,
     type DTStatus,
+    type DTContractEvent,
 } from '@/utils/dtrader-engine';
 import './dtrader.scss';
 
@@ -228,6 +229,10 @@ const DTraderPage = observer(() => {
      *  exit-tick's circle in the digit analyzer. Auto-dismisses after 6s. */
     const [lastSettlement, setLastSettlement] =
         useState<{ digit: number; isWin: boolean } | null>(null);
+    /** Full-screen popup for TP reached / SL hit / Cash-out successful. */
+    const [popup, setPopup] =
+        useState<(DTContractEvent & { seq: number }) | null>(null);
+    const popupSeqRef = useRef(0);
 
     const category = useMemo(() => CATEGORIES.find(c => c.key === categoryKey)!, [categoryKey]);
 
@@ -259,9 +264,28 @@ const DTraderPage = observer(() => {
         };
         engine.onBuyFeedback = f => setFeedback(f);
         engine.onDigitStats  = c => setDigitCounts(c);
+        engine.onContractEvent = e => {
+            popupSeqRef.current += 1;
+            setPopup({ ...e, seq: popupSeqRef.current });
+        };
 
         return () => { engine.stop(); };
     }, [engine]);
+
+    // Auto-dismiss popup after 8s so it never blocks the trader from
+    // placing the next trade.
+    useEffect(() => {
+        if (!popup) return;
+        const t = setTimeout(() => setPopup(null), 8_000);
+        return () => clearTimeout(t);
+    }, [popup]);
+
+    // Find the first open ACCU/MULT position so we can render a big,
+    // unmissable CASH OUT NOW button right above BUY.
+    const sellableOpen = useMemo(
+        () => positions.find(p => p.isOpen && canSellType(p.contractType)) || null,
+        [positions],
+    );
 
     // Whether the current contract category cares about last-digit frequencies
     const showsDigitCard = category.needsPrediction || categoryKey === 'even_odd';
@@ -762,6 +786,33 @@ const DTraderPage = observer(() => {
                         </div>
                     )}
 
+                    {/* Big prominent CASH OUT for any open ACCU/MULT — sits
+                        right above BUY so it's impossible to miss. Shows the
+                        live bid so the trader knows what they'd realize. */}
+                    {sellableOpen && (
+                        <button
+                            className='dtp__cashout-btn'
+                            onClick={() => handleSell(sellableOpen.contractId)}
+                        >
+                            <span className='dtp__cashout-icon'>💰</span>
+                            <span className='dtp__cashout-text'>CASH OUT NOW</span>
+                            <span className='dtp__cashout-amount'>
+                                {sellableOpen.currentBid !== null
+                                    ? `$${sellableOpen.currentBid.toFixed(2)}`
+                                    : ''}
+                                {sellableOpen.profit !== null && (
+                                    <span
+                                        className='dtp__cashout-pnl'
+                                        style={{ color: sellableOpen.profit >= 0 ? '#bbf7d0' : '#fecaca' }}
+                                    >
+                                        {sellableOpen.profit >= 0 ? ' +' : ' '}
+                                        ${sellableOpen.profit.toFixed(2)}
+                                    </span>
+                                )}
+                            </span>
+                        </button>
+                    )}
+
                     {/* For digit contracts, BUY is replaced by the tap-to-buy
                         Even/Odd/Over/Under/Matches/Differs buttons above —
                         no extra BUY button needed. */}
@@ -902,6 +953,51 @@ const DTraderPage = observer(() => {
                     )}
                 </div>
             </div>
+
+            {/* ── Full-screen popup: TP reached / SL hit / Cash-out 🏆 ── */}
+            {popup && (
+                <div
+                    className='dtp__popup-backdrop'
+                    onClick={() => setPopup(null)}
+                    role='dialog'
+                    aria-modal='true'
+                >
+                    <div
+                        className={`dtp__popup dtp__popup--${popup.kind}`}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div className='dtp__popup-emoji'>
+                            {popup.kind === 'cashout' ? '🏆💪'
+                              : popup.kind === 'tp'   ? '🎯'
+                              :                          '🛑'}
+                        </div>
+                        <div className='dtp__popup-title'>
+                            {popup.kind === 'cashout' ? 'Cash out successful'
+                              : popup.kind === 'tp'   ? 'Take Profit reached'
+                              :                          'Stop Loss hit'}
+                        </div>
+                        <div className='dtp__popup-subtitle'>
+                            {shortLabel(popup.contractType)} · #{popup.contractId}
+                        </div>
+                        <div
+                            className='dtp__popup-profit'
+                            style={{ color: popup.profit >= 0 ? '#10b981' : '#ef4444' }}
+                        >
+                            {popup.profit >= 0 ? 'Total profit' : 'Total loss'}
+                            <div className='dtp__popup-amount'>
+                                {popup.profit >= 0 ? '+' : ''}
+                                ${popup.profit.toFixed(2)} {currency}
+                            </div>
+                        </div>
+                        <button
+                            className='dtp__popup-btn'
+                            onClick={() => setPopup(null)}
+                        >
+                            Dismiss
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 });

@@ -75,6 +75,14 @@ export interface DTPosition {
     purchaseTime: string;
 }
 
+export type DTContractEventKind = 'cashout' | 'tp' | 'sl';
+export interface DTContractEvent {
+    kind:         DTContractEventKind;
+    profit:       number;
+    contractId:   string;
+    contractType: DTContractType;
+}
+
 export interface DTConfig {
     symbol:        string;
     contractType:  DTContractType;
@@ -108,6 +116,11 @@ export class DTraderEngine {
      *  Always 10 elements long, indices 0-9 → counts. Emit once on
      *  history seed, then once per new tick. */
     public onDigitStats: (counts: number[])           => void = () => {};
+    /** Fires once when an open contract reaches a notable end state — used
+     *  to drive the full-screen Cash-Out / TP / SL popups. Plain expiry of
+     *  binary contracts does NOT fire this event (the position card already
+     *  shows the result). */
+    public onContractEvent: (e: DTContractEvent)      => void = () => {};
 
     // ── State ─────────────────────────────────────────────────────────────────
     private cfg: DTConfig | null = null;
@@ -137,6 +150,17 @@ export class DTraderEngine {
      *  this flag clears. Used by placeBuyNow() so a single button tap can
      *  set the contract type AND fire the trade with one fresh proposal. */
     private pendingBuy = false;
+
+    // ── Connection liveness ──────────────────────────────────────────────
+    /** Wall-clock time of the most recent tick. If this gets stale the
+     *  health-check timer kicks in to force a tick re-subscribe. */
+    private lastTickAt = 0;
+    private keepAliveTimer: ReturnType<typeof setInterval> | null = null;
+    private healthCheckTimer: ReturnType<typeof setInterval> | null = null;
+    private visListener: (() => void) | null = null;
+    /** Contract ids the user explicitly asked us to sell — used to label
+     *  their settlement event as a 'cashout' instead of 'tp'/'sl'. */
+    private manuallySold: Set<string> = new Set();
 
     // Rolling last-digit window for the digit-frequency analyzer
     private readonly DIGIT_WINDOW = 1000;
@@ -174,16 +198,51 @@ export class DTraderEngine {
 
         this.subscribeTick();
         this.scheduleProposal();
+
+        // ── Liveness watchdogs — fix the "page goes to sleep" bug where
+        //    backgrounded tabs or idle WS connections stop receiving ticks.
+        this.lastTickAt = Date.now();
+        // Keep the WS warm so Deriv doesn't idle-close it.
+        this.keepAliveTimer = setInterval(() => {
+            if (api_base.is_authorized) this.rawSend({ ping: 1 });
+        }, 25_000);
+        // If no tick in 20s, force a re-subscribe — covers backgrounded tabs,
+        // dropped subs, and any silent failure where the WS is up but ticks
+        // stopped flowing.
+        this.healthCheckTimer = setInterval(() => {
+            if (!this.cfg) return;
+            if (Date.now() - this.lastTickAt > 20_000) {
+                this.log('No ticks for 20s — recovering subscriptions', 'system');
+                this.recoverSubscriptions();
+            }
+        }, 8_000);
+        // When the user comes back to the tab, kick everything immediately
+        // instead of waiting for the next 8s health-check pass.
+        if (typeof document !== 'undefined') {
+            this.visListener = () => {
+                if (document.visibilityState === 'visible' && this.cfg) {
+                    setTimeout(() => this.recoverSubscriptions(), 200);
+                }
+            };
+            document.addEventListener('visibilitychange', this.visListener);
+        }
     }
 
     stop(): void {
         if (this.proposalDebounce) { clearTimeout(this.proposalDebounce); this.proposalDebounce = null; }
+        if (this.keepAliveTimer)   { clearInterval(this.keepAliveTimer);   this.keepAliveTimer = null; }
+        if (this.healthCheckTimer) { clearInterval(this.healthCheckTimer); this.healthCheckTimer = null; }
+        if (this.visListener && typeof document !== 'undefined') {
+            document.removeEventListener('visibilitychange', this.visListener);
+            this.visListener = null;
+        }
         if (this.tickSubId)     { this.rawSend({ forget: this.tickSubId });     this.tickSubId = null; }
         if (this.proposalSubId) { this.rawSend({ forget: this.proposalSubId }); this.proposalSubId = null; }
         this.posSubIds.forEach(id => this.rawSend({ forget: id }));
         this.posSubIds.clear();
         this.posSubIdSet.clear();
         this.settledIds.clear();
+        this.manuallySold.clear();
         this.msgSub?.unsubscribe();
         this.msgSub = null;
         this.myReqIds.clear();
@@ -191,6 +250,16 @@ export class DTraderEngine {
         this.pendingBuy = false;
         this.currentProposal = null;
         this.setStatus('idle');
+    }
+
+    /** Re-establish tick + proposal subscriptions after a freeze / suspend.
+     *  Cheap to call repeatedly — `forget` on null sub-ids is a no-op. */
+    private recoverSubscriptions(): void {
+        if (!this.cfg) return;
+        if (this.tickSubId) { this.rawSend({ forget: this.tickSubId }); this.tickSubId = null; }
+        this.subscribeTick();
+        this.refreshProposal();
+        this.lastTickAt = Date.now(); // reset the watchdog so we don't loop
     }
 
     // ── Config setters (any change triggers a debounced proposal refresh) ────
@@ -251,6 +320,9 @@ export class DTraderEngine {
             return;
         }
         this.log(`◀︎ Selling #${contractId} at market`, 'info');
+        // Tag this contract so the eventual settlement is classified as a
+        // cashout (full-screen 🏆 popup) instead of TP/SL.
+        this.manuallySold.add(contractId);
         this.send({ sell: contractId, price: 0 });
     }
 
@@ -454,6 +526,7 @@ export class DTraderEngine {
     private handleTick(tick: { quote: number; pip_size?: number } | undefined): void {
         if (!tick) return;
         if (typeof tick.pip_size === 'number') this.pipSize = tick.pip_size;
+        this.lastTickAt = Date.now(); // feed the liveness watchdog
         const spot  = this.formatQuote(tick.quote, this.pipSize);
         const digit = this.lastDigit(tick.quote, this.pipSize);
         if (this.status === 'subscribing') this.setStatus('ready');
@@ -599,6 +672,30 @@ export class DTraderEngine {
                     : `❌ LOSS ${sign}$${(pos.profit ?? 0).toFixed(2)}${move}  #${contractId}`,
                 pos.isWin ? 'win' : 'loss',
             );
+
+            // Classify settle reason for the full-screen popup. Manual
+            // sells we initiated take priority — if user clicked CASH OUT
+            // even at a profit that would also satisfy take-profit, it's
+            // still a cashout from their perspective.
+            const finalProfit = pos.profit ?? 0;
+            const sellReason  = (poc.sell_reason ?? '') as string;
+            let kind: DTContractEventKind | null = null;
+            if (this.manuallySold.has(contractId)) {
+                kind = 'cashout';
+                this.manuallySold.delete(contractId);
+            } else if (sellReason === 'take_profit') {
+                kind = 'tp';
+            } else if (sellReason === 'stop_loss') {
+                kind = 'sl';
+            }
+            if (kind) {
+                this.onContractEvent({
+                    kind,
+                    profit:       finalProfit,
+                    contractId,
+                    contractType: pos.contractType,
+                });
+            }
             // Cleanup subscription + drop from in-engine maps. The UI keeps its
             // own copy in React state so the settled card stays visible.
             const sid = this.posSubIds.get(contractId);
