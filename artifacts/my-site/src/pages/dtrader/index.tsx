@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { api_base } from '@/external/bot-skeleton/services/api/api-base';
+import { useStore } from '@/hooks/useStore';
 import {
     DTraderEngine,
     type DTBuyFeedback,
@@ -227,17 +228,44 @@ const DTraderPage = observer(() => {
     /** Full-screen popup for TP reached / SL hit / Cash-out successful. */
     const [popup, setPopup] =
         useState<(DTContractEvent & { seq: number }) | null>(null);
-    const popupSeqRef = useRef(0);
+    const popupSeqRef     = useRef(0);
+    // Tracks consecutive same-digit runs. Updated in onTick without causing
+    // a full re-render on every tick — only triggers setState when the streak
+    // starts (≥3) or resets.
+    const streakRef       = useRef<{ digit: number | null; count: number }>({ digit: null, count: 0 });
+    const [sameDigitStreak, setSameDigitStreak] =
+        useState<{ digit: number; count: number } | null>(null);
 
     const category = useMemo(() => CATEGORIES.find(c => c.key === categoryKey)!, [categoryKey]);
 
-    const currency = (api_base?.account_info as any)?.currency || 'USD';
-    const isLoggedIn = !!api_base?.is_authorized;
+    // Use reactive MobX store values — api_base.is_authorized and
+    // api_base.account_info are plain fields (not observable), so reading
+    // them directly inside an observer() component yields a stale snapshot.
+    // client.is_logged_in and client.currency ARE observable and get updated
+    // by CoreStoreProvider once auth completes, triggering a re-render here.
+    const { client } = useStore();
+    const isLoggedIn = client?.is_logged_in ?? false;
+    const currency = client?.currency || 'USD';
 
     // ── Wire engine callbacks once ───────────────────────────────────────────
     useEffect(() => {
         engine.onStatus   = setStatus;
-        engine.onTick     = (s, d) => { setSpot(s); setLastDigit(d); };
+        engine.onTick     = (s, d) => {
+            setSpot(s);
+            setLastDigit(d);
+            if (d !== null) {
+                const prev = streakRef.current;
+                const next = { digit: d, count: prev.digit === d ? prev.count + 1 : 1 };
+                streakRef.current = next;
+                // Only trigger a render when crossing the ≥3 threshold or resetting
+                setSameDigitStreak(prev => {
+                    const show = next.count >= 3;
+                    if (!show && prev === null) return null;
+                    if (show && prev?.digit === next.digit && prev?.count === next.count) return prev;
+                    return show ? { digit: next.digit!, count: next.count } : null;
+                });
+            }
+        };
         engine.onProposal = p => setProposal(p);
         engine.onLog      = l => setLogs(prev => [...prev.slice(-99), l]);
         engine.onPosition = p => {
@@ -313,6 +341,36 @@ const DTraderPage = observer(() => {
     const digitTotal   = useMemo(() => digitCounts.reduce((a, b) => a + b, 0), [digitCounts]);
     const digitPercent = (d: number) =>
         digitTotal === 0 ? 0 : (digitCounts[d] / digitTotal) * 100;
+
+    // ── Chi-square goodness-of-fit (df = 9) ──────────────────────────────────
+    // Tests whether the observed digit distribution differs significantly from
+    // a perfectly uniform distribution (10% per digit).
+    //
+    // χ² = Σ (observed − expected)² / expected,  expected = N/10 per digit
+    //
+    // Critical values for df = 9 (standard table):
+    //   χ² ≥ 21.67  →  p < 0.01   (highly significant — strong edge)
+    //   χ² ≥ 16.92  →  p < 0.05   (significant — real bias)
+    //   χ² ≥ 14.68  →  p < 0.10   (marginal)
+    //   χ² <  14.68 →  no detectable bias (uniform)
+    //
+    // Requires at least 30 ticks so the "expected ≥ 5 per cell" rule holds
+    // with high probability (expected = 30/10 = 3 is borderline; 50+ is ideal).
+    const chiSqStats = useMemo(() => {
+        if (digitTotal < 30) return null;
+        const expected = digitTotal / 10;
+        const chiSq    = digitCounts.reduce((acc, obs) => {
+            const diff = obs - expected;
+            return acc + (diff * diff) / expected;
+        }, 0);
+        if (chiSq >= 21.67)
+            return { chiSq, label: 'Highly biased — strong edge exists (p<0.01) ★★★', color: '#dc2626' };
+        if (chiSq >= 16.92)
+            return { chiSq, label: 'Significant bias — real edge (p<0.05) ★★',         color: '#ea580c' };
+        if (chiSq >= 14.68)
+            return { chiSq, label: 'Marginal bias detected (p<0.10) ★',                color: '#ca8a04' };
+        return         { chiSq, label: 'Near-uniform — no detectable bias',             color: '#64748b' };
+    }, [digitCounts, digitTotal]);
 
     // Winning-side digits for any currently OPEN digit contract — drives the
     // green ring around qualifying circles. Union across contracts in case
@@ -528,6 +586,28 @@ const DTraderPage = observer(() => {
                         <span><span className='dtp__legend-dot dtp__legend-dot--bad'/>2nd least</span>
                         <span><span className='dtp__legend-dot dtp__legend-dot--worst'/>least</span>
                     </div>
+
+                    {/* ── χ² significance banner ─────────────────────────── */}
+                    {chiSqStats ? (
+                        <div className='dtp__chisq'>
+                            <span className='dtp__chisq-label'>χ² = {chiSqStats.chiSq.toFixed(2)}</span>
+                            <span className='dtp__chisq-verdict' style={{ color: chiSqStats.color }}>
+                                {chiSqStats.label}
+                            </span>
+                        </div>
+                    ) : digitTotal > 0 ? (
+                        <div className='dtp__chisq dtp__chisq--waiting'>
+                            Collecting ticks for χ² significance test ({digitTotal}/30)…
+                        </div>
+                    ) : null}
+
+                    {/* ── Same-digit streak alert ─────────────────────────── */}
+                    {sameDigitStreak && (
+                        <div className='dtp__streak'>
+                            🔥 Digit <strong>{sameDigitStreak.digit}</strong> repeated{' '}
+                            <strong>{sameDigitStreak.count}×</strong> in a row
+                        </div>
+                    )}
                 </div>
             )}
 

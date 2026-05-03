@@ -1029,6 +1029,32 @@ const SignalEngine = () => {
                 />
             </div>
 
+            {/* ══ χ² DISTRIBUTION SIGNIFICANCE ROW ════════════════════════ */}
+            {tickCount >= 30 && (() => {
+                const n   = tickCount;
+                const exp = n / 10;
+                const chiSq = distribution.reduce((acc, pct) => {
+                    const obs  = (pct / 100) * n;
+                    const diff = obs - exp;
+                    return acc + diff * diff / exp;
+                }, 0);
+                const tier =
+                    chiSq >= 21.67 ? { stars: '★★★', text: 'Highly biased distribution — strong systemic edge (p<0.01)', color: '#dc2626' } :
+                    chiSq >= 16.92 ? { stars: '★★',  text: 'Significant digit bias — real distributional edge (p<0.05)', color: '#ea580c' } :
+                    chiSq >= 14.68 ? { stars: '★',   text: 'Marginal digit bias detected (p<0.10)',                      color: '#ca8a04' } :
+                                     { stars: '',    text: 'Near-uniform spread — no strong systemic bias',               color: '#64748b' };
+                return (
+                    <div className='se-chisq'>
+                        <div className='se-chisq__row'>
+                            <span className='se-chisq__label'>χ² goodness-of-fit</span>
+                            <span className='se-chisq__val'>{chiSq.toFixed(2)}</span>
+                            {tier.stars && <span className='se-chisq__stars' style={{ color: tier.color }}>{tier.stars}</span>}
+                        </div>
+                        <div className='se-chisq__verdict' style={{ color: tier.color }}>{tier.text}</div>
+                    </div>
+                );
+            })()}
+
             {/* ══ SIGNALS SECTION ═══════════════════════════════════════════ */}
             <div className='se-signals-card'>
                 <div className='se-signals-card__header'>

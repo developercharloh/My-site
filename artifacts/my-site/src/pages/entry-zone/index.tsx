@@ -902,6 +902,34 @@ const EntryZone: React.FC = () => {
                         </div>
                     </div>
 
+                    {/* ── χ² goodness-of-fit on digit distribution ── */}
+                    {(() => {
+                        const n  = signal.sampleSize;
+                        const exp = n / 10;
+                        const chiSq = signal.digitFreq.reduce((acc, p) => {
+                            const obs  = p * n;
+                            const diff = obs - exp;
+                            return acc + diff * diff / exp;
+                        }, 0);
+                        const stars =
+                            chiSq >= 21.67 ? { s: '★★★', verdict: 'Highly biased distribution — strong systemic edge (p<0.01)', color: '#dc2626' } :
+                            chiSq >= 16.92 ? { s: '★★',  verdict: 'Significant digit bias — real distributional edge (p<0.05)', color: '#ea580c' } :
+                            chiSq >= 14.68 ? { s: '★',   verdict: 'Marginal bias detected (p<0.10) — edge may be weak',         color: '#ca8a04' } :
+                                             { s: '',    verdict: 'Near-uniform digit spread — no strong systemic bias',         color: '#64748b' };
+                        return (
+                            <div className='ai-chisq'>
+                                <div className='ai-chisq__row'>
+                                    <span className='ai-chisq__lbl'>χ² goodness-of-fit</span>
+                                    <span className='ai-chisq__val'>{chiSq.toFixed(2)}</span>
+                                    {stars.s && <span className='ai-chisq__stars'>{stars.s}</span>}
+                                </div>
+                                <div className='ai-chisq__verdict' style={{ color: stars.color }}>
+                                    {stars.verdict}
+                                </div>
+                            </div>
+                        );
+                    })()}
+
                     <p className='ai-result__disc'>
                         ⚠️ Signals are statistical estimates based on the last {signal.sampleSize} ticks.
                         Volatility indices are random — past behaviour does not guarantee future ticks.

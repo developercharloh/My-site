@@ -555,6 +555,36 @@
     &__pct      { font-size: 0.62rem; color: #94a3b8; }
 }
 
+// ── Chi-square significance badge ─────────────────────────────────────
+.ai-chisq {
+    margin: 10px 0 0;
+    padding: 10px 14px;
+    background: rgba(99, 102, 241, 0.06);
+    border: 1px solid rgba(99, 102, 241, 0.20);
+    border-radius: 10px;
+
+    &__row {
+        display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    &__lbl {
+        font-size: 0.72rem; font-weight: 800;
+        letter-spacing: 0.06em; text-transform: uppercase;
+        color: #6366f1; flex-shrink: 0;
+    }
+    &__val {
+        font-family: 'JetBrains Mono', 'SF Mono', monospace;
+        font-size: 1.05rem; font-weight: 900; color: #0f172a;
+    }
+    &__stars {
+        font-size: 0.95rem; letter-spacing: 0.06em;
+        color: #dc2626; margin-left: auto;
+    }
+    &__verdict {
+        margin-top: 4px; font-size: 0.76rem; line-height: 1.4;
+        font-weight: 600;
+    }
+}
+
 .ai-rerun {
     width: 100%; padding: 12px 14px;
     background: white;
@@ -678,4 +708,9 @@
     .ai-result__ticks-unit      { color: #94a3b8; }
     .ai-result__ticks-sub       { color: #cbd5e1; }
     .ai-result__ticks-rationale { color: #e2e8f0; }
+    .ai-chisq {
+        background: rgba(99, 102, 241, 0.12);
+        border-color: rgba(99, 102, 241, 0.30);
+    }
+    .ai-chisq__val { color: #f1f5f9; }
 }

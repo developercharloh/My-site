@@ -1090,8 +1090,41 @@
     letter-spacing: 0.01em;
 }
 
+// ─── χ² significance row ─────────────────────────────────────────────────────
+.se-chisq {
+    margin: 6px 0 4px;
+    padding: 8px 12px;
+    background: rgba(99, 102, 241, 0.06);
+    border: 1px solid rgba(99, 102, 241, 0.18);
+    border-radius: 10px;
+
+    &__row {
+        display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    &__label {
+        font-size: 0.68rem; font-weight: 800;
+        letter-spacing: 0.06em; text-transform: uppercase;
+        color: #6366f1; flex-shrink: 0;
+    }
+    &__val {
+        font-family: 'JetBrains Mono', 'SF Mono', monospace;
+        font-size: 0.98rem; font-weight: 900; color: #0f172a;
+    }
+    &__stars {
+        font-size: 0.88rem; letter-spacing: 0.05em; margin-left: auto;
+    }
+    &__verdict {
+        margin-top: 3px; font-size: 0.72rem; line-height: 1.35; font-weight: 600;
+    }
+}
+
 // Dark-mode versions
 .theme--dark {
+    .se-chisq {
+        background: rgba(99, 102, 241, 0.12);
+        border-color: rgba(99, 102, 241, 0.28);
+    }
+    .se-chisq__val { color: #f1f5f9; }
     .ez-quadrant {
         background: linear-gradient(180deg, rgba(255, 255, 255, 0.025) 0%, rgba(99, 102, 241, 0.07) 100%);
         border-color: rgba(255, 255, 255, 0.10);

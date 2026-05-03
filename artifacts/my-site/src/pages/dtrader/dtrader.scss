@@ -339,6 +339,34 @@
         &--worst { background: #ef4444; }
     }
 
+    // ── Chi-square significance banner ───────────────────────────────────
+    &__chisq {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-top: 8px; padding: 5px 10px;
+        background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 6px;
+        font-size: 0.7rem; gap: 8px;
+        &--waiting { color: #94a3b8; font-style: italic; justify-content: center; }
+    }
+    &__chisq-label {
+        color: #475569; font-variant-numeric: tabular-nums;
+        font-weight: 700; white-space: nowrap; font-family: 'SF Mono', Menlo, monospace;
+    }
+    &__chisq-verdict { font-weight: 700; text-align: right; line-height: 1.2; }
+
+    // ── Same-digit streak alert ──────────────────────────────────────────
+    &__streak {
+        margin-top: 6px; padding: 5px 12px;
+        background: linear-gradient(90deg, #fffbeb 0%, #fef9c3 100%);
+        border: 1px solid #fcd34d; border-radius: 6px;
+        font-size: 0.75rem; color: #92400e;
+        animation: dtpStreakIn 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
+        strong { color: #78350f; }
+    }
+    @keyframes dtpStreakIn {
+        from { opacity: 0; transform: translateY(-4px) scale(0.97); }
+        to   { opacity: 1; transform: translateY(0)    scale(1);    }
+    }
+
     // ── Sell button on open positions ────────────────────────────────────
     &__sell-btn {
         padding: 4px 10px; border-radius: 4px;
