@@ -519,7 +519,7 @@ const DTraderPage = observer(() => {
                 <div className='dtp__login-icon'>🔐</div>
                 <div className='dtp__login-title'>DTrader</div>
                 <div className='dtp__login-msg'>
-                    Log in to your Deriv account to place manual trades.
+                    Log in to your account to place manual trades.
                 </div>
             </div>
         );
