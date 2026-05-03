@@ -459,7 +459,8 @@ const DTraderPage = observer(() => {
 
     const handleBuy   = () => engine.buy();
     const handleSell  = (contractId: string) => engine.sellContract(contractId);
-    const handleClear = () => { setLogs([]); setPositions(prev => prev.filter(p => p.isOpen)); };
+    const handleClear    = () => { setLogs([]); setPositions(prev => prev.filter(p => p.isOpen)); };
+    const handleClearAll = () => { setLogs([]); setPositions([]); };
 
     /**
      * Tap-to-buy for digit contracts. Switches contract type AND fires the
@@ -493,6 +494,17 @@ const DTraderPage = observer(() => {
         }
         return { realised, openPnl, wins, losses, openCount, total: realised + openPnl };
     }, [positions]);
+
+    const [pnlAnim, setPnlAnim] = useState(false);
+    const prevTotalRef = useRef<number>(0);
+    useEffect(() => {
+        if (totals.total !== prevTotalRef.current) {
+            prevTotalRef.current = totals.total;
+            setPnlAnim(true);
+            const t = setTimeout(() => setPnlAnim(false), 320);
+            return () => clearTimeout(t);
+        }
+    }, [totals.total]);
 
     // ── Rendering helpers ────────────────────────────────────────────────────
 
@@ -539,6 +551,14 @@ const DTraderPage = observer(() => {
                     {lastDigit !== null && (
                         <div className='dtp__spot-digit'>{lastDigit}</div>
                     )}
+                </div>
+
+                {/* ── Session Total P/L chip ── */}
+                <div className={`dtp__pnl-chip dtp__pnl-chip--${totals.total > 0 ? 'pos' : totals.total < 0 ? 'neg' : 'zero'}`}>
+                    <span className='dtp__pnl-chip-label'>Session P/L</span>
+                    <span className={`dtp__pnl-chip-val${pnlAnim ? ' dtp__pnl-chip-val--anim' : ''}`}>
+                        {totals.total > 0 ? '+' : ''}{totals.total === 0 && positions.length === 0 ? '—' : `$${totals.total.toFixed(2)}`}
+                    </span>
                 </div>
             </div>
 
@@ -1049,7 +1069,10 @@ const DTraderPage = observer(() => {
                 <div className='dtp__positions'>
                     <div className='dtp__section-head'>
                         <span>Positions {hasOpen && <span className='dtp__live-dot'>● live</span>}</span>
-                        <button className='dtp__clear-btn' onClick={handleClear}>Clear settled</button>
+                        <div className='dtp__clear-row'>
+                            <button className='dtp__clear-btn' onClick={handleClear}>Clear settled</button>
+                            <button className='dtp__clear-btn dtp__clear-btn--all' onClick={handleClearAll}>🗑 Clear all</button>
+                        </div>
                     </div>
                     {positions.length === 0 ? (
                         <div className='dtp__empty'>No positions yet — pick a contract and press BUY.</div>
