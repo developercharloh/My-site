@@ -940,59 +940,96 @@ const SignalEngine = () => {
     return (
         <>
         <div className='ez-root se-root'>
-            {/* ── Header ── */}
-            <div className='ez-header'>
-                <div className='ez-header__title-block'>
-                    <span className='ez-header__title'>Signal Engine</span>
-                    <span className='ez-header__sub'>
-                        Scanning all 13 volatility indices · {tickCount} ticks
-                    </span>
+
+            {/* ══ HEADER CARD ════════════════════════════════════════════════ */}
+            <div className='se-hd'>
+                {/* row 1 — title + live badge */}
+                <div className='se-hd__top'>
+                    <div className='se-hd__title-block'>
+                        <span className='se-hd__icon' aria-hidden='true'>⚡</span>
+                        <div>
+                            <h2 className='se-hd__title'>Signal Engine</h2>
+                            <p className='se-hd__sub'>
+                                Scanning all 13 volatility indices&nbsp;·&nbsp;{tickCount} ticks
+                            </p>
+                        </div>
+                    </div>
+                    <div className={`se-hd__live-badge ${liveCount === 13 ? 'se-hd__live-badge--full' : ''}`}>
+                        <span className='se-hd__live-dot' />
+                        {liveCount}/13 LIVE
+                    </div>
                 </div>
-                <div className='ez-selector'>
-                    <label className='ez-selector__label'>Display</label>
-                    <div className='ez-selector__wrap'>
-                        <select className='ez-selector__select' value={selectedSym} onChange={e => setSelectedSym(e.target.value)}>
+
+                {/* row 2 — market selector */}
+                <div className='se-hd__selector-row'>
+                    <span className='se-hd__selector-label'>Display market</span>
+                    <div className='se-hd__selector-wrap'>
+                        <select
+                            className='se-hd__selector-select'
+                            value={selectedSym}
+                            onChange={e => setSelectedSym(e.target.value)}
+                        >
                             {DISPLAY_MARKETS.map(g => (
                                 <optgroup key={g.group} label={g.group}>
-                                    {g.items.map(s => <option key={s} value={s}>{SYM_LONG[s]}</option>)}
+                                    {g.items.map(s => (
+                                        <option key={s} value={s}>{SYM_LONG[s]}</option>
+                                    ))}
                                 </optgroup>
                             ))}
                         </select>
-                        <ChevronDown className='ez-selector__chevron' />
+                        <ChevronDown className='se-hd__selector-chevron' size={14} />
                     </div>
                 </div>
+
+                {/* row 3 — scan dots */}
+                <ScanStatusRow statuses={scanStatus} />
             </div>
 
-            {/* ── Scan status row ── */}
-            <ScanStatusRow statuses={scanStatus} />
-
-            {/* ── Live price ── */}
-            <div className='ez-price-row'>
-                <LivePriceDisplay livePrice={livePrice} prevPrice={prevPrice} liveDigit={liveDigit} pipSize={pipSize} status={status} />
-                <div className='ez-cursor-tag'>
-                    {liveDigit !== null && (<>
-                        <span className='ez-cursor-tag__arrow' style={{ color:'#ef4444' }}>▼</span>
-                        <span className='ez-cursor-tag__label'>Digit</span>
-                        <AnimatePresence mode='wait'>
-                            <motion.span key={liveDigit} className='ez-cursor-tag__digit' style={{ color:D_COLORS[liveDigit] }}
-                                initial={{ scale:0.5, opacity:0 }} animate={{ scale:1, opacity:1 }} exit={{ scale:0.5, opacity:0 }}
-                                transition={{ type:'spring', stiffness:500, damping:22 }}>
-                                {liveDigit}
-                            </motion.span>
-                        </AnimatePresence>
-                    </>)}
-                    {status === 'connecting' && <Loader2 className='ez-spinner'/>}
-                    {status === 'error'      && <WifiOff className='ez-error-icon'/>}
-                    {status === 'live' && liveDigit === null && <Wifi className='ez-wifi-icon'/>}
+            {/* ══ LIVE PRICE CARD ════════════════════════════════════════════ */}
+            <div className='se-price-card'>
+                <LivePriceDisplay
+                    livePrice={livePrice} prevPrice={prevPrice}
+                    liveDigit={liveDigit} pipSize={pipSize} status={status}
+                />
+                <div className='se-digit-pill'>
+                    {liveDigit !== null ? (
+                        <>
+                            <span className='se-digit-pill__label'>Last digit</span>
+                            <AnimatePresence mode='wait'>
+                                <motion.span
+                                    key={liveDigit}
+                                    className='se-digit-pill__value'
+                                    style={{ color: D_COLORS[liveDigit], textShadow: `0 0 18px ${D_COLORS[liveDigit]}99` }}
+                                    initial={{ scale: 0.4, opacity: 0 }}
+                                    animate={{ scale: 1,   opacity: 1 }}
+                                    exit={{ scale: 0.4,    opacity: 0 }}
+                                    transition={{ type: 'spring', stiffness: 520, damping: 24 }}
+                                >
+                                    {liveDigit}
+                                </motion.span>
+                            </AnimatePresence>
+                        </>
+                    ) : status === 'connecting' ? (
+                        <Loader2 size={18} className='se-digit-pill__spin' />
+                    ) : status === 'error' ? (
+                        <WifiOff size={16} className='se-digit-pill__err' />
+                    ) : (
+                        <Wifi size={16} className='se-digit-pill__wifi' />
+                    )}
                 </div>
             </div>
 
-            {/* ── Digit circles (single row, single cursor) ── */}
-            <div className='ez-quadrants ez-quadrants--single'>
-                <QuadrantRow digits={[0,1,2,3,4,5,6,7,8,9]} distribution={distribution} ranks={ranks} liveDigit={liveDigit} />
+            {/* ══ DIGIT DISTRIBUTION ════════════════════════════════════════ */}
+            <div className='ez-quadrants'>
+                <QuadrantRow
+                    digits={[0,1,2,3,4,5,6,7,8,9]}
+                    distribution={distribution}
+                    ranks={ranks}
+                    liveDigit={liveDigit}
+                />
             </div>
 
-            {/* ── Signals section ── */}
+            {/* ══ SIGNALS SECTION ═══════════════════════════════════════════ */}
             <div className='se-signals-card'>
                 <div className='se-signals-card__header'>
                     <span className='se-signals-card__title'>
@@ -1023,8 +1060,11 @@ const SignalEngine = () => {
                     ) : (
                         <AnimatePresence>
                             {displaySignals.map((sig, idx) => (
-                                <SignalCard key={sig.id} signal={sig} now={now} winResult={winMap.get(sig.id)}
-                                    onLoadAI={() => setSettingsSignal({ signal: sig, rank: idx + 1 })} />
+                                <SignalCard
+                                    key={sig.id} signal={sig} now={now}
+                                    winResult={winMap.get(sig.id)}
+                                    onLoadAI={() => setSettingsSignal({ signal: sig, rank: idx + 1 })}
+                                />
                             ))}
                         </AnimatePresence>
                     )}

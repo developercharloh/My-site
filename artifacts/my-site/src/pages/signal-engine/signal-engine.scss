@@ -1,34 +1,273 @@
-// ─── Scan status row ──────────────────────────────────────────────────────────
-.se-scan-row {
+// ─── Header card ─────────────────────────────────────────────────────────────
+// Replaces the old cramped ez-header + ez-selector combo with a clean 3-row card.
+.se-hd {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.3rem 0.6rem;
-    border-radius: 0.6rem;
-    background: rgba(100, 116, 139, 0.06);
-    border: 1px solid rgba(100, 116, 139, 0.1);
+    flex-direction: column;
+    gap: 0;
+    border-radius: 16px;
+    border: 1px solid rgba(99, 102, 241, 0.22);
+    background: linear-gradient(160deg, rgba(99, 102, 241, 0.07) 0%, rgba(16, 185, 129, 0.04) 100%);
+    overflow: hidden;
+    margin-bottom: 0.65rem;
 
-    &__label {
+    &__top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        padding: 0.75rem 0.9rem 0.6rem;
+    }
+
+    &__title-block {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        min-width: 0;
+    }
+
+    &__icon {
+        font-size: 1.5rem;
+        line-height: 1;
+        filter: drop-shadow(0 2px 8px rgba(99, 102, 241, 0.55));
+        flex-shrink: 0;
+    }
+
+    &__title {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 900;
+        letter-spacing: -0.01em;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        line-height: 1.15;
+    }
+
+    &__sub {
+        margin: 2px 0 0;
+        font-size: 0.65rem;
+        font-weight: 600;
+        color: var(--text-less-prominent, #94a3b8);
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    &__live-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        flex-shrink: 0;
+        padding: 0.3rem 0.65rem;
+        border-radius: 999px;
+        background: rgba(100, 116, 139, 0.12);
+        border: 1px solid rgba(100, 116, 139, 0.22);
         font-size: 0.6rem;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        color: var(--text-less-prominent, #94a3b8);
+        text-transform: uppercase;
+        transition: background 0.3s, color 0.3s, border-color 0.3s;
+
+        &--full {
+            background: rgba(16, 185, 129, 0.12);
+            border-color: rgba(16, 185, 129, 0.35);
+            color: #10b981;
+        }
+    }
+
+    &__live-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: currentColor;
+        animation: se-pulse 1.4s ease-in-out infinite;
+        flex-shrink: 0;
+    }
+
+    // row 2 — market selector
+    &__selector-row {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.5rem 0.9rem;
+        border-top: 1px solid rgba(99, 102, 241, 0.12);
+        background: rgba(15, 23, 42, 0.03);
+    }
+
+    &__selector-label {
+        font-size: 0.65rem;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.06em;
         color: var(--text-less-prominent, #94a3b8);
+        white-space: nowrap;
+        flex-shrink: 0;
     }
 
+    &__selector-wrap {
+        position: relative;
+        display: flex;
+        align-items: center;
+        flex: 1;
+        min-width: 0;
+    }
+
+    &__selector-select {
+        appearance: none;
+        -webkit-appearance: none;
+        width: 100%;
+        padding: 0.42rem 2rem 0.42rem 0.7rem;
+        background: rgba(15, 23, 42, 0.06);
+        border: 1.5px solid rgba(99, 102, 241, 0.25);
+        border-radius: 10px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: var(--text-general, #1e293b);
+        cursor: pointer;
+        outline: none;
+        transition: border-color 0.15s, box-shadow 0.15s;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+
+        &:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+        }
+    }
+
+    &__selector-chevron {
+        position: absolute;
+        right: 0.55rem;
+        color: #6366f1;
+        pointer-events: none;
+        flex-shrink: 0;
+    }
+
+    // row 3 — scan dots (lives inside se-scan-row below)
+    .se-scan-row {
+        border-top: 1px solid rgba(99, 102, 241, 0.12);
+        border-radius: 0;
+        background: rgba(15, 23, 42, 0.025);
+        margin: 0;
+    }
+}
+
+// Dark-mode header card
+.theme--dark .se-hd {
+    background: linear-gradient(160deg, rgba(99,102,241,0.12) 0%, rgba(16,185,129,0.06) 100%);
+    border-color: rgba(99,102,241,0.30);
+
+    &__selector-select {
+        background: rgba(255,255,255,0.06);
+        color: #f1f5f9;
+        border-color: rgba(99,102,241,0.35);
+    }
+    .se-scan-row { background: rgba(255,255,255,0.02); }
+}
+
+// ─── Live price card ──────────────────────────────────────────────────────────
+.se-price-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0.6rem 0.9rem;
+    border-radius: 14px;
+    border: 1px solid rgba(100, 116, 139, 0.18);
+    background: linear-gradient(135deg, rgba(15,23,42,0.04) 0%, rgba(99,102,241,0.04) 100%);
+    margin-bottom: 0.55rem;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+}
+
+.se-digit-pill {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-width: 52px;
+    padding: 0.35rem 0.6rem;
+    background: rgba(99, 102, 241, 0.08);
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    border-radius: 12px;
+    flex-shrink: 0;
+
+    &__label {
+        font-size: 0.5rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: var(--text-less-prominent, #94a3b8);
+        line-height: 1;
+    }
+
+    &__value {
+        font-size: 1.6rem;
+        font-weight: 900;
+        font-family: 'JetBrains Mono', monospace;
+        line-height: 1;
+    }
+
+    &__spin {
+        color: #6366f1;
+        animation: se-spin 0.8s linear infinite;
+    }
+
+    &__err  { color: #ef4444; }
+    &__wifi { color: #10b981; }
+}
+
+.theme--dark {
+    .se-price-card {
+        background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(99,102,241,0.06) 100%);
+        border-color: rgba(255,255,255,0.10);
+    }
+    .se-digit-pill {
+        background: rgba(99,102,241,0.14);
+        border-color: rgba(99,102,241,0.35);
+    }
+}
+
+// ─── Scan status row (lives inside .se-hd as row 3) ─────────────────────────
+.se-scan-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.55rem;
+    padding: 0.45rem 0.9rem;
+    // border-top is injected by .se-hd .se-scan-row override above
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+
+    &__label {
+        font-size: 0.58rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-less-prominent, #94a3b8);
+        white-space: nowrap;
+        padding-top: 2px;
+        flex-shrink: 0;
+    }
+
+    // Dots fill the remaining width, wrapping onto multiple lines if needed
     &__dots {
         display: flex;
         align-items: center;
-        gap: 3px;
+        gap: 4px;
         flex-wrap: wrap;
-        justify-content: flex-end;
     }
 }
 
 .se-scan-dot {
-    width: 7px;
-    height: 7px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
+    flex-shrink: 0;
     cursor: default;
     transition: background 0.3s;
 
