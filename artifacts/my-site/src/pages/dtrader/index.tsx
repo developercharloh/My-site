@@ -752,6 +752,9 @@ const DTraderPage = observer(() => {
                     <AccuChart
                         prices={priceWindow}
                         position={sellableOpen}
+                        proposal={proposal}
+                        contractType={contractType}
+                        multiplier={multiplier}
                         currency={currency}
                     />
                 )}
@@ -1020,10 +1023,13 @@ const DTraderPage = observer(() => {
 // in light blue, and flash a red "BARRIER BROKEN" badge the moment a
 // tick steps outside the band. Profit / loss appears on the right rail.
 const AccuChart: React.FC<{
-    prices:   number[];
-    position: DTPosition | null;
-    currency: string;
-}> = React.memo(({ prices, position, currency }) => {
+    prices:       number[];
+    position:     DTPosition | null;
+    proposal:     DTProposal | null;
+    contractType: DTContractType;
+    multiplier:   number;
+    currency:     string;
+}> = React.memo(({ prices, position, proposal, contractType, multiplier, currency }) => {
     const W = 320, H = 160, PAD_L = 8, PAD_R = 56, PAD_T = 10, PAD_B = 14;
     const innerW = W - PAD_L - PAD_R;
     const innerH = H - PAD_T - PAD_B;
@@ -1032,8 +1038,38 @@ const AccuChart: React.FC<{
     const data = prices.length > 80 ? prices.slice(prices.length - 80) : prices;
     const last = data.length > 0 ? data[data.length - 1] : null;
 
+    const hasContract = !!position;
+    const isAccuType  = contractType === 'ACCU';
+    const isMultType  = contractType === 'MULTUP' || contractType === 'MULTDOWN';
+
+    // ── PREVIEW barriers (shown when no contract is open so the trader
+    //    can see exactly where ACCU walls / MULT stop-out will sit at
+    //    entry, and time their buy on a quiet candle).
+    //    Falls back to a synthetic ±0.04% band on the live spot when the
+    //    proposal hasn't returned contract_details yet, so SOMETHING is
+    //    always visible — never an empty rectangle.
+    let previewHi: number | null = null;
+    let previewLo: number | null = null;
+    let previewSO: number | null = null;
+    if (!hasContract) {
+        const refSpot = proposal?.spotNum ?? last;
+        if (isAccuType) {
+            previewHi = proposal?.previewHighBarrier ?? (refSpot !== null ? refSpot * 1.0004 : null);
+            previewLo = proposal?.previewLowBarrier  ?? (refSpot !== null ? refSpot * 0.9996 : null);
+        } else if (isMultType) {
+            // Stop-out ≈ 1/multiplier away from entry, opposite to direction
+            const mult = multiplier > 0 ? multiplier : 100;
+            if (proposal?.previewStopOut !== null && proposal?.previewStopOut !== undefined) {
+                previewSO = proposal.previewStopOut;
+            } else if (refSpot !== null) {
+                const dist = refSpot * (1 / mult) * 0.95; // ~stake-out distance
+                previewSO = contractType === 'MULTUP' ? refSpot - dist : refSpot + dist;
+            }
+        }
+    }
+
     // Y-axis range — include barriers, entry spot, stop-out, TP/SL so
-    // they're never clipped off-screen.
+    // they're never clipped off-screen. Includes preview values too.
     const candidates: number[] = data.slice();
     const pushIf = (v: number | null | undefined) => {
         if (v !== null && v !== undefined && Number.isFinite(v)) candidates.push(v);
@@ -1044,6 +1080,9 @@ const AccuChart: React.FC<{
     pushIf(position?.stopOutLevel);
     pushIf(position?.takeProfitLevel);
     pushIf(position?.stopLossLevel);
+    pushIf(previewHi);
+    pushIf(previewLo);
+    pushIf(previewSO);
     const minV = candidates.length ? Math.min(...candidates) : 0;
     const maxV = candidates.length ? Math.max(...candidates) : 1;
     // 8% padding above/below so the line never hugs the edge
@@ -1060,7 +1099,6 @@ const AccuChart: React.FC<{
         ? `${linePath} L ${xOf(data.length - 1).toFixed(2)} ${(PAD_T + innerH).toFixed(2)} L ${PAD_L.toFixed(2)} ${(PAD_T + innerH).toFixed(2)} Z`
         : '';
 
-    const hasContract = !!position;
     const hb = position?.highBarrier ?? null;
     const lb = position?.lowBarrier  ?? null;
     const es = position?.entrySpotNum ?? null;
@@ -1071,6 +1109,21 @@ const AccuChart: React.FC<{
     const broken    = position?.barrierBroken ?? false;
     const profit    = position?.profit ?? null;
     const inProfit  = profit !== null && profit >= 0;
+
+    // ── HIGH-CONTRAST PALETTE ───────────────────────────────────────
+    // Chart background is dark navy (#0b1220 via SCSS); previously the
+    // line was rendered in #0f172a which made it nearly invisible.
+    // These colors are tuned for both dark and light themes.
+    const COL_GRID    = 'rgba(148,163,184,0.35)';   // slate, low-emphasis
+    const COL_LINE    = '#fbbf24';                  // amber — pops on dark
+    const COL_AREA    = 'rgba(251,191,36,0.18)';
+    const COL_BARRIER = broken ? '#f87171' : '#60a5fa';   // bright blue / red
+    const COL_PREVIEW = '#94a3b8';                  // dashed slate (preview)
+    const COL_ENTRY   = '#cbd5e1';
+    const COL_SO      = '#f87171';
+    const COL_TP      = '#34d399';
+    const COL_SL      = '#fbbf24';
+    const COL_DOT     = broken ? '#f87171' : (inProfit ? '#34d399' : '#fbbf24');
 
     // Y-axis tick labels (top, mid, bottom)
     const ticks = [hi, (hi + lo) / 2, lo];
@@ -1084,12 +1137,14 @@ const AccuChart: React.FC<{
                 {hasContract ? (
                     <span
                         className='dtp__accu-chart-pnl'
-                        style={{ color: inProfit ? '#16a34a' : '#dc2626' }}
+                        style={{ color: inProfit ? '#34d399' : '#f87171' }}
                     >
                         {inProfit ? '+' : ''}${(profit ?? 0).toFixed(2)} {currency}
                     </span>
                 ) : (
-                    <span className='dtp__accu-chart-hint'>Buy to see barriers</span>
+                    <span className='dtp__accu-chart-hint'>
+                        {isAccuType ? '👀 Preview barriers (live)' : isMultType ? '👀 Preview stop-out (live)' : 'Live price'}
+                    </span>
                 )}
             </div>
 
@@ -1100,24 +1155,80 @@ const AccuChart: React.FC<{
                         key={`g${i}`}
                         x1={PAD_L} x2={W - PAD_R}
                         y1={yOf(t)} y2={yOf(t)}
-                        stroke='#e2e8f0' strokeWidth={1} strokeDasharray='2 4'
+                        stroke={COL_GRID} strokeWidth={1} strokeDasharray='2 4'
                     />
                 ))}
 
-                {/* safe band between barriers */}
+                {/* PREVIEW band — visible BEFORE buying so the trader sees
+                    where ACCU walls / MULT stop-out will sit at entry */}
+                {!hasContract && previewHi !== null && previewLo !== null && (
+                    <rect
+                        x={PAD_L} width={innerW}
+                        y={yOf(previewHi)} height={Math.max(0, yOf(previewLo) - yOf(previewHi))}
+                        fill='rgba(96,165,250,0.10)'
+                        stroke='rgba(96,165,250,0.35)'
+                        strokeDasharray='3 3'
+                    />
+                )}
+
+                {/* safe band between barriers (live contract) */}
                 {hasContract && hb !== null && lb !== null && (
                     <rect
                         x={PAD_L} width={innerW}
                         y={yOf(hb)} height={Math.max(0, yOf(lb) - yOf(hb))}
-                        fill={broken ? 'rgba(220,38,38,0.12)' : 'rgba(37,99,235,0.10)'}
+                        fill={broken ? 'rgba(248,113,113,0.18)' : 'rgba(96,165,250,0.16)'}
                     />
                 )}
 
-                {/* price area + line */}
+                {/* price area + line — bright amber, pops on dark navy bg */}
                 {data.length > 0 && (
                     <>
-                        <path d={areaPath} fill='rgba(15,23,42,0.06)' />
-                        <path d={linePath} stroke='#0f172a' strokeWidth={1.5} fill='none' />
+                        <path d={areaPath} fill={COL_AREA} />
+                        <path
+                            d={linePath} stroke={COL_LINE} strokeWidth={2}
+                            fill='none' strokeLinecap='round' strokeLinejoin='round'
+                        />
+                    </>
+                )}
+
+                {/* PREVIEW barrier lines (dashed slate, no contract yet) */}
+                {!hasContract && previewHi !== null && (
+                    <>
+                        <line
+                            x1={PAD_L} x2={W - PAD_R}
+                            y1={yOf(previewHi)} y2={yOf(previewHi)}
+                            stroke={COL_PREVIEW} strokeWidth={1.5} strokeDasharray='5 4'
+                        />
+                        <text x={W - PAD_R + 4} y={yOf(previewHi) + 3}
+                            fontSize='10' fill={COL_PREVIEW} fontWeight='700'>
+                            ↑{fmt(previewHi)}
+                        </text>
+                    </>
+                )}
+                {!hasContract && previewLo !== null && (
+                    <>
+                        <line
+                            x1={PAD_L} x2={W - PAD_R}
+                            y1={yOf(previewLo)} y2={yOf(previewLo)}
+                            stroke={COL_PREVIEW} strokeWidth={1.5} strokeDasharray='5 4'
+                        />
+                        <text x={W - PAD_R + 4} y={yOf(previewLo) + 3}
+                            fontSize='10' fill={COL_PREVIEW} fontWeight='700'>
+                            ↓{fmt(previewLo)}
+                        </text>
+                    </>
+                )}
+                {!hasContract && previewSO !== null && (
+                    <>
+                        <line
+                            x1={PAD_L} x2={W - PAD_R}
+                            y1={yOf(previewSO)} y2={yOf(previewSO)}
+                            stroke={COL_SO} strokeWidth={1.5} strokeDasharray='4 3' opacity={0.7}
+                        />
+                        <text x={W - PAD_R + 4} y={yOf(previewSO) + 3}
+                            fontSize='10' fill={COL_SO} fontWeight='800' opacity={0.85}>
+                            SO {fmt(previewSO)}
+                        </text>
                     </>
                 )}
 
@@ -1126,21 +1237,20 @@ const AccuChart: React.FC<{
                     <line
                         x1={PAD_L} x2={W - PAD_R}
                         y1={yOf(es)} y2={yOf(es)}
-                        stroke='#94a3b8' strokeWidth={1} strokeDasharray='1 3'
+                        stroke={COL_ENTRY} strokeWidth={1} strokeDasharray='1 3'
                     />
                 )}
 
-                {/* barrier lines */}
+                {/* barrier lines (live contract) */}
                 {hasContract && hb !== null && (
                     <>
                         <line
                             x1={PAD_L} x2={W - PAD_R}
                             y1={yOf(hb)} y2={yOf(hb)}
-                            stroke={broken ? '#dc2626' : '#2563eb'}
-                            strokeWidth={1.5}
+                            stroke={COL_BARRIER} strokeWidth={2}
                         />
                         <text x={W - PAD_R + 4} y={yOf(hb) + 3}
-                            fontSize='10' fill={broken ? '#dc2626' : '#2563eb'} fontWeight='700'>
+                            fontSize='10' fill={COL_BARRIER} fontWeight='700'>
                             {fmt(hb)}
                         </text>
                     </>
@@ -1150,27 +1260,25 @@ const AccuChart: React.FC<{
                         <line
                             x1={PAD_L} x2={W - PAD_R}
                             y1={yOf(lb)} y2={yOf(lb)}
-                            stroke={broken ? '#dc2626' : '#2563eb'}
-                            strokeWidth={1.5}
+                            stroke={COL_BARRIER} strokeWidth={2}
                         />
                         <text x={W - PAD_R + 4} y={yOf(lb) + 3}
-                            fontSize='10' fill={broken ? '#dc2626' : '#2563eb'} fontWeight='700'>
+                            fontSize='10' fill={COL_BARRIER} fontWeight='700'>
                             {fmt(lb)}
                         </text>
                     </>
                 )}
 
-                {/* MULT overlays: stop-out (red, auto-liquidation),
-                    take-profit (green), stop-loss (orange) */}
+                {/* MULT live overlays: stop-out, take-profit, stop-loss */}
                 {hasContract && isMult && so !== null && (
                     <>
                         <line
                             x1={PAD_L} x2={W - PAD_R}
                             y1={yOf(so)} y2={yOf(so)}
-                            stroke='#dc2626' strokeWidth={1.5} strokeDasharray='4 3'
+                            stroke={COL_SO} strokeWidth={2} strokeDasharray='4 3'
                         />
                         <text x={W - PAD_R + 4} y={yOf(so) + 3}
-                            fontSize='10' fill='#dc2626' fontWeight='800'>
+                            fontSize='10' fill={COL_SO} fontWeight='800'>
                             SO {fmt(so)}
                         </text>
                     </>
@@ -1180,10 +1288,10 @@ const AccuChart: React.FC<{
                         <line
                             x1={PAD_L} x2={W - PAD_R}
                             y1={yOf(tp)} y2={yOf(tp)}
-                            stroke='#16a34a' strokeWidth={1.5} strokeDasharray='4 3'
+                            stroke={COL_TP} strokeWidth={2} strokeDasharray='4 3'
                         />
                         <text x={W - PAD_R + 4} y={yOf(tp) + 3}
-                            fontSize='10' fill='#16a34a' fontWeight='800'>
+                            fontSize='10' fill={COL_TP} fontWeight='800'>
                             TP {fmt(tp)}
                         </text>
                     </>
@@ -1193,10 +1301,10 @@ const AccuChart: React.FC<{
                         <line
                             x1={PAD_L} x2={W - PAD_R}
                             y1={yOf(sl)} y2={yOf(sl)}
-                            stroke='#f59e0b' strokeWidth={1.5} strokeDasharray='4 3'
+                            stroke={COL_SL} strokeWidth={2} strokeDasharray='4 3'
                         />
                         <text x={W - PAD_R + 4} y={yOf(sl) + 3}
-                            fontSize='10' fill='#f59e0b' fontWeight='800'>
+                            fontSize='10' fill={COL_SL} fontWeight='800'>
                             SL {fmt(sl)}
                         </text>
                     </>
@@ -1206,18 +1314,19 @@ const AccuChart: React.FC<{
                 {last !== null && data.length > 0 && (
                     <>
                         <circle
-                            cx={xOf(data.length - 1)} cy={yOf(last)} r={3.5}
-                            fill={broken ? '#dc2626' : (inProfit ? '#16a34a' : '#0f172a')}
+                            cx={xOf(data.length - 1)} cy={yOf(last)} r={4}
+                            fill={COL_DOT}
+                            stroke='#0b1220' strokeWidth={1.5}
                         />
                         <rect
                             x={W - PAD_R + 1} y={yOf(last) - 8}
                             width={PAD_R - 4} height={16}
                             rx={3}
-                            fill='#0f172a'
+                            fill='#0b1220' stroke={COL_LINE} strokeWidth={1}
                         />
                         <text
                             x={W - PAD_R + (PAD_R - 4) / 2 + 1} y={yOf(last) + 4}
-                            fontSize='10' fill='white' fontWeight='800'
+                            fontSize='10' fill={COL_LINE} fontWeight='800'
                             textAnchor='middle'
                         >
                             {fmt(last)}

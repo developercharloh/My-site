@@ -51,6 +51,14 @@ export interface DTProposal {
     profitPct:  number;     // (profit / askPrice) * 100
     longcode:   string;
     spot:       string;     // current spot price string at last update
+    spotNum:    number | null;
+    /** ACCU: predicted barriers BEFORE buying. Live values that follow
+     *  the spot tick-by-tick — the trader sees exactly where the upper /
+     *  lower walls will sit at entry, helping them time the buy. */
+    previewHighBarrier:    number | null;
+    previewLowBarrier:     number | null;
+    /** MULT: predicted stop-out price BEFORE buying. */
+    previewStopOut:        number | null;
 }
 
 export interface DTPosition {
@@ -593,6 +601,46 @@ export class DTraderEngine {
         const askPrice = parseFloat(p.ask_price ?? '0');
         const payout   = parseFloat(p.payout    ?? '0');
         const profit   = payout - askPrice;
+
+        // ── Preview ACCU barriers from contract_details ─────────────────
+        // Deriv's proposal returns contract_details.high_barrier /
+        // low_barrier as numeric strings centred on the live spot. They
+        // refresh on every tick — the chart uses them so the trader can
+        // see *where* their barriers will sit before placing the trade.
+        const cd = p.contract_details;
+        let pHi: number | null = null, pLo: number | null = null, pSo: number | null = null;
+        if (cd) {
+            if (cd.high_barrier !== undefined) {
+                const v = parseFloat(cd.high_barrier);
+                if (Number.isFinite(v)) pHi = v;
+            }
+            if (cd.low_barrier !== undefined) {
+                const v = parseFloat(cd.low_barrier);
+                if (Number.isFinite(v)) pLo = v;
+            }
+            // ACCU sometimes returns barriers under barrier_spot_distance;
+            // fall back to spot ± distance when explicit barriers absent.
+            if ((pHi === null || pLo === null) && cd.barrier_spot_distance !== undefined) {
+                const dist = parseFloat(cd.barrier_spot_distance);
+                const sp   = parseFloat(p.spot);
+                if (Number.isFinite(dist) && Number.isFinite(sp)) {
+                    if (pHi === null) pHi = sp + dist;
+                    if (pLo === null) pLo = sp - dist;
+                }
+            }
+        }
+
+        // ── Preview MULT stop-out from limit_order.stop_out.value ───────
+        if (p.limit_order?.stop_out?.value !== undefined) {
+            const v = parseFloat(p.limit_order.stop_out.value);
+            if (Number.isFinite(v)) pSo = v;
+        }
+
+        const spotNum = (() => {
+            const v = parseFloat(p.spot);
+            return Number.isFinite(v) ? v : null;
+        })();
+
         const proposal: DTProposal = {
             id:        p.id,
             askPrice,
@@ -601,6 +649,10 @@ export class DTraderEngine {
             profitPct: askPrice > 0 ? (profit / askPrice) * 100 : 0,
             longcode:  p.longcode ?? '',
             spot:      String(p.spot ?? ''),
+            spotNum,
+            previewHighBarrier: pHi,
+            previewLowBarrier:  pLo,
+            previewStopOut:     pSo,
         };
         // Engine-owned source of truth — used by buy() so we always send the
         // latest id, never one that React state hasn't caught up to.
