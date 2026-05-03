@@ -1,6 +1,7 @@
 import { initSurvicate } from '../public-path';
 import { lazy, Suspense } from 'react';
 import React from 'react';
+import SocialPopup from '@/components/social-popup/social-popup';
 import { createBrowserRouter, createRoutesFromElements, Route, RouterProvider } from 'react-router-dom';
 import RoutePromptDialog from '@/components/route-prompt-dialog';
 import { crypto_currencies_display_order, fiat_currencies_display_order } from '@/components/shared';
@@ -123,7 +124,12 @@ function App() {
         }
     }, []);
 
-    return <RouterProvider router={router} />;
+    return (
+        <>
+            <SocialPopup />
+            <RouterProvider router={router} />
+        </>
+    );
 }
 
 export default App;
