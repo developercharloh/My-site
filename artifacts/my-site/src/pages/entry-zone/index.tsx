@@ -180,8 +180,9 @@ const EntryZone: React.FC = () => {
     const [stage,   setStage]   = useState<ScanStageId>('connect');
     const [tickCounter, setTickCounter] = useState<number>(0);
     const [now,     setNow]     = useState<number>(() => Date.now());
-    const wsRef     = useRef<WebSocket | null>(null);
-    const reqIdRef  = useRef<number>(0);
+    const wsRef          = useRef<WebSocket | null>(null);
+    const reqIdRef       = useRef<number>(0);
+    const stageTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
     /* Live clock for countdown — runs only while a signal is on screen. */
     useEffect(() => {
@@ -197,6 +198,8 @@ const EntryZone: React.FC = () => {
     const isExpired = !!signal && remainingMs <= 0;
 
     const cleanupWs = useCallback(() => {
+        stageTimersRef.current.forEach(clearTimeout);
+        stageTimersRef.current = [];
         if (wsRef.current) {
             try { wsRef.current.close(); } catch { /* ignore */ }
             wsRef.current = null;
@@ -549,9 +552,9 @@ const EntryZone: React.FC = () => {
                 }
                 // Walk through the analytical stages so the UI shows them.
                 setStage('distribution');
-                setTimeout(() => setStage('score'), 220);
-                setTimeout(() => setStage('select'),  450);
-                setTimeout(() => {
+                const _t1 = setTimeout(() => setStage('score'), 220);
+                const _t2 = setTimeout(() => setStage('select'), 450);
+                const _t3 = setTimeout(() => {
                     const sig = computeSignal(rawPrices, pip, market, sym);
                     finish(); clearTimeout(failTimer);
                     setTickCounter(rawPrices.length);
@@ -588,6 +591,7 @@ const EntryZone: React.FC = () => {
                         setStatus('ready');
                     }
                 }, 680);
+                stageTimersRef.current = [_t1, _t2, _t3];
             }
         };
 
@@ -596,6 +600,15 @@ const EntryZone: React.FC = () => {
             finish(); clearTimeout(failTimer);
             setStatus('error');
             setError('Could not reach the Deriv tick feed.');
+            cleanupWs();
+        };
+
+        ws.onclose = () => {
+            if (reqIdRef.current !== myReq) return;
+            if (wsRef.current !== ws) return;
+            finish(); clearTimeout(failTimer);
+            setStatus('error');
+            setError('Connection to Deriv closed unexpectedly. Please try again.');
             cleanupWs();
         };
     }, [cleanupWs, computeSignal, market, status, symbol]);
