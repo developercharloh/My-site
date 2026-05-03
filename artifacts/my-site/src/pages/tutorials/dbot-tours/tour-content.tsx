@@ -68,7 +68,7 @@ export const DBOT_ONBOARDING = [
                 content={[
                     <Localize
                         key='explore tutorials'
-                        i18n_default_text='Explore the video guides and FAQs to build your bot in the tutorials tab.'
+                        i18n_default_text='Explore the video guides and FAQs to explore strategies in the tutorials tab.'
                     />,
                 ]}
                 media={'/assets/videos/dbot-onboarding-tour-step-3.mp4'}
@@ -86,7 +86,7 @@ export const DBOT_ONBOARDING = [
                 content={[
                     <Localize
                         key='use shortcuts'
-                        i18n_default_text='You can also import or build your bot using any of these shortcuts.'
+                        i18n_default_text='You can also import or build your strategy using any of these shortcuts.'
                     />,
                 ]}
                 step_index={4}
@@ -527,7 +527,7 @@ export const DBOT_ONBOARDING_MOBILE: TMobileTourConfig[] = [
             <span key='learn-more-with-our-tutorials-wrapper'>
                 <Localize
                     key='learn-more-with-our-tutorials'
-                    i18n_default_text='Explore the video guides and FAQs to build your bot in the tutorials tab.'
+                    i18n_default_text='Explore the video guides and FAQs to explore strategies in the tutorials tab.'
                 />
             </span>,
         ],
@@ -541,7 +541,7 @@ export const DBOT_ONBOARDING_MOBILE: TMobileTourConfig[] = [
             <span key='use-these-shortcuts-wrapper'>
                 <Localize
                     key='use-these-shortcuts'
-                    i18n_default_text='You can also import or build your bot using any of these shortcuts.'
+                    i18n_default_text='You can also import or build your strategy using any of these shortcuts.'
                 />
             </span>,
         ],
