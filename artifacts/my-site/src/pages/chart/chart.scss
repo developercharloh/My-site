@@ -243,47 +243,61 @@
     background: #111827;
     border-bottom: 1px solid rgba(148, 163, 184, 0.18);
     flex-shrink: 0;
+    flex-wrap: wrap;
 
     &__title {
         font-size: 0.85rem;
         font-weight: 800;
         color: #f1f5f9;
         letter-spacing: 0.01em;
+        white-space: nowrap;
 
         span { margin-right: 0.3rem; }
     }
 
-    &__actions {
+    &__sym-wrap {
+        position: relative;
         display: flex;
-        gap: 0.4rem;
+        align-items: center;
     }
 
-    &__btn {
+    &__sym-select {
         appearance: none;
-        text-decoration: none;
-        background: linear-gradient(135deg, #6366f1, #8b5cf6);
-        color: #fff;
-        border: 0;
+        -webkit-appearance: none;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(99, 102, 241, 0.50);
+        color: #f1f5f9;
+        font-size: 0.80rem;
         font-weight: 700;
-        font-size: 0.75rem;
-        padding: 0.4rem 0.75rem;
+        padding: 0.35rem 1.8rem 0.35rem 0.65rem;
         border-radius: 0.45rem;
         cursor: pointer;
-        box-shadow: 0 2px 6px rgba(99, 102, 241, 0.35);
-        transition: filter 0.15s;
-        display: inline-flex;
-        align-items: center;
+        outline: none;
+        transition: border-color 0.15s, background 0.15s;
 
-        &:hover { filter: brightness(1.08); }
-
-        &--ghost {
-            background: rgba(148, 163, 184, 0.15);
-            color: #cbd5e1;
-            box-shadow: none;
-            border: 1px solid rgba(148, 163, 184, 0.30);
-
-            &:hover { background: rgba(148, 163, 184, 0.25); color: #fff; }
+        &:focus, &:hover {
+            border-color: #6366f1;
+            background: rgba(99, 102, 241, 0.18);
         }
+
+        option, optgroup {
+            background: #1e293b;
+            color: #f1f5f9;
+        }
+    }
+
+    &__sym-chev {
+        position: absolute;
+        right: 0.5rem;
+        pointer-events: none;
+        color: #a5b4fc;
+        font-size: 0.8rem;
+    }
+}
+
+@media (max-width: 540px) {
+    .tv-bar {
+        &__sym-select { font-size: 0.72rem; padding: 0.28rem 1.5rem 0.28rem 0.5rem; }
     }
 }
 
