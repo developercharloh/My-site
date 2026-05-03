@@ -37,11 +37,11 @@ const std = (n: number): DerivVolatility => ({
     tickEvery: 2,
 });
 
-/** Continuous (1-second) volatility indices — full Deriv lineup. */
+/** Continuous (1-second) volatility indices — verified Deriv lineup
+ *  that works on DBot, DTrader, ticks_history and SmartTrader. */
 export const DERIV_CONTINUOUS_VOLATILITIES: DerivVolatility[] = [
-    cont(10), cont(15), cont(20), cont(25), cont(30), cont(40),
-    cont(50), cont(60), cont(70), cont(75), cont(80), cont(90),
-    cont(100), cont(150), cont(200), cont(250),
+    cont(10), cont(15), cont(25), cont(30),
+    cont(50), cont(75), cont(90), cont(100),
 ];
 
 /** Standard (2-second) volatility indices — full Deriv lineup. */
