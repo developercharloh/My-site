@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { observer } from 'mobx-react-lite';
 import { v4 as uuidv4 } from 'uuid';
 import { useStore } from '@/hooks/useStore';
@@ -12,42 +12,60 @@ interface ChartWrapperProps {
 
 type ChartView = 'deriv' | 'tradingview';
 
-// Deriv's official TradingView page — carries every Deriv symbol including
-// synthetic Volatility 10/25/50/75/100 (1s & 2s), Boom/Crash, Step, Range Break,
-// Jump indices, plus full TradingView drawing tools and 100+ indicators.
-const DERIV_TV_URL = 'https://charts.deriv.com/deriv';
-
 const TradingViewPanel: React.FC = () => {
-    const [reload_key, setReloadKey] = useState(0);
+    const container_ref = useRef<HTMLDivElement>(null);
+    const widget_id = useRef(`tv_widget_${Math.random().toString(36).slice(2)}`);
+
+    useEffect(() => {
+        const container = container_ref.current;
+        if (!container) return;
+
+        // Clear previous widget if any
+        container.innerHTML = '';
+
+        const inner = document.createElement('div');
+        inner.id = widget_id.current;
+        inner.style.cssText = 'width:100%;height:100%;';
+        container.appendChild(inner);
+
+        const script = document.createElement('script');
+        script.src = 'https://s3.tradingview.com/tv.js';
+        script.async = true;
+        script.onload = () => {
+            if (!(window as any).TradingView) return;
+            new (window as any).TradingView.widget({
+                autosize: true,
+                symbol: 'EURUSD',
+                interval: '1',
+                timezone: 'Etc/UTC',
+                theme: 'dark',
+                style: '1',
+                locale: 'en',
+                toolbar_bg: '#131722',
+                enable_publishing: false,
+                hide_side_toolbar: false,
+                allow_symbol_change: true,
+                details: true,
+                hotlist: false,
+                calendar: false,
+                container_id: widget_id.current,
+            });
+        };
+        container.appendChild(script);
+
+        return () => {
+            if (container) container.innerHTML = '';
+        };
+    }, []);
 
     return (
         <div className='chart-wrapper__tradingview'>
             <div className='tv-bar'>
                 <span className='tv-bar__title'>
-                    <span aria-hidden='true'>📈</span> Deriv TradingView
+                    <span aria-hidden='true'>📈</span> TradingView Advanced Chart
                 </span>
-                <div className='tv-bar__actions'>
-                    <button
-                        type='button'
-                        className='tv-bar__btn tv-bar__btn--ghost'
-                        onClick={() => setReloadKey(k => k + 1)}
-                        title='Reload chart'
-                    >
-                        ⟳ Reload
-                    </button>
-                </div>
             </div>
-
-            <div className='tv-frame'>
-                <iframe
-                    key={reload_key}
-                    title='Deriv TradingView Charts'
-                    src={DERIV_TV_URL}
-                    className='tv-iframe'
-                    allow='fullscreen; clipboard-read; clipboard-write'
-                    loading='lazy'
-                />
-            </div>
+            <div className='tv-frame' ref={container_ref} />
         </div>
     );
 };
