@@ -58,15 +58,10 @@ const router = createBrowserRouter(
     )
 );
 
-function App() {
-    const [splashDone, setSplashDone] = React.useState(() => {
-        try { return !!sessionStorage.getItem('splash_shown'); } catch { return false; }
-    });
+type Phase = 'splash' | 'popup' | 'app';
 
-    const handleSplashDone = React.useCallback(() => {
-        try { sessionStorage.setItem('splash_shown', '1'); } catch { /* ignore */ }
-        setSplashDone(true);
-    }, []);
+function App() {
+    const [phase, setPhase] = React.useState<Phase>('splash');
 
     React.useEffect(() => {
         // Use the invalid token handler hook to automatically retrigger OIDC authentication
@@ -136,8 +131,8 @@ function App() {
 
     return (
         <>
-            {!splashDone && <SplashLoader onDone={handleSplashDone} />}
-            <SocialPopup />
+            {phase === 'splash' && <SplashLoader onDone={() => setPhase('popup')} />}
+            {phase === 'popup'  && <SocialPopup  onClose={() => setPhase('app')} />}
             <RouterProvider router={router} />
         </>
     );
