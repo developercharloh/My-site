@@ -47,7 +47,7 @@ export default class AppStore {
 
     getErrorForNonEuClients = () => ({
         text: localize(
-            'Unfortunately, this trading platform is not available for EU Deriv account. Please switch to a non-EU account to continue trading.'
+            'Unfortunately, this trading platform is not available for EU account. Please switch to a non-EU account to continue trading.'
         ),
         title: localize('Mr CharlohFX is unavailable for this account'),
         link: localize('Switch to another account'),
