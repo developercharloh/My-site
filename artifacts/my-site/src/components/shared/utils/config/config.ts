@@ -25,6 +25,12 @@ export const domain_app_ids = {
     'dbot.deriv.be': APP_IDS.PRODUCTION_BE,
     'dbot.deriv.me': APP_IDS.PRODUCTION_ME,
     'my-site-7h3g.onrender.com': APP_IDS.MY_SITE,
+    // Custom domain — primary production deployment
+    'mrcharlohfx.site': APP_IDS.MY_SITE,
+    'www.mrcharlohfx.site': APP_IDS.MY_SITE,
+    // Vercel deployment
+    'my-deriv-bot.vercel.app': APP_IDS.MY_SITE,
+    // Replit previews
     'charloz.replit.app': APP_IDS.MY_SITE,
     'my-site--primedeveloperc.replit.app': APP_IDS.MY_SITE,
     'my-site--mywebapp824.replit.app': APP_IDS.MY_SITE,
@@ -58,11 +64,15 @@ export const isLocal = () => /localhost(:\d+)?$/i.test(window.location.hostname)
 export const isThirdPartyAppDomain = () => {
     const host = window.location.hostname;
     if (!host) return false;
+    if (host === 'mrcharlohfx.site') return true;
+    if (host === 'www.mrcharlohfx.site') return true;
+    if (host === 'my-deriv-bot.vercel.app') return true;
     if (host === 'my-site-7h3g.onrender.com') return true;
     if (/\.replit\.dev$/i.test(host)) return true;
     if (/\.replit\.app$/i.test(host)) return true;
     if (/\.onrender\.com$/i.test(host)) return true;
     if (/\.pages\.dev$/i.test(host)) return true;
+    if (/\.vercel\.app$/i.test(host)) return true;
     return false;
 };
 
