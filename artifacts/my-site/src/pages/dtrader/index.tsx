@@ -23,13 +23,19 @@ import './dtrader.scss';
 type SymbolEntry = { value: string; label: string; group: string };
 
 const FALLBACK_SYMBOLS: SymbolEntry[] = [
-    // Continuous (1-second) volatility indices — best for digits / ACCU
+    // Continuous (1-second) volatility indices — full Deriv lineup
     { value: '1HZ10V',  label: 'Volatility 10 (1s)',  group: 'Volatility (1s)' },
+    { value: '1HZ15V',  label: 'Volatility 15 (1s)',  group: 'Volatility (1s)' },
     { value: '1HZ25V',  label: 'Volatility 25 (1s)',  group: 'Volatility (1s)' },
+    { value: '1HZ30V',  label: 'Volatility 30 (1s)',  group: 'Volatility (1s)' },
     { value: '1HZ50V',  label: 'Volatility 50 (1s)',  group: 'Volatility (1s)' },
     { value: '1HZ75V',  label: 'Volatility 75 (1s)',  group: 'Volatility (1s)' },
+    { value: '1HZ90V',  label: 'Volatility 90 (1s)',  group: 'Volatility (1s)' },
     { value: '1HZ100V', label: 'Volatility 100 (1s)', group: 'Volatility (1s)' },
-    // Standard volatility
+    { value: '1HZ150V', label: 'Volatility 150 (1s)', group: 'Volatility (1s)' },
+    { value: '1HZ200V', label: 'Volatility 200 (1s)', group: 'Volatility (1s)' },
+    { value: '1HZ250V', label: 'Volatility 250 (1s)', group: 'Volatility (1s)' },
+    // Standard (2-second tick) volatility — full Deriv lineup
     { value: 'R_10',    label: 'Volatility 10',  group: 'Volatility' },
     { value: 'R_25',    label: 'Volatility 25',  group: 'Volatility' },
     { value: 'R_50',    label: 'Volatility 50',  group: 'Volatility' },
@@ -228,10 +234,10 @@ const DTraderPage = observer(() => {
         engine.onStatus   = setStatus;
         engine.onTick     = (s, d) => { setSpot(s); setLastDigit(d); };
         engine.onProposal = p => setProposal(p);
-        engine.onLog      = l => setLogs(prev => [...prev.slice(-199), l]);
+        engine.onLog      = l => setLogs(prev => [...prev.slice(-99), l]);
         engine.onPosition = p => setPositions(prev => {
             const idx = prev.findIndex(x => x.contractId === p.contractId);
-            if (idx === -1) return [p, ...prev].slice(0, 50);
+            if (idx === -1) return [p, ...prev].slice(0, 30);
             const copy = prev.slice();
             copy[idx] = p;
             return copy;

@@ -116,6 +116,8 @@ export class DTraderEngine {
     private proposalSubId: string | null = null;
     private positions:     Map<string, DTPosition> = new Map();
     private posSubIds:     Map<string, string> = new Map(); // contractId → POC sub id
+    private posSubIdSet:   Set<string>           = new Set(); // reverse lookup, O(1) per WS msg
+    private settledIds:    Set<string>           = new Set(); // ignore further POC updates after settle
 
     // Debounce for proposal refresh
     private proposalDebounce: ReturnType<typeof setTimeout> | null = null;
@@ -158,6 +160,8 @@ export class DTraderEngine {
         if (this.proposalSubId) { this.rawSend({ forget: this.proposalSubId }); this.proposalSubId = null; }
         this.posSubIds.forEach(id => this.rawSend({ forget: id }));
         this.posSubIds.clear();
+        this.posSubIdSet.clear();
+        this.settledIds.clear();
         this.msgSub?.unsubscribe();
         this.msgSub = null;
         this.myReqIds.clear();
@@ -292,7 +296,7 @@ export class DTraderEngine {
         const isMyReq = reqId !== undefined && this.myReqIds.has(reqId);
         const isMyTick = subId !== undefined && subId === this.tickSubId;
         const isMyProp = subId !== undefined && subId === this.proposalSubId;
-        const isMyPos  = subId !== undefined && [...this.posSubIds.values()].includes(subId);
+        const isMyPos  = subId !== undefined && this.posSubIdSet.has(subId);
 
         if (!isMyReq && !isMyTick && !isMyProp && !isMyPos) return;
 
@@ -409,16 +413,28 @@ export class DTraderEngine {
 
         // Subscribe to settlement
         this.send({ proposal_open_contract: 1, contract_id: contractId, subscribe: 1 });
+
+        // CRITICAL: the proposal id we just used is now invalidated on Deriv's
+        // side. If the user taps BUY again before the proposal subscription
+        // pushes a fresh id, the trade gets rejected with a generic
+        // "Refresh the page or relaunch the app" error. Force a refresh now.
+        this.refreshProposal();
     }
 
     private handlePOC(poc: any, subId: string | undefined): void {
         if (!poc?.contract_id) return;
         const contractId = String(poc.contract_id);
+
+        // After settlement, ignore further POC updates so the freed memory
+        // doesn't get repopulated by stale messages.
+        if (this.settledIds.has(contractId)) return;
+
         const pos = this.positions.get(contractId);
         if (!pos) return;
 
         if (subId && !this.posSubIds.has(contractId)) {
             this.posSubIds.set(contractId, subId);
+            this.posSubIdSet.add(subId);
         }
 
         // Live updates while open
@@ -428,12 +444,25 @@ export class DTraderEngine {
         const entry   = poc.entry_tick_display_value   as string | undefined;
         const exit    = poc.exit_tick_display_value    as string | undefined;
 
+        const settled = !!(poc.is_sold || poc.status === 'won' || poc.status === 'lost');
+
+        // Skip noisy no-op updates while open (same profit + same spot) — they
+        // would otherwise trigger a React re-render of every position card
+        // every tick, which is the main cause of the tab freezing under load.
+        if (!settled
+            && profit === pos.profit
+            && bid    === pos.currentBid
+            && (!spot || spot === pos.currentSpot)
+        ) {
+            return;
+        }
+
         pos.profit      = profit;
         pos.currentBid  = bid;
         if (spot) pos.currentSpot = spot;
         if (entry && !pos.entrySpot) pos.entrySpot = entry;
 
-        if (poc.is_sold || poc.status === 'won' || poc.status === 'lost') {
+        if (settled) {
             pos.isOpen   = false;
             pos.isWin    = poc.status === 'won';
             pos.exitSpot = exit ?? pos.currentSpot;
@@ -447,9 +476,16 @@ export class DTraderEngine {
                     : `❌ LOSS ${sign}$${(pos.profit ?? 0).toFixed(2)}${move}  #${contractId}`,
                 pos.isWin ? 'win' : 'loss',
             );
-            // Cleanup subscription
+            // Cleanup subscription + drop from in-engine maps. The UI keeps its
+            // own copy in React state so the settled card stays visible.
             const sid = this.posSubIds.get(contractId);
-            if (sid) { this.rawSend({ forget: sid }); this.posSubIds.delete(contractId); }
+            if (sid) {
+                this.rawSend({ forget: sid });
+                this.posSubIds.delete(contractId);
+                this.posSubIdSet.delete(sid);
+            }
+            this.settledIds.add(contractId);
+            this.positions.delete(contractId);
         }
         this.onPosition({ ...pos });
     }
