@@ -578,7 +578,12 @@ function SignalSettingsModal({ signal, rank, onClose }: {
 
                 {/* Engine mode selector */}
                 <div className='se-modal__engine-row'>
-                    <span className='se-modal__engine-label'>Execute with</span>
+                    <div className='se-modal__engine-label-wrap'>
+                        <span className='se-modal__engine-label'>Execute with</span>
+                        <span className='se-modal__engine-rec'>
+                            ★ Recommended: <strong>{signal.recommendedEngine.toUpperCase()}</strong>
+                        </span>
+                    </div>
                     <div className='se-modal__engine-seg'>
                         <button
                             type='button'
@@ -586,6 +591,7 @@ function SignalSettingsModal({ signal, rank, onClose }: {
                             onClick={() => setEngineMode('v1')}
                         >
                             ⚙️ V1
+                            {signal.recommendedEngine === 'v1' && <span className='se-modal__engine-star'>★</span>}
                         </button>
                         <button
                             type='button'
@@ -593,6 +599,7 @@ function SignalSettingsModal({ signal, rank, onClose }: {
                             onClick={() => setEngineMode('v2')}
                         >
                             ⚡ V2
+                            {signal.recommendedEngine === 'v2' && <span className='se-modal__engine-star'>★</span>}
                         </button>
                     </div>
                 </div>

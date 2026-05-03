@@ -18,6 +18,7 @@ export interface Signal {
     recentScore:    number;   // agreeing ticks in last 20
     recentTotal:    number;   // always 20
     recommendedTicks: number; // suggested contract duration in ticks (1–10)
+    recommendedEngine: 'v1' | 'v2'; // suggested execution engine for this signal
 }
 
 export interface MLWeights { w: number[]; b: number; }
@@ -786,10 +787,27 @@ export function analyzeSignals(
                 sampleSize:     Math.min(digits.length, 100),
                 recentScore:    rec.score,
                 recentTotal:    rec.total,
-                recommendedTicks: recommendTicks(r.market, r.direction),
+                recommendedTicks:  recommendTicks(r.market, r.direction),
+                recommendedEngine: recommendEngine(r.market, r.confidence, symbol),
             };
         })
         .filter((s): s is Signal => s !== null);
+}
+
+// ─── Recommended execution engine per signal ──────────────────────────────────
+// V2 (Advanced) buys on every tick after the entry digit — best for fast,
+// high-confidence signals and digit-strict markets where speed matters.
+// V1 (Bot Builder) loads the prebuilt Blockly XML bot — better for slower,
+// barrier-based markets where the proven XML logic outperforms.
+//
+// Rules:
+//   • matches_differs  → V2 (per-tick firing fits digit-strict trades)
+//   • 1-second indices with confidence ≥ 70 → V2 (speed advantage matters)
+//   • Everything else  → V1 (conservative, tested XML path)
+function recommendEngine(market: MarketType, confidence: number, symbol: string): 'v1' | 'v2' {
+    if (market === 'matches_differs') return 'v2';
+    if (symbol.startsWith('1HZ') && confidence >= 70) return 'v2';
+    return 'v1';
 }
 
 // ─── Recommended tick duration per signal ─────────────────────────────────────
