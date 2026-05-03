@@ -47,7 +47,7 @@ const DashboardComponent = observer(({ handleTabChange }: TMobileIconGuide) => {
                                     lineHeight='xxl'
                                     weight='bold'
                                 >
-                                    {localize('Load or build your bot')}
+                                    {localize('Load or build your strategy')}
                                 </Text>
                             )}
                             <Text
@@ -58,7 +58,7 @@ const DashboardComponent = observer(({ handleTabChange }: TMobileIconGuide) => {
                                 className={classNames('subtitle', { 'subtitle__has-list': has_dashboard_strategies })}
                             >
                                 {localize(
-                                    'Import a bot from your computer or Google Drive, build it from scratch, or start with a quick strategy.'
+                                    'Import a strategy from your device or Google Drive, build one from scratch, or start with a quick strategy.'
                                 )}
                             </Text>
                         </div>
