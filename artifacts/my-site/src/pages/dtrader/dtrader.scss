@@ -565,3 +565,52 @@
     .dtp__accu-chart-title { color: #f1f5f9; }
     .dtp__accu-chart-hint  { color: #64748b; }
 }
+
+// ── Mobile: keep BUY / CASH OUT in view at all times ─────────────────────
+// Before this fix, on small screens the live price chart + ticket pushed
+// the BUY button below the fold (esp. for ACCU/MULT). Solution: make the
+// chart shorter on mobile AND pin the action buttons to the bottom of the
+// viewport so they're always tappable without scrolling.
+@media (max-width: 720px) {
+    // Shrink the live chart so it doesn't dominate the screen
+    .dtp__accu-chart-svg { height: 110px; }
+    .dtp__accu-chart     { padding: 8px 8px 6px; margin-bottom: 8px; }
+
+    // Reserve space at the bottom of the page for the sticky action bar
+    // (~80px BUY + ~80px CASH OUT + breathing room)
+    .dtp { padding-bottom: 180px; }
+
+    // Pin BUY to the viewport bottom so the trader can always see + tap it
+    .dtp__buy-btn {
+        position: fixed;
+        left: 8px; right: 8px; bottom: 8px;
+        margin: 0;
+        z-index: 50;
+        box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.25);
+        border-radius: 12px;
+    }
+
+    // CASH OUT sits just above BUY when an ACCU/MULT contract is open
+    .dtp__cashout-btn {
+        position: fixed;
+        left: 8px; right: 8px; bottom: 76px;
+        margin: 0;
+        z-index: 51;
+        box-shadow: 0 -4px 16px rgba(220, 38, 38, 0.35);
+        border-radius: 12px;
+    }
+
+    // For digit contracts there's no BUY button, so the cash-out drops to
+    // the very bottom (no BUY underneath it).
+    .dtp:not(:has(.dtp__buy-btn)) .dtp__cashout-btn { bottom: 8px; }
+
+    // Buy feedback toast slides in just above the sticky buttons
+    .dtp__buy-feedback {
+        position: fixed;
+        left: 8px; right: 8px; bottom: 156px;
+        z-index: 52;
+        margin: 0;
+    }
+    .dtp:not(:has(.dtp__buy-btn)) .dtp__buy-feedback   { bottom: 76px; }
+    .dtp:not(:has(.dtp__cashout-btn)):not(:has(.dtp__buy-btn)) .dtp__buy-feedback { bottom: 16px; }
+}
