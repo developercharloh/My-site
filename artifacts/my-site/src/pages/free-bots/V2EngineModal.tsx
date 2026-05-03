@@ -193,7 +193,7 @@ const V2EngineModal: React.FC<Props> = ({ bot, onClose }) => {
                     {!isAuthorized && (
                         <div className='v2-modal__section'>
                             <div className='v2-modal__auth-warn'>
-                                ⚠️ You are not logged in. Log in to your Deriv account using the <strong>Log in</strong> button in the top bar, then try again.
+                                ⚠️ You are not logged in. Log in to your account using the <strong>Log in</strong> button in the top bar, then try again.
                             </div>
                         </div>
                     )}
