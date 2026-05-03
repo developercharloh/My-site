@@ -35,7 +35,12 @@
     padding: 1.6rem;
 
     @include mobile-or-tablet-screen {
-        height: calc(100vh - 6rem);
+        // 6rem header + ~52px fixed trust-footer + safe-area inset.
+        // Without this reservation the inner .dc-tabs__content scroller
+        // would extend behind the pinned Risk Warning band and the last
+        // page content (e.g. AI Analysis Tool entry digit cards) would
+        // sit under the footer with no way to bring it into view.
+        height: calc(100vh - 6rem - 52px - env(safe-area-inset-bottom, 0px));
         padding: 0;
     }
 

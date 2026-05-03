@@ -8,19 +8,16 @@
     //  • the iOS/Android home indicator / nav bar (env safe-area)
     //  • a comfortable scroll buffer so the last digit cards aren't flush
     //    against the footer.
-    padding: 16px 14px calc(220px + env(safe-area-inset-bottom, 0px));
+    padding: 16px 14px 32px;
     color: #0f172a;
     background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
     border-radius: 14px;
 
-    // Mobile needs even more clearance — the system nav bar overlay,
-    // the trust-footer often wraps onto two lines, and the digit cards
-    // sit lower than the rest because of the radar/scan animation.
+    // Mobile: trust-footer is now position:fixed and the parent .main
+    // already reserves space for it, so we only need a small breathing
+    // gap at the bottom of the scrollable content.
     @media (max-width: 720px) {
-        padding-bottom: calc(280px + env(safe-area-inset-bottom, 0px));
-    }
-    @media (max-width: 380px) {
-        padding-bottom: calc(320px + env(safe-area-inset-bottom, 0px));
+        padding: 12px 10px 24px;
     }
 
     &__head        { margin-bottom: 18px; }
@@ -575,6 +572,56 @@
 @keyframes aiDigitGlow {
     0%, 100% { box-shadow: 0 0 0 3px rgba(34,197,94,0.20), 0 6px 20px rgba(34,197,94,0.28); }
     50%      { box-shadow: 0 0 0 6px rgba(34,197,94,0.30), 0 8px 26px rgba(34,197,94,0.45); }
+}
+
+// ── Mobile compression ────────────────────────────────────────────────
+// Tighten the result card so the trade call, win-prob bar and entry
+// digits all fit in one or two thumb-flicks instead of four. Spacing
+// and font sizes are reduced proportionally; nothing is hidden.
+@media (max-width: 720px) {
+    .ai-tool__head        { margin-bottom: 10px; }
+    .ai-tool__brand-emoji { font-size: 2rem; }
+    .ai-tool__title       { font-size: 1.25rem; }
+    .ai-tool__sub         { font-size: 0.82rem; line-height: 1.35; }
+
+    .ai-select            { margin-bottom: 10px; }
+    .ai-select__field     { padding: 0.7rem 0.9rem; font-size: 0.9rem; }
+
+    .ai-launch            { padding: 12px 18px; font-size: 0.95rem; margin: 8px 0 4px; }
+
+    .ai-validity          { padding: 9px 11px; margin: 4px 0 10px; }
+
+    .ai-result            { padding: 14px 12px; margin-top: 12px; }
+    .ai-result__head      { margin-bottom: 10px; }
+    .ai-result__call      { padding: 12px 14px; margin-bottom: 12px; }
+    .ai-result__call-label{ font-size: 0.65rem; }
+    .ai-result__call-value{ font-size: 1.85rem; margin: 4px 0; }
+    .ai-result__call-meta { font-size: 0.78rem; }
+
+    .ai-result__prob      { margin-bottom: 12px; }
+    .ai-result__prob-bar  { height: 11px; }
+    .ai-result__prob-row  { font-size: 0.82rem; }
+
+    .ai-result__entry         { padding: 12px 10px; margin-bottom: 12px; }
+    .ai-result__entry-title   { font-size: 0.78rem; margin-bottom: 8px; }
+    .ai-result__entry-card    { padding: 10px 8px; }
+    .ai-result__num           { font-size: 2rem; }
+    .ai-result__entry-pct,
+    .ai-result__entry-cond    { font-size: 0.72rem; }
+
+    .ai-result__ticks         { padding: 10px 12px; margin-bottom: 12px; }
+    .ai-result__ticks-value   { font-size: 1.5rem; }
+    .ai-result__ticks-rationale,
+    .ai-result__ticks-sub     { font-size: 0.76rem; }
+
+    .ai-result__why           { padding: 10px 12px; }
+    .ai-result__why-title     { font-size: 0.72rem; }
+    .ai-result__why-text      { font-size: 0.8rem; line-height: 1.45; }
+
+    .ai-result__freq          { margin-top: 10px; padding: 10px; }
+    .ai-result__freq-title    { font-size: 0.72rem; margin-bottom: 6px; }
+
+    .ai-scan                  { padding: 16px 10px; }
 }
 
 // ── Dark mode ─────────────────────────────────────────────────────────

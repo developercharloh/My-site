@@ -7,6 +7,20 @@
     color: var(--text-less-prominent, #6b7280);
     line-height: 1.4;
 
+    // On mobile, pin the trust-footer to the bottom of the viewport so
+    // it doesn't overlay scrolled content from the page above. The .main
+    // container reserves a matching --trust-footer-h gap at its bottom
+    // so its own scroller still bottoms out cleanly.
+    @media (max-width: 1023px) {
+        position: fixed;
+        left: 0; right: 0; bottom: 0;
+        z-index: 60;
+        padding: 0.45rem 0.8rem calc(0.45rem + env(safe-area-inset-bottom, 0px));
+        background: var(--general-section-1, #fff);
+        backdrop-filter: blur(6px);
+        box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.08);
+    }
+
     &__inner {
         max-width: 1280px;
         margin: 0 auto;
