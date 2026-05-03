@@ -157,7 +157,7 @@ const fmtRemaining = (ms: number): string => {
  */
 type ScanStageId = 'connect' | 'pull' | 'distribution' | 'score' | 'select';
 const SCAN_STAGES: { id: ScanStageId; label: string; icon: string }[] = [
-    { id: 'connect',      label: 'Connecting to Deriv tick feed',      icon: '📡' },
+    { id: 'connect',      label: 'Connecting to live feed',      icon: '📡' },
     { id: 'pull',         label: 'Pulling 1000 live ticks',            icon: '⬇️' },
     { id: 'distribution', label: 'Computing digit distribution',       icon: '📊' },
     { id: 'score',        label: 'Scoring entry triggers (Wilson 95%)', icon: '🧮' },
@@ -611,7 +611,7 @@ const EntryZone: React.FC = () => {
                     <span className='ai-tool__brand-emoji' role='img' aria-label='robot'>🤖</span>
                     <div>
                         <h1 className='ai-tool__title'>AI Analysis Tool</h1>
-                        <p className='ai-tool__sub'>Deep-scan real Deriv tick data and surface the highest-probability trade for your chosen market.</p>
+                        <p className='ai-tool__sub'>Deep-scan real tick data and surface the highest-probability trade for your chosen market.</p>
                     </div>
                 </div>
             </header>
