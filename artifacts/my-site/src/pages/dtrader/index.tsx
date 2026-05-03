@@ -224,6 +224,10 @@ const DTraderPage = observer(() => {
     const [positions,   setPositions]   = useState<DTPosition[]>([]);
     const [feedback,    setFeedback]    = useState<DTBuyFeedback | null>(null);
     const [digitCounts, setDigitCounts] = useState<number[]>(() => new Array(10).fill(0));
+    /** Last settled digit contract — drives the ✅ / ❌ overlay on the
+     *  exit-tick's circle in the digit analyzer. Auto-dismisses after 6s. */
+    const [lastSettlement, setLastSettlement] =
+        useState<{ digit: number; isWin: boolean } | null>(null);
 
     const category = useMemo(() => CATEGORIES.find(c => c.key === categoryKey)!, [categoryKey]);
 
@@ -236,13 +240,23 @@ const DTraderPage = observer(() => {
         engine.onTick     = (s, d) => { setSpot(s); setLastDigit(d); };
         engine.onProposal = p => setProposal(p);
         engine.onLog      = l => setLogs(prev => [...prev.slice(-99), l]);
-        engine.onPosition = p => setPositions(prev => {
-            const idx = prev.findIndex(x => x.contractId === p.contractId);
-            if (idx === -1) return [p, ...prev].slice(0, 30);
-            const copy = prev.slice();
-            copy[idx] = p;
-            return copy;
-        });
+        engine.onPosition = p => {
+            setPositions(prev => {
+                const idx = prev.findIndex(x => x.contractId === p.contractId);
+                if (idx === -1) return [p, ...prev].slice(0, 30);
+                const copy = prev.slice();
+                copy[idx] = p;
+                return copy;
+            });
+            // When a digit contract settles, surface the exit-tick digit in
+            // the analyzer with a ✅ Won / ❌ Lost badge.
+            if (!p.isOpen && p.isWin !== null && isDigitContract(p.contractType)) {
+                const exitDigit = parseLastDigitFromSpot(p.exitSpot);
+                if (exitDigit !== null) {
+                    setLastSettlement({ digit: exitDigit, isWin: p.isWin });
+                }
+            }
+        };
         engine.onBuyFeedback = f => setFeedback(f);
         engine.onDigitStats  = c => setDigitCounts(c);
 
@@ -287,6 +301,14 @@ const DTraderPage = observer(() => {
         const t = setTimeout(() => setFeedback(null), ms);
         return () => clearTimeout(t);
     }, [feedback]);
+
+    // Auto-dismiss the settlement badge after 6s so the next contract has a
+    // clean slate. Cleared sooner when the user fires a new tap-to-buy.
+    useEffect(() => {
+        if (!lastSettlement) return;
+        const t = setTimeout(() => setLastSettlement(null), 6000);
+        return () => clearTimeout(t);
+    }, [lastSettlement]);
 
     // ── Build current config & start / patch engine ──────────────────────────
     const buildConfig = useCallback((): DTConfig => {
@@ -347,6 +369,23 @@ const DTraderPage = observer(() => {
     const handleBuy   = () => engine.buy();
     const handleSell  = (contractId: string) => engine.sellContract(contractId);
     const handleClear = () => { setLogs([]); setPositions(prev => prev.filter(p => p.isOpen)); };
+
+    /**
+     * Tap-to-buy for digit contracts. Switches contract type AND fires the
+     * trade in one shot — the user clicks "Even" and we buy Even. For
+     * Over/Under and Matches/Differs, the prediction digit is already part
+     * of buildConfig so the engine sends e.g. `{contract_type: DIGITOVER,
+     * barrier: '7'}` automatically.
+     */
+    const handleDirectionBuy = (type: DTContractType) => {
+        setContractType(type);
+        // Clear the previous contract's settlement badge — fresh slate.
+        setLastSettlement(null);
+        // Engine receives the new type + all current inputs (stake, barrier,
+        // etc.) and arms the auto-buy on the next fresh proposal.
+        const cfg = { ...buildConfig(), contractType: type };
+        engine.placeBuyNow(cfg);
+    };
 
     // ── Totals ───────────────────────────────────────────────────────────────
     const totals = useMemo(() => {
@@ -420,16 +459,35 @@ const DTraderPage = observer(() => {
                         <span className='dtp__digits-sub'>over last {digitTotal || 0} ticks</span>
                     </div>
                     <div className='dtp__digits-grid'>
-                        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => (
-                            <div
-                                key={d}
-                                className={`dtp__digit-cell dtp__digit-cell--${digitShades[d]} ${lastDigit === d ? 'dtp__digit-cell--current' : ''}`}
-                                title={`${digitCounts[d]} of ${digitTotal} ticks ended in ${d}`}
-                            >
-                                <span className='dtp__digit-num'>{d}</span>
-                                <span className='dtp__digit-pct'>{digitPercent(d).toFixed(1)}%</span>
-                            </div>
-                        ))}
+                        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => {
+                            const isSettleDigit = lastSettlement?.digit === d;
+                            return (
+                                <div
+                                    key={d}
+                                    className={`dtp__digit-cell dtp__digit-cell--${digitShades[d]} ${lastDigit === d ? 'dtp__digit-cell--current' : ''}`}
+                                    title={`${digitCounts[d]} of ${digitTotal} ticks ended in ${d}`}
+                                >
+                                    <span className='dtp__digit-num'>{d}</span>
+                                    <span className='dtp__digit-pct'>{digitPercent(d).toFixed(1)}%</span>
+                                    {isSettleDigit && (
+                                        <span className={`dtp__digit-result dtp__digit-result--${lastSettlement!.isWin ? 'win' : 'loss'}`}>
+                                            {lastSettlement!.isWin ? '✅ Won' : '❌ Lost'}
+                                        </span>
+                                    )}
+                                </div>
+                            );
+                        })}
+                        {/* Live last-digit cursor — small red dot that hops
+                            from circle to circle as new ticks arrive. */}
+                        {lastDigit !== null && (
+                            <span
+                                className='dtp__digit-cursor'
+                                style={{
+                                    ['--col' as any]: lastDigit % 5,
+                                    ['--row' as any]: Math.floor(lastDigit / 5),
+                                }}
+                            />
+                        )}
                     </div>
                     <div className='dtp__digits-legend'>
                         <span><span className='dtp__legend-dot dtp__legend-dot--best'/>most</span>
@@ -459,18 +517,32 @@ const DTraderPage = observer(() => {
                         </select>
                     </div>
 
-                    {/* Direction toggle (single-option for ACCU is rendered as a static badge) */}
+                    {/* Direction toggle. For digit contracts (Over/Under,
+                        Matches/Differs, Even/Odd), each direction button is a
+                        one-tap BUY — there's no separate BUY button below.
+                        For binary contracts, it's a normal toggle that just
+                        sets contract type, with BUY at the bottom. */}
                     {category.options.length > 1 ? (
                         <div className='dtp__dir-row'>
-                            {category.options.map(opt => (
-                                <button
-                                    key={opt.type}
-                                    className={`dtp__dir dtp__dir--${isUpType(opt.type) ? 'up' : 'down'} ${contractType === opt.type ? 'dtp__dir--active' : ''}`}
-                                    onClick={() => setContractType(opt.type)}
-                                >
-                                    {opt.label}
-                                </button>
-                            ))}
+                            {category.options.map(opt => {
+                                const tapBuy = showsDigitCard;
+                                const disabled = tapBuy && (status !== 'ready' || !isLoggedIn);
+                                return (
+                                    <button
+                                        key={opt.type}
+                                        className={`dtp__dir dtp__dir--${isUpType(opt.type) ? 'up' : 'down'} ${!tapBuy && contractType === opt.type ? 'dtp__dir--active' : ''} ${tapBuy ? 'dtp__dir--tap-buy' : ''}`}
+                                        onClick={() => tapBuy ? handleDirectionBuy(opt.type) : setContractType(opt.type)}
+                                        disabled={disabled}
+                                    >
+                                        <span className='dtp__dir-label'>{opt.label}</span>
+                                        {tapBuy && (
+                                            <span className='dtp__dir-stake'>
+                                                ${stake.toFixed(2)}
+                                            </span>
+                                        )}
+                                    </button>
+                                );
+                            })}
                         </div>
                     ) : (
                         <div className='dtp__dir-row'>
@@ -677,15 +749,25 @@ const DTraderPage = observer(() => {
                         </div>
                     )}
 
-                    <button
-                        className='dtp__buy-btn'
-                        onClick={handleBuy}
-                        disabled={!proposal || status !== 'ready'}
-                    >
-                        {status === 'subscribing' && !proposal
-                            ? 'Loading proposal…'
-                            : `BUY  ${proposal ? `$${proposal.askPrice.toFixed(2)}` : ''}`}
-                    </button>
+                    {/* For digit contracts, BUY is replaced by the tap-to-buy
+                        Even/Odd/Over/Under/Matches/Differs buttons above —
+                        no extra BUY button needed. */}
+                    {!showsDigitCard && (
+                        <button
+                            className='dtp__buy-btn'
+                            onClick={handleBuy}
+                            disabled={!proposal || status !== 'ready'}
+                        >
+                            {status === 'subscribing' && !proposal
+                                ? 'Loading proposal…'
+                                : `BUY  ${proposal ? `$${proposal.askPrice.toFixed(2)}` : ''}`}
+                        </button>
+                    )}
+                    {showsDigitCard && (
+                        <div className='dtp__tap-hint'>
+                            Tap a direction button above to buy instantly
+                        </div>
+                    )}
                     {status === 'error' && (
                         <div className='dtp__ticket-err'>Engine error — see log</div>
                     )}
@@ -839,6 +921,20 @@ function isUpType(t: DTContractType): boolean {
 // Contracts the user can close early (everything else settles automatically)
 function canSellType(t: DTContractType): boolean {
     return t === 'ACCU' || t === 'MULTUP' || t === 'MULTDOWN';
+}
+
+// Digit-based contracts — drive the analyzer card + tap-to-buy direction row
+function isDigitContract(t: DTContractType): boolean {
+    return t === 'DIGITMATCH' || t === 'DIGITDIFF'
+        || t === 'DIGITOVER'  || t === 'DIGITUNDER'
+        || t === 'DIGITEVEN'  || t === 'DIGITODD';
+}
+
+// Pull the last digit out of an exit-spot display string (e.g. "1379.55" → 5)
+function parseLastDigitFromSpot(spot: string | null | undefined): number | null {
+    if (!spot) return null;
+    const m = String(spot).match(/(\d)\D*$/);
+    return m ? parseInt(m[1], 10) : null;
 }
 
 DTraderPage.displayName = 'DTraderPage';

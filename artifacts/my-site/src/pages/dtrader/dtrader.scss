@@ -210,11 +210,16 @@
     }
     // Two-row, five-column grid → top row 0-4, bottom row 5-9
     &__digits-grid {
+        position: relative;
         display: grid;
         grid-template-columns: repeat(5, 1fr);
         gap: 8px;
+        // Tiny breathing room so the moving cursor for row 0 doesn't clip
+        // outside the analyzer card on smaller phones.
+        padding-top: 4px;
     }
     &__digit-cell {
+        position: relative; // anchors the win/loss badge overlay
         display: flex; flex-direction: column; align-items: center; justify-content: center;
         aspect-ratio: 1 / 1;
         border-radius: 50%;
@@ -238,6 +243,73 @@
         box-shadow: 0 0 0 2px rgba(17, 24, 39, 0.15);
         transform: scale(1.05);
     }
+
+    // Live last-digit cursor — small red dot that slides from circle to
+    // circle as new ticks arrive. Uses pure-CSS positioning driven by --col
+    // and --row variables set in JS, with smooth transition between hops.
+    //
+    //   cell width  = (100% - 4*8px) / 5 = 20% - 6.4px
+    //   x_center(c) = c*(cellW + 8px) + cellW/2 = c*(20% + 1.6px) + 10% - 3.2px
+    //   y_top(r)    = r*(cellH + 8px); container height = 2*cellH + 8px
+    //                so y_top(r) = r*(50% + 4px)
+    &__digit-cursor {
+        position: absolute;
+        pointer-events: none;
+        z-index: 3;
+        width: 14px; height: 14px;
+        border-radius: 50%;
+        background: #ef4444;
+        border: 2px solid #fff;
+        box-shadow: 0 2px 6px rgba(239, 68, 68, 0.55);
+        left: calc(var(--col) * (20% + 1.6px) + 10% - 3.2px);
+        top:  calc(var(--row) * (50% + 4px) - 4px + 4px); // +4px = grid padding-top
+        transform: translate(-50%, 0);
+        transition: left 220ms cubic-bezier(0.4, 0, 0.2, 1),
+                    top  220ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    // Win / Loss result badge that overlays the exit-tick's digit circle
+    // for ~6 seconds after each digit-contract settles.
+    &__digit-result {
+        position: absolute;
+        bottom: -6px; left: 50%;
+        transform: translateX(-50%);
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 0.65rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        white-space: nowrap;
+        z-index: 4;
+        animation: dtpResultIn 240ms cubic-bezier(0.34, 1.56, 0.64, 1);
+        &--win  { background: #10b981; color: #fff; box-shadow: 0 2px 6px rgba(16, 185, 129, 0.45); }
+        &--loss { background: #ef4444; color: #fff; box-shadow: 0 2px 6px rgba(239, 68, 68, 0.45); }
+    }
+    @keyframes dtpResultIn {
+        from { opacity: 0; transform: translate(-50%, -4px) scale(0.8); }
+        to   { opacity: 1; transform: translate(-50%, 0)    scale(1);   }
+    }
+
+    // Hint shown under the ticket when in tap-to-buy (digit) mode in place
+    // of the regular BUY button.
+    &__tap-hint {
+        margin-top: 8px; padding: 8px 10px;
+        background: #f3f4f6; border: 1px dashed #d1d5db; border-radius: 6px;
+        font-size: 0.75rem; color: #6b7280; text-align: center;
+    }
+
+    // Tap-to-buy direction buttons (digit contracts) — show stake below
+    // the label and a subtle pulse to invite tapping.
+    &__dir--tap-buy {
+        flex-direction: column;
+        gap: 2px;
+        padding-top: 10px; padding-bottom: 10px;
+        cursor: pointer;
+        &:disabled { opacity: 0.5; cursor: not-allowed; }
+    }
+    &__dir-label { font-size: 0.95rem; font-weight: 700; }
+    &__dir-stake { font-size: 0.75rem; font-weight: 600; opacity: 0.85; }
 
     &__digits-legend {
         display: flex; flex-wrap: wrap; gap: 10px;

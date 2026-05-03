@@ -129,6 +129,10 @@ export class DTraderEngine {
 
     // Buy in-flight guard
     private buyInflight = false;
+    /** When true, the next live proposal will trigger an automatic buy and
+     *  this flag clears. Used by placeBuyNow() so a single button tap can
+     *  set the contract type AND fire the trade with one fresh proposal. */
+    private pendingBuy = false;
 
     // Rolling last-digit window for the digit-frequency analyzer
     private readonly DIGIT_WINDOW = 1000;
@@ -180,6 +184,7 @@ export class DTraderEngine {
         this.msgSub = null;
         this.myReqIds.clear();
         this.buyInflight = false;
+        this.pendingBuy = false;
         this.currentProposal = null;
         this.setStatus('idle');
     }
@@ -196,7 +201,38 @@ export class DTraderEngine {
             this.resetDigitWindow();
             this.subscribeTick();
         }
+        // Skip the debounced refresh if a buy is armed — placeBuyNow() already
+        // kicked off an immediate refresh that will trigger the trade. Hitting
+        // scheduleProposal here would create a second redundant subscription.
+        if (this.pendingBuy) return;
         this.scheduleProposal();
+    }
+
+    /**
+     * Apply a config patch AND auto-buy as soon as the resulting fresh
+     * proposal arrives. Used by the digit-contract tap-to-buy flow where a
+     * single click on "Even" / "Over" / etc. should change the contract
+     * type and place the trade in one shot.
+     */
+    placeBuyNow(patch: Partial<DTConfig>): void {
+        if (!this.cfg) {
+            this.emitBuyError('Engine not started — try refreshing the page');
+            return;
+        }
+        if (!api_base.is_authorized) {
+            this.emitBuyError('Not logged in to Deriv — log in first to place trades');
+            return;
+        }
+        if (this.buyInflight) {
+            this.emitBuyError('A buy is already being placed…');
+            return;
+        }
+        this.cfg = { ...this.cfg, ...patch };
+        this.pendingBuy = true;
+        // Cancel any debounced refresh and fire an immediate one — the user
+        // tapped a buy button, they want it to feel snappy.
+        if (this.proposalDebounce) { clearTimeout(this.proposalDebounce); this.proposalDebounce = null; }
+        this.refreshProposal();
     }
 
     // ── Buy ───────────────────────────────────────────────────────────────────
@@ -349,9 +385,16 @@ export class DTraderEngine {
             if (msg.msg_type === 'proposal') {
                 this.currentProposal = null;
                 this.onProposal(null);
+                // If we were waiting to auto-buy, surface the error now —
+                // otherwise the user wonders why their tap did nothing.
+                if (this.pendingBuy) {
+                    this.pendingBuy = false;
+                    this.emitBuyError(`Couldn't price your trade: ${m}`);
+                }
             }
             if (msg.msg_type === 'buy') {
                 this.buyInflight = false;
+                this.pendingBuy = false;
                 this.emitBuyError(m);
                 // Likely a stale proposal id — refresh immediately so the next
                 // tap has a fresh price ready.
@@ -433,6 +476,13 @@ export class DTraderEngine {
         // latest id, never one that React state hasn't caught up to.
         this.currentProposal = proposal;
         this.onProposal(proposal);
+
+        // Tap-to-buy completion path: if a buy was armed via placeBuyNow(),
+        // fire it as soon as the fresh proposal lands.
+        if (this.pendingBuy && !this.buyInflight) {
+            this.pendingBuy = false;
+            this.buy();
+        }
     }
 
     private handleSellAck(sell: any): void {
