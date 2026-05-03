@@ -78,24 +78,6 @@ const AppWrapper = observer(() => {
     // their stats and TP/SL alerts mirror into the V2 panel when V2 mode is on.
     useEffect(() => { initCustomBotV2Bridge(); }, []);
 
-    // One-time migration: force V1 as the default engine for beginners.
-    // Anyone who had V2 saved from before this change gets reset back to V1
-    // (they can still switch to V2 manually). The flag below ensures we only
-    // reset once per browser so we don't fight a deliberate user choice.
-    useEffect(() => {
-        try {
-            const RESET_FLAG = 'free_bots_engine_v1_default_applied';
-            if (!localStorage.getItem(RESET_FLAG)) {
-                localStorage.setItem('free_bots_engine_mode', 'v1');
-                localStorage.setItem(RESET_FLAG, '1');
-                window.dispatchEvent(new StorageEvent('storage', {
-                    key:      'free_bots_engine_mode',
-                    newValue: 'v1',
-                }));
-            }
-        } catch { /* ignore */ }
-    }, []);
-
     let tab_value: number | string = active_tab;
     const GetHashedValue = (tab: number) => {
         tab_value = location.hash?.split('#')[1];
