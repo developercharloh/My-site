@@ -144,6 +144,23 @@
         border-radius: 4px; font-size: 0.78rem; text-align: center;
     }
 
+    // ── Buy feedback toast (above the BUY button) ────────────────────────
+    &__buy-feedback {
+        display: flex; align-items: flex-start; gap: 8px;
+        padding: 10px 12px; border-radius: 6px;
+        font-size: 0.85rem; font-weight: 600; line-height: 1.3;
+        cursor: pointer; animation: dtpFeedbackIn 220ms ease-out;
+        &--success { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+        &--error   { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    }
+    &__buy-feedback-icon { font-size: 1.05rem; flex-shrink: 0; }
+    &__buy-feedback-msg  { word-break: break-word; }
+
+    @keyframes dtpFeedbackIn {
+        from { opacity: 0; transform: translateY(-4px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+
     // ── Lower (positions + log) ──────────────────────────────────────────
     &__lower {
         display: grid; grid-template-columns: 1fr 1fr; gap: 12px;

@@ -35,6 +35,12 @@ export type DTStatus = 'idle' | 'subscribing' | 'ready' | 'error';
 export type DTLogType = 'info' | 'win' | 'loss' | 'error' | 'system';
 export interface DTLog { seq: number; time: string; message: string; type: DTLogType; }
 
+export interface DTBuyFeedback {
+    seq:     number;       // monotonic — used by UI to detect new feedback
+    kind:    'success' | 'error';
+    message: string;
+}
+
 export interface DTProposal {
     id:         string;     // proposal id (use this to buy)
     askPrice:   number;     // price the buy will cost
@@ -82,6 +88,7 @@ export class DTraderEngine {
     public onPosition: (p: DTPosition)                => void = () => {};
     public onStatus:   (s: DTStatus)                  => void = () => {};
     public onLog:      (l: DTLog)                     => void = () => {};
+    public onBuyFeedback: (f: DTBuyFeedback)          => void = () => {};
 
     // ── State ─────────────────────────────────────────────────────────────────
     private cfg: DTConfig | null = null;
@@ -106,7 +113,13 @@ export class DTraderEngine {
     // Buy in-flight guard
     private buyInflight = false;
 
-    private logSeq = 0;
+    // Engine-owned latest proposal — single source of truth for buy.
+    // React state can lag a render behind, which would send a stale id
+    // that Deriv has already invalidated. Always buy from this instead.
+    private currentProposal: DTProposal | null = null;
+
+    private logSeq      = 0;
+    private feedbackSeq = 0;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -138,6 +151,7 @@ export class DTraderEngine {
         this.msgSub = null;
         this.myReqIds.clear();
         this.buyInflight = false;
+        this.currentProposal = null;
         this.setStatus('idle');
     }
 
@@ -157,17 +171,36 @@ export class DTraderEngine {
 
     // ── Buy ───────────────────────────────────────────────────────────────────
 
-    buy(currentProposal: DTProposal | null): void {
-        if (!this.cfg) { this.log('Engine not started', 'error'); return; }
-        if (!currentProposal) { this.log('No live proposal yet — wait a moment and try again', 'error'); return; }
-        if (this.buyInflight) { this.log('Buy already in flight…', 'system'); return; }
+    /**
+     * Place a buy using the latest proposal pushed by the server (engine-owned,
+     * never stale). Returns nothing — feedback is delivered via onBuyFeedback
+     * and onLog so the UI can surface it prominently.
+     */
+    buy(): void {
+        if (!this.cfg) {
+            this.fail('Engine not started — try refreshing the page', false);
+            return;
+        }
+        if (!api_base.is_authorized) {
+            this.emitBuyError('Not logged in to Deriv — log in first to place trades');
+            return;
+        }
+        if (!this.currentProposal) {
+            this.emitBuyError('No live price yet — wait a moment and tap BUY again');
+            return;
+        }
+        if (this.buyInflight) {
+            this.emitBuyError('A buy is already being placed…');
+            return;
+        }
 
+        const p = this.currentProposal;
         this.buyInflight = true;
         this.log(
-            `▶︎ Buying ${this.formatContractLabel()} on ${this.cfg.symbol}  stake $${this.cfg.stake.toFixed(2)}`,
+            `▶︎ Buying ${this.formatContractLabel()} on ${this.cfg.symbol}  stake $${this.cfg.stake.toFixed(2)}  (proposal ${p.id.slice(0, 8)}…)`,
             'info'
         );
-        this.send({ buy: currentProposal.id, price: currentProposal.askPrice });
+        this.send({ buy: p.id, price: p.askPrice });
     }
 
     // ── Internal: subscriptions ───────────────────────────────────────────────
@@ -186,6 +219,7 @@ export class DTraderEngine {
         if (!this.cfg) return;
         // Forget previous proposal sub, then ask for a fresh subscribed one.
         if (this.proposalSubId) { this.rawSend({ forget: this.proposalSubId }); this.proposalSubId = null; }
+        this.currentProposal = null;
         this.onProposal(null); // clear UI while loading
 
         const payload: Record<string, unknown> = {
@@ -223,8 +257,17 @@ export class DTraderEngine {
         if (msg.error) {
             const m = msg.error.message ?? 'Unknown error';
             this.log(`API error [${msg.msg_type}]: ${m}`, 'error');
-            if (msg.msg_type === 'proposal') this.onProposal(null);
-            if (msg.msg_type === 'buy')      this.buyInflight = false;
+            if (msg.msg_type === 'proposal') {
+                this.currentProposal = null;
+                this.onProposal(null);
+            }
+            if (msg.msg_type === 'buy') {
+                this.buyInflight = false;
+                this.emitBuyError(m);
+                // Likely a stale proposal id — refresh immediately so the next
+                // tap has a fresh price ready.
+                if (/proposal|invalid|expired/i.test(m)) this.refreshProposal();
+            }
             return;
         }
 
@@ -259,7 +302,7 @@ export class DTraderEngine {
         const askPrice = parseFloat(p.ask_price ?? '0');
         const payout   = parseFloat(p.payout    ?? '0');
         const profit   = payout - askPrice;
-        this.onProposal({
+        const proposal: DTProposal = {
             id:        p.id,
             askPrice,
             payout,
@@ -267,19 +310,25 @@ export class DTraderEngine {
             profitPct: askPrice > 0 ? (profit / askPrice) * 100 : 0,
             longcode:  p.longcode ?? '',
             spot:      String(p.spot ?? ''),
-        });
+        };
+        // Engine-owned source of truth — used by buy() so we always send the
+        // latest id, never one that React state hasn't caught up to.
+        this.currentProposal = proposal;
+        this.onProposal(proposal);
     }
 
     private handleBuyAck(buy: any): void {
         this.buyInflight = false;
         if (!buy?.contract_id) {
             this.log('Buy ack missing contract_id', 'error');
+            this.emitBuyError('Buy failed — no contract returned');
             return;
         }
         const contractId = String(buy.contract_id);
         const buyPrice   = parseFloat(buy.buy_price ?? '0');
         const payout     = parseFloat(buy.payout    ?? '0');
         const stake      = this.cfg?.stake ?? buyPrice;
+        this.emitBuySuccess(`Bought #${contractId}  $${buyPrice.toFixed(2)} → payout $${payout.toFixed(2)}`);
 
         const pos: DTPosition = {
             contractId,
@@ -370,9 +419,18 @@ export class DTraderEngine {
         this.onStatus(s);
     }
 
-    private fail(msg: string): void {
+    private fail(msg: string, hardFail = true): void {
         this.log(msg, 'error');
-        this.setStatus('error');
+        if (hardFail) this.setStatus('error');
+    }
+
+    private emitBuyError(message: string): void {
+        this.log(message, 'error');
+        this.onBuyFeedback({ seq: ++this.feedbackSeq, kind: 'error', message });
+    }
+
+    private emitBuySuccess(message: string): void {
+        this.onBuyFeedback({ seq: ++this.feedbackSeq, kind: 'success', message });
     }
 
     private log(message: string, type: DTLogType = 'info'): void {

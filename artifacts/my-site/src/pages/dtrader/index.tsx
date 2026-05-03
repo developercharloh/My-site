@@ -3,6 +3,7 @@ import { observer } from 'mobx-react-lite';
 import { api_base } from '@/external/bot-skeleton/services/api/api-base';
 import {
     DTraderEngine,
+    type DTBuyFeedback,
     type DTConfig,
     type DTContractType,
     type DTDurationUnit,
@@ -113,6 +114,7 @@ const DTraderPage = observer(() => {
     const [proposal,  setProposal]  = useState<DTProposal | null>(null);
     const [logs,      setLogs]      = useState<DTLog[]>([]);
     const [positions, setPositions] = useState<DTPosition[]>([]);
+    const [feedback,  setFeedback]  = useState<DTBuyFeedback | null>(null);
 
     const category = useMemo(() => CATEGORIES.find(c => c.key === categoryKey)!, [categoryKey]);
 
@@ -132,9 +134,18 @@ const DTraderPage = observer(() => {
             copy[idx] = p;
             return copy;
         });
+        engine.onBuyFeedback = f => setFeedback(f);
 
         return () => { engine.stop(); };
     }, [engine]);
+
+    // Auto-dismiss feedback after a few seconds (success faster than error)
+    useEffect(() => {
+        if (!feedback) return;
+        const ms = feedback.kind === 'success' ? 3500 : 5500;
+        const t = setTimeout(() => setFeedback(null), ms);
+        return () => clearTimeout(t);
+    }, [feedback]);
 
     // ── Build current config & start / patch engine ──────────────────────────
     const buildConfig = useCallback((): DTConfig => {
@@ -181,7 +192,7 @@ const DTraderPage = observer(() => {
         if (def.needsBarrier && def.barrierDefault) setBarrierOffset(def.barrierDefault);
     };
 
-    const handleBuy = () => engine.buy(proposal);
+    const handleBuy = () => engine.buy();
 
     const handleClear = () => { setLogs([]); setPositions(prev => prev.filter(p => p.isOpen)); };
 
@@ -372,6 +383,22 @@ const DTraderPage = observer(() => {
                     {proposal?.longcode && (
                         <div className='dtp__ticket-longcode'>{proposal.longcode}</div>
                     )}
+
+                    {/* Prominent buy feedback — sits right above BUY so it's
+                        impossible to miss on mobile, even with the log offscreen */}
+                    {feedback && (
+                        <div
+                            key={feedback.seq}
+                            className={`dtp__buy-feedback dtp__buy-feedback--${feedback.kind}`}
+                            onClick={() => setFeedback(null)}
+                        >
+                            <span className='dtp__buy-feedback-icon'>
+                                {feedback.kind === 'success' ? '✅' : '⚠️'}
+                            </span>
+                            <span className='dtp__buy-feedback-msg'>{feedback.message}</span>
+                        </div>
+                    )}
+
                     <button
                         className='dtp__buy-btn'
                         onClick={handleBuy}
