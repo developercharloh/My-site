@@ -6,42 +6,143 @@
         <link rel="shortcut icon" href="/logo.png" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
-        <!-- Preconnect to Deriv WebSocket + auth/CDN hosts so the TCP/TLS
-             handshake starts in parallel with JS download. Cuts first-trade
-             latency by 200-400ms on cold loads. -->
+        <!-- ══ PRIMARY SEO ══════════════════════════════════════════════════ -->
+        <title>Mr CharlohFX | Automated Trading Platform — mrcharlohfx.site</title>
+        <meta name="title" content="Mr CharlohFX | Automated Trading Platform — mrcharlohfx.site" />
+        <meta
+            name="description"
+            content="Mr CharlohFX — The #1 automated Deriv trading platform. Build, run and optimise trading bots on Volatility indices without writing a single line of code. Visit mrcharlohfx.site."
+        />
+        <meta
+            name="keywords"
+            content="Mr CharlohFX, MrCharlohFX, Mr Charloh FX, mrcharlohfx.site, Deriv bot, automated trading bot, Deriv trading platform, volatility index bot, trading automation, no-code trading bot, Deriv volatility indices, trading signals, speed bots, quick strategy"
+        />
+        <meta name="author" content="Mr CharlohFX" />
+        <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+        <meta name="googlebot" content="index, follow" />
+        <link rel="canonical" href="https://mrcharlohfx.site/" />
+
+        <!-- ══ OPEN GRAPH (Facebook / WhatsApp / LinkedIn) ════════════════ -->
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Mr CharlohFX" />
+        <meta property="og:url" content="https://mrcharlohfx.site/" />
+        <meta property="og:title" content="Mr CharlohFX | Automated Trading Platform" />
+        <meta
+            property="og:description"
+            content="Build and run automated Deriv trading bots — no coding needed. Speed bots, quick strategies, real-time charts and more. Powered by Mr CharlohFX."
+        />
+        <meta property="og:image" content="https://mrcharlohfx.site/logo.png" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content="Mr CharlohFX Trading Platform" />
+        <meta property="og:locale" content="en_US" />
+
+        <!-- ══ TWITTER / X CARD ════════════════════════════════════════════ -->
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:site" content="@MrCharlohFX" />
+        <meta name="twitter:creator" content="@MrCharlohFX" />
+        <meta name="twitter:title" content="Mr CharlohFX | Automated Trading Platform" />
+        <meta
+            name="twitter:description"
+            content="Build and run automated Deriv trading bots — no coding needed. Speed bots, quick strategies, real-time charts and more."
+        />
+        <meta name="twitter:image" content="https://mrcharlohfx.site/logo.png" />
+        <meta name="twitter:image:alt" content="Mr CharlohFX Trading Platform" />
+
+        <!-- ══ STRUCTURED DATA (JSON-LD) ══════════════════════════════════ -->
+        <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@graph": [
+                {
+                    "@type": "WebSite",
+                    "@id": "https://mrcharlohfx.site/#website",
+                    "url": "https://mrcharlohfx.site/",
+                    "name": "Mr CharlohFX",
+                    "alternateName": ["MrCharlohFX", "Mr Charloh FX", "Charloh FX"],
+                    "description": "Automated Deriv trading platform — build, run and optimise trading bots on Volatility indices without coding.",
+                    "inLanguage": "en-US",
+                    "potentialAction": {
+                        "@type": "SearchAction",
+                        "target": "https://mrcharlohfx.site/?q={search_term_string}",
+                        "query-input": "required name=search_term_string"
+                    }
+                },
+                {
+                    "@type": "Organization",
+                    "@id": "https://mrcharlohfx.site/#organization",
+                    "name": "Mr CharlohFX",
+                    "alternateName": ["MrCharlohFX", "Mr Charloh FX"],
+                    "url": "https://mrcharlohfx.site/",
+                    "logo": {
+                        "@type": "ImageObject",
+                        "url": "https://mrcharlohfx.site/logo.png",
+                        "width": 512,
+                        "height": 512
+                    },
+                    "description": "Mr CharlohFX is an automated trading platform for Deriv volatility indices — empowering traders with no-code bots, speed strategies and real-time analytics.",
+                    "sameAs": [
+                        "https://mrcharlohfx.site",
+                        "https://my-deriv-bot.vercel.app"
+                    ]
+                },
+                {
+                    "@type": "SoftwareApplication",
+                    "@id": "https://mrcharlohfx.site/#app",
+                    "name": "Mr CharlohFX Trading Platform",
+                    "alternateName": "MrCharlohFX",
+                    "applicationCategory": "FinanceApplication",
+                    "operatingSystem": "Any",
+                    "url": "https://mrcharlohfx.site/",
+                    "author": {
+                        "@id": "https://mrcharlohfx.site/#organization"
+                    },
+                    "description": "Automated Deriv trading bot platform. Create strategies, run speed bots, view real-time volatility index charts — all without coding.",
+                    "featureList": [
+                        "No-code bot builder",
+                        "Speed bots for Volatility indices",
+                        "Real-time charts",
+                        "Quick strategies",
+                        "Live trade monitoring",
+                        "Free ready-made bots"
+                    ],
+                    "offers": {
+                        "@type": "Offer",
+                        "price": "0",
+                        "priceCurrency": "USD"
+                    },
+                    "screenshot": "https://mrcharlohfx.site/logo.png"
+                }
+            ]
+        }
+        </script>
+
+        <!-- ══ PRECONNECT ══════════════════════════════════════════════════ -->
         <link rel="preconnect" href="https://ws.derivws.com" crossorigin />
         <link rel="preconnect" href="https://api.deriv.com" crossorigin />
         <link rel="preconnect" href="https://oauth.deriv.com" crossorigin />
         <link rel="dns-prefetch" href="https://ws.derivws.com" />
         <link rel="dns-prefetch" href="https://s.tradingview.com" />
 
-        <!-- PWA Manifest -->
+        <!-- ══ PWA ══════════════════════════════════════════════════════════ -->
         <link rel="manifest" href="/manifest.json" />
-
-        <!-- PWA Meta Tags -->
-        <meta name="theme-color" content="#ff444f" />
+        <meta name="theme-color" content="#d4af37" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="Deriv Bot" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Mr CharlohFX" />
         <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="msapplication-TileColor" content="#ff444f" />
+        <meta name="msapplication-TileColor" content="#0d0d0d" />
+        <meta name="msapplication-TileImage" content="/logo.png" />
         <meta name="msapplication-tap-highlight" content="no" />
+        <meta name="application-name" content="Mr CharlohFX" />
 
-        <!-- Apple Touch Icons -->
+        <!-- ══ APPLE TOUCH ICONS ═══════════════════════════════════════════ -->
         <link rel="apple-touch-icon" href="/logo.png" />
         <link rel="apple-touch-icon" sizes="152x152" href="/logo.png" />
         <link rel="apple-touch-icon" sizes="180x180" href="/logo.png" />
-        <meta name="title" content="Build a trading bot without coding | Deriv Bot." />
-        <meta
-            name="description"
-            content="Import your current bot or learn how to create a trading bot from scratch with our detailed guides, FAQs, and tutorials. Start with a quick strategy!"
-        />
-        <meta property="og:title" content="Deriv Bot" />
-        <meta
-            property="og:description"
-            content="Import your current bot or learn how to create a trading bot from scratch with our detailed guides, FAQs, and tutorials. Start with a quick strategy!"
-        />
-        <title>Build a trading bot without coding | Deriv Bot.</title>
+
+        <!-- ══ GOOGLE SITE VERIFICATION ═══════════════════════════════════ -->
+        <meta name="google" content="notranslate" />
         <style>
             :root { font-size: 62.5%; }
 
