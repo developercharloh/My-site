@@ -16,8 +16,8 @@ interface Step {
 const STEPS: Step[] = [
     {
         emoji: '👋',
-        title: 'Welcome to Deriv Bot',
-        body:  "Automated trading made simple. Let's take 20 seconds to show you around.",
+        title: 'Welcome to Mr CharlohFX',
+        body:  "Automated trading made simple. Let's take a few seconds to show you around.",
     },
     {
         emoji: '⚡',
