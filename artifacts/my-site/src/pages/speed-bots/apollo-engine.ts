@@ -331,7 +331,7 @@ class ApolloEngine {
             return;
         }
         if (!api_base.is_authorized) {
-            this.addJournal('Not authorized. Please log in to your Deriv account.', 'error');
+            this.addJournal('Not authorized. Please log in to your account.', 'error');
             return;
         }
         this.is_running = true;
