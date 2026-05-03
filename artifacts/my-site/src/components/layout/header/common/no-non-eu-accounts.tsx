@@ -26,7 +26,7 @@ const NoNonEuAccounts = ({ isVirtual, tabs_labels, is_low_risk_country, residenc
     return (
         <UIAccountSwitcher.AccountsPanel
             isOpen
-            title={localize('Non-Eu Deriv account')}
+            title={localize('Non-Eu account')}
             className='account-switcher-panel'
             key={!isVirtual ? tabs_labels?.demo?.toLowerCase() : tabs_labels?.real?.toLowerCase()}
         >
