@@ -173,13 +173,19 @@
     top: 0;
 }
 
-/* ── Chart wrapper: Charts / TradingView toggle ── */
+/* ── Chart wrapper: SmartCharts / Candlestick toggle ── */
 .chart-wrapper {
     display: flex;
     flex-direction: column;
     width: 100%;
-    height: 100%;
+    // Use the same height var that dashboard__chart-wrapper uses, so the
+    // wrapper itself is constrained and flex children can expand properly.
+    height: var(--tab-content-height);
     min-height: 0;
+
+    @media (max-width: 1024px) {
+        height: var(--tab-content-height-mobile);
+    }
 
     &__toggle {
         display: flex;
@@ -223,107 +229,22 @@
         user-select: none;
     }
 
-    &__tradingview {
+    // Candlestick chart pane — fills all remaining height after the toggle bar
+    &__candle {
         flex: 1;
         min-height: 0;
+        width: 100%;
+        overflow: hidden;
         display: flex;
         flex-direction: column;
-        width: 100%;
-        background: #0f172a;
-    }
-}
-
-/* ── TradingView panel (Deriv-hosted iframe) ── */
-.tv-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.6rem;
-    padding: 0.45rem 0.75rem;
-    background: #111827;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
-    flex-shrink: 0;
-    flex-wrap: wrap;
-
-    &__title {
-        font-size: 0.85rem;
-        font-weight: 800;
-        color: #f1f5f9;
-        letter-spacing: 0.01em;
-        white-space: nowrap;
-
-        span { margin-right: 0.3rem; }
     }
 
-    &__sym-wrap {
-        position: relative;
+    &__candle-loading {
         display: flex;
         align-items: center;
-    }
-
-    &__sym-select {
-        appearance: none;
-        -webkit-appearance: none;
-        background: rgba(255, 255, 255, 0.08);
-        border: 1px solid rgba(99, 102, 241, 0.50);
-        color: #f1f5f9;
-        font-size: 0.80rem;
-        font-weight: 700;
-        padding: 0.35rem 1.8rem 0.35rem 0.65rem;
-        border-radius: 0.45rem;
-        cursor: pointer;
-        outline: none;
-        transition: border-color 0.15s, background 0.15s;
-
-        &:focus, &:hover {
-            border-color: #6366f1;
-            background: rgba(99, 102, 241, 0.18);
-        }
-
-        option, optgroup {
-            background: #1e293b;
-            color: #f1f5f9;
-        }
-    }
-
-    &__sym-chev {
-        position: absolute;
-        right: 0.5rem;
-        pointer-events: none;
-        color: #a5b4fc;
-        font-size: 0.8rem;
-    }
-}
-
-@media (max-width: 540px) {
-    .tv-bar {
-        &__sym-select { font-size: 0.72rem; padding: 0.28rem 1.5rem 0.28rem 0.5rem; }
-    }
-}
-
-.tv-frame {
-    flex: 1;
-    min-height: 0;
-    width: 100%;
-    position: relative;
-    background: #0f172a;
-}
-
-.tv-iframe {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    border: 0;
-    display: block;
-    background: #0f172a;
-}
-
-@media (max-width: 540px) {
-    .tv-bar {
-        padding: 0.35rem 0.55rem;
-
-        &__title { font-size: 0.75rem; }
-        &__btn   { font-size: 0.68rem; padding: 0.3rem 0.55rem; }
+        justify-content: center;
+        height: 100%;
+        color: #64748b;
+        font-size: 0.9rem;
     }
 }
