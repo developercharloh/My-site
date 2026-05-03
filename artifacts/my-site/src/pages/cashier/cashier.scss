@@ -1,0 +1,178 @@
+// ─── Cashier ─────────────────────────────────────────────────────────────────
+// Five large action cards (Deposit / Withdraw / Transfer / Agents / Statement)
+// that open the official Deriv cashier in a new tab.
+
+.cashier {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 18px 16px 24px;
+    color: #0f172a;
+    background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+    border-radius: 14px;
+
+    @media (max-width: 720px) {
+        padding: 12px 10px 20px;
+    }
+
+    &__head {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        margin-bottom: 18px;
+    }
+    &__brand-emoji {
+        font-size: 2.4rem;
+        line-height: 1;
+        filter: drop-shadow(0 4px 10px rgba(99, 102, 241, 0.30));
+    }
+    &__title {
+        margin: 0;
+        font-size: 1.55rem;
+        font-weight: 900;
+        background: linear-gradient(135deg, #6366f1, #ec4899);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    &__sub {
+        margin: 4px 0 0;
+        font-size: 0.88rem;
+        color: #475569;
+        line-height: 1.45;
+    }
+
+    &__grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 14px;
+        margin-bottom: 18px;
+    }
+
+    &__notice {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        padding: 12px 14px;
+        background: rgba(99, 102, 241, 0.08);
+        border: 1px solid rgba(99, 102, 241, 0.30);
+        border-radius: 12px;
+        font-size: 0.82rem;
+        line-height: 1.5;
+        color: #334155;
+
+        p { margin: 0; }
+        strong { color: #4338ca; }
+    }
+    &__notice-icon {
+        font-size: 1.1rem;
+        line-height: 1.4;
+    }
+
+    @media (max-width: 720px) {
+        &__head        { margin-bottom: 12px; }
+        &__brand-emoji { font-size: 1.8rem; }
+        &__title       { font-size: 1.25rem; }
+        &__sub         { font-size: 0.78rem; }
+        &__grid        { grid-template-columns: 1fr 1fr; gap: 10px; }
+    }
+    @media (max-width: 380px) {
+        &__grid        { grid-template-columns: 1fr; }
+    }
+}
+
+.cashier-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 18px 16px;
+    border: none;
+    border-radius: 16px;
+    color: #fff;
+    cursor: pointer;
+    text-align: left;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+    overflow: hidden;
+    isolation: isolate;
+
+    &::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.18), transparent 60%);
+        z-index: -1;
+    }
+
+    &:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 14px 32px rgba(15, 23, 42, 0.28);
+        filter: brightness(1.05);
+    }
+    &:active { transform: translateY(0); filter: brightness(0.95); }
+
+    &__icon {
+        font-size: 2rem;
+        line-height: 1;
+        margin-bottom: 4px;
+        filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.25));
+    }
+    &__title {
+        font-size: 1.1rem;
+        font-weight: 900;
+        letter-spacing: 0.01em;
+    }
+    &__blurb {
+        font-size: 0.78rem;
+        font-weight: 500;
+        opacity: 0.92;
+        line-height: 1.4;
+    }
+    &__cta {
+        margin-top: 6px;
+        padding: 6px 12px;
+        background: rgba(255, 255, 255, 0.18);
+        border: 1px solid rgba(255, 255, 255, 0.45);
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        backdrop-filter: blur(2px);
+    }
+
+    @media (max-width: 720px) {
+        padding: 14px 12px;
+        border-radius: 13px;
+        gap: 4px;
+
+        &__icon  { font-size: 1.6rem; }
+        &__title { font-size: 0.95rem; }
+        &__blurb { font-size: 0.7rem; line-height: 1.35; }
+        &__cta   { padding: 4px 9px; font-size: 0.7rem; }
+    }
+}
+
+// Dark-mode
+@media (prefers-color-scheme: dark) {
+    .cashier         { color: #f1f5f9; background: linear-gradient(180deg, #0f172a 0%, #1e1b4b 100%); }
+    .cashier__sub    { color: #cbd5e1; }
+    .cashier__notice {
+        background: rgba(99, 102, 241, 0.18);
+        border-color: rgba(99, 102, 241, 0.45);
+        color: #e2e8f0;
+        strong { color: #a5b4fc; }
+    }
+    .cashier-card { box-shadow: 0 10px 28px rgba(0, 0, 0, 0.50); }
+}
+.theme--dark {
+    .cashier         { color: #f1f5f9; background: linear-gradient(180deg, #0f172a 0%, #1e1b4b 100%); }
+    .cashier__sub    { color: #cbd5e1; }
+    .cashier__notice {
+        background: rgba(99, 102, 241, 0.18);
+        border-color: rgba(99, 102, 241, 0.45);
+        color: #e2e8f0;
+        strong { color: #a5b4fc; }
+    }
+    .cashier-card { box-shadow: 0 10px 28px rgba(0, 0, 0, 0.50); }
+}
