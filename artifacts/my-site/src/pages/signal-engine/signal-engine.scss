@@ -734,6 +734,133 @@
     to   { transform: rotate(360deg); }
 }
 
+// ─── Quadrant / circle base layout ──────────────────────────────────────────
+// Two-row digit grid: 0–4 upper band, 5–9 lower band. Each digit cell holds
+// a coloured circle that resizes per tick + a thin distribution bar + the %
+// label. The container DOES NOT shove neighbours when a circle grows — the
+// holder has a fixed height so the radius animation never reflows the row.
+.ez-quadrants {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    margin: 0.4rem 0 1rem;
+}
+.ez-quadrant {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.85rem 1rem 0.95rem;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.025) 0%, rgba(99, 102, 241, 0.045) 100%);
+    border: 1px solid rgba(99, 102, 241, 0.18);
+    border-radius: 16px;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+.ez-quadrant--split { gap: 0.7rem; }
+
+.ez-band {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+.ez-cursor-layer {
+    position: relative;
+    height: 18px;
+    width: 100%;
+}
+.ez-cursor {
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    will-change: left, transform;
+}
+.ez-cursor__arrow {
+    font-size: 0.95rem;
+    line-height: 1;
+    color: #ef4444;
+    text-shadow: 0 0 8px rgba(239, 68, 68, 0.7);
+    filter: drop-shadow(0 2px 4px rgba(239, 68, 68, 0.45));
+}
+
+// 5 cells per band, equally spaced. Fixed grid (not flex) so the cursor's
+// `left: (i + 0.5) * 20%` math lines up exactly with each cell centre.
+.ez-circles {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 0.4rem;
+    width: 100%;
+}
+.ez-circles--grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.4rem;
+}
+.ez-circle-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+}
+.ez-circle-holder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 56px;        // > max circle size (44px) so growth doesn't reflow
+    width: 100%;
+}
+.ez-circle {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-weight: 800;
+    font-size: 0.95rem;
+    line-height: 1;
+    will-change: width, height, box-shadow, transform;
+    user-select: none;
+}
+.ez-circle__pulse {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: -1;
+    opacity: 0.5;
+}
+.ez-bar-track {
+    width: 100%;
+    height: 4px;
+    background: rgba(15, 23, 42, 0.08);
+    border-radius: 999px;
+    overflow: hidden;
+}
+.ez-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+}
+.ez-pct {
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.01em;
+}
+
+// Dark-mode versions
+.theme--dark {
+    .ez-quadrant {
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.025) 0%, rgba(99, 102, 241, 0.07) 100%);
+        border-color: rgba(255, 255, 255, 0.10);
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    }
+    .ez-bar-track { background: rgba(255, 255, 255, 0.08); }
+}
+
 // ─── Circle size overrides (smaller than entry-zone) ─────────────────────────
 .se-root {
     .ez-quadrants  { gap: 0.1rem; }
