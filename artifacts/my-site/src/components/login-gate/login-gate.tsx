@@ -31,7 +31,7 @@ const LoginGate: React.FC<{ children: React.ReactNode }> = observer(({ children 
     };
 
     const handleSignup = () => {
-        window.open('https://deriv.com/signup/', '_blank');
+        window.open('https://track.deriv.com/_ZpTaWpj8mZlZl7VyVw174GNd7ZgqdRLk/1', '_blank');
     };
 
     return (
