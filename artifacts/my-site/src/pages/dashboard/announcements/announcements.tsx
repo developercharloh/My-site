@@ -47,8 +47,8 @@ const Announcements = observer(({ is_mobile, is_tablet, handleTabChange }: TAnno
     };
 
     const updateLocalStorage = (announce_id: string) => {
-        let data: Record<string, boolean> | null = null;
-        data = JSON.parse(localStorage.getItem('bot-announcements') ?? '{}');
+        let data: Record<string, boolean> = {};
+        try { data = JSON.parse(localStorage.getItem('bot-announcements') ?? '{}') ?? {}; } catch { /* ignore */ }
         storeDataInLocalStorage({ ...data, [announce_id]: false });
         const temp_notifications = updateNotifications();
         setReadAnnouncementsMap(temp_notifications);
@@ -69,17 +69,21 @@ const Announcements = observer(({ is_mobile, is_tablet, handleTabChange }: TAnno
     };
 
     const updateNotifications = () => {
-        let data: Record<string, boolean> | null = null;
-        data = JSON.parse(localStorage.getItem('bot-announcements') ?? '{}');
+        let data: Record<string, boolean> = {};
+        try { data = JSON.parse(localStorage.getItem('bot-announcements') ?? '{}') ?? {}; } catch { /* ignore */ }
         const tmp_notifications: TNotifications[] = [];
         const temp_localstorage_data: Record<string, boolean> | null = {};
         const loggedInAccountId = localStorage.getItem('active_loginid');
         let allUserAccounts = localStorage.getItem('client_account_details');
         let accountDate = null;
         if (allUserAccounts) {
-            allUserAccounts = JSON.parse(allUserAccounts);
-            const currentAccount = allUserAccounts?.find(account => account.loginid == loggedInAccountId);
-            accountDate = new Date(currentAccount.created_at * 1000);
+            try {
+                const parsed = JSON.parse(allUserAccounts);
+                const currentAccount = parsed?.find((account: any) => account.loginid == loggedInAccountId);
+                if (currentAccount?.created_at) {
+                    accountDate = new Date(currentAccount.created_at * 1000);
+                }
+            } catch { /* ignore corrupt account data */ }
         }
 
         BOT_ANNOUNCEMENTS_LIST.map(item => {
