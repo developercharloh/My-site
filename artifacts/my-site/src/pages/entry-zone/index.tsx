@@ -40,6 +40,42 @@ const MARKETS: { id: MarketKind; label: string; emoji: string; sub: string }[] =
     { id: 'rise_fall',       label: 'Rise / Fall',        emoji: '📈', sub: 'Direction of next tick' },
 ];
 
+/**
+ * Recommended Deriv contract duration (in ticks) per market.
+ *
+ * The signal in this tool is computed from the *next-tick conditional
+ * probability* — i.e. "after we see entry digit X, what % of the time does
+ * the very next tick satisfy the trade condition?" That's the number shown
+ * as `next-tick win` on each ai-digit card.
+ *
+ * Deriv digit contracts (DIGITOVER/UNDER/EVEN/ODD/MATCH/DIFF) accept a
+ * duration of 1–10 ticks. Anything >1 tick takes us out of the model:
+ * each subsequent tick is statistically independent, so the win-probability
+ * shown above no longer applies and the edge dilutes toward the market mean.
+ *
+ * Therefore the only statistically honest value for these three markets is
+ * 1 tick. Rise/Fall is a direction trade (not digit-based) and 5 ticks is
+ * Deriv's standard short-duration default.
+ */
+const MARKET_TICKS: Record<MarketKind, { ticks: number; rationale: string }> = {
+    over_under: {
+        ticks:     1,
+        rationale: 'Set duration = 1 tick. The signal scores the very next tick after your entry digit; longer durations give independent ticks back to the market mean.',
+    },
+    even_odd: {
+        ticks:     1,
+        rationale: 'Set duration = 1 tick. Parity of the next tick is what was scanned — adding ticks is just compounding 50/50 noise.',
+    },
+    matches_differs: {
+        ticks:     1,
+        rationale: 'Set duration = 1 tick. The probability shown is for the very next tick exactly matching/differing — that edge does not extend past 1 tick.',
+    },
+    rise_fall: {
+        ticks:     5,
+        rationale: 'Set duration = 5 ticks (Deriv\'s default short-duration). Rise/Fall measures direction over the duration window, not the next tick alone.',
+    },
+};
+
 interface AISignal {
     market:         MarketKind;
     /** Display headline e.g. "UNDER 7", "DIFFERS 4", "EVEN", "RISE". */
@@ -463,6 +499,28 @@ const EntryZone: React.FC = () => {
                         <div className='ai-result__entry-hint'>
                             Both digits are valid entry triggers. The starred one had the highest historical follow-through win rate. The trader chooses which to act on.
                         </div>
+                    </div>
+
+                    {/* Per-market recommended contract duration */}
+                    <div className='ai-result__ticks'>
+                        <div className='ai-result__ticks-head'>
+                            <span className='ai-result__ticks-icon'>⏱️</span>
+                            <div className='ai-result__ticks-titlewrap'>
+                                <div className='ai-result__ticks-title'>Recommended duration</div>
+                                <div className='ai-result__ticks-sub'>
+                                    Use this whether you trade by bot or manually
+                                </div>
+                            </div>
+                            <div className='ai-result__ticks-value'>
+                                {MARKET_TICKS[signal.market].ticks}
+                                <span className='ai-result__ticks-unit'>
+                                    {MARKET_TICKS[signal.market].ticks === 1 ? 'tick' : 'ticks'}
+                                </span>
+                            </div>
+                        </div>
+                        <p className='ai-result__ticks-rationale'>
+                            {MARKET_TICKS[signal.market].rationale}
+                        </p>
                     </div>
 
                     <div className='ai-result__why'>
