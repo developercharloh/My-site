@@ -35,13 +35,13 @@
     padding: 1.6rem;
 
     @include mobile-or-tablet-screen {
-        // 6rem header + ~52px fixed trust-footer + safe-area inset.
-        // Without this reservation the inner .dc-tabs__content scroller
-        // would extend behind the pinned Risk Warning band and the last
-        // page content (e.g. AI Analysis Tool entry digit cards) would
-        // sit under the footer with no way to bring it into view.
-        height: calc(100vh - 6rem - 52px - env(safe-area-inset-bottom, 0px));
-        padding: 0;
+        // 6rem header. The trust-footer is now just a 36px floating
+        // icon in the corner (not a full-width band), so we no longer
+        // reserve a chunky bottom strip — only the OS safe-area inset
+        // and a small breathing gap so the icon doesn't overlap the
+        // last line of scrollable content.
+        height: calc(100vh - 6rem - env(safe-area-inset-bottom, 0px));
+        padding: 0 0 12px;
     }
 
     // Ensure the Tabs grid 1fr row actually constrains its content to the
