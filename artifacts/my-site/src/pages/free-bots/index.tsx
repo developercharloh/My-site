@@ -175,6 +175,45 @@ const BOTS: BotConfig[] = [
         xmlPath: '/bots/Under_Destroyer_Bot.xml',
         gradient: 'linear-gradient(135deg, #0d3b2e 0%, #1a5c42 50%, #27ae60 100%)',
     },
+    {
+        id: 'elite-default-speed',
+        name: 'Elite Default Speed Bot ⚡⚡🤖',
+        emoji: '⚡',
+        description:
+            'Trades Digit Under on Volatility 10 (1s) Index at high speed — 1 tick per contract. On every win, resets stake back to the base. On every loss, increases stake by the contract loss amount (recovery mode). If total loss hits the Loss Limit ($60), resets stake to base immediately. Keeps trading until Target Profit ($60) is reached, then stops automatically.',
+        market: 'Volatility 10 (1s) Index (1HZ10V)',
+        strategy: 'Digit Under · Auto Loss Recovery · Speed Mode',
+        params: [
+            { label: 'Stake', value: '$5' },
+            { label: 'Target Profit', value: '$60' },
+            { label: 'Loss Limit (reset)', value: '$60' },
+            { label: 'Duration', value: '1 Tick' },
+            { label: 'Contract Type', value: 'Digit Under' },
+        ],
+        xmlPath: '/bots/Elite_Default_Speed_Bot.xml',
+        gradient: 'linear-gradient(135deg, #00001a 0%, #001a4d 50%, #0066ff 100%)',
+    },
+    {
+        id: 'elite-entry-scanner',
+        name: 'Elite Entry Scanner Bot 🔥🔥',
+        emoji: '🔥',
+        description:
+            'Trades Digit Under on Volatility 10 (1s) Index. Scans every tick — enters only when the last digit equals Entry Point 7, then bets UNDER 9. On a win, reverts to prediction 9; on a loss, switches to prediction 6 with smart Martingale recovery (2.55× split). Resets stake to minimum $0.35 floor. Stops automatically on Take Profit ($100) or Stop Loss ($1000).',
+        market: 'Volatility 10 (1s) Index (1HZ10V)',
+        strategy: 'Digit Under · Entry Point Scanner · Adaptive Martingale',
+        params: [
+            { label: 'Entry Point', value: 'Digit 7' },
+            { label: 'Prediction (normal)', value: 'Under 9' },
+            { label: 'Prediction (after loss)', value: 'Under 6' },
+            { label: 'Stake', value: '$1' },
+            { label: 'Take Profit', value: '$100' },
+            { label: 'Stop Loss', value: '$1000' },
+            { label: 'Martingale Split', value: '2.55×' },
+            { label: 'Min Stake Floor', value: '$0.35' },
+        ],
+        xmlPath: '/bots/Elite_Entry_Scanner_Bot.xml',
+        gradient: 'linear-gradient(135deg, #1a0800 0%, #5c1a00 50%, #ff6b00 100%)',
+    },
 ];
 
 // ─── Engine selector dropdown ─────────────────────────────────────────────────

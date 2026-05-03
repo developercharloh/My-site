@@ -4,7 +4,7 @@
     "version": "0.0.1",
     "type": "commonjs",
     "scripts": {
-        "dev": "rsbuild dev",
+        "dev": "rsbuild dev --host 0.0.0.0 --port ${PORT:-5000}",
         "build": "rsbuild build && node scripts/spa-fallback.js",
         "serve": "node server.js",
         "typecheck": "tsc --noEmit",
