@@ -819,16 +819,16 @@
     justify-content: flex-start !important;
 }
 
-// ── Active tab: green pill + green indicator line ──────────────────────────
+// ── Active tab: blue pill + blue indicator line ────────────────────────────
 .main .dc-tabs__item.dc-tabs__active {
-    color: #10b981 !important;
-    background: rgba(16, 185, 129, 0.12) !important;
+    color: #3b82f6 !important;
+    background: rgba(59, 130, 246, 0.13) !important;
     border-radius: 8px;
     font-weight: 800 !important;
     position: relative;
     transition: background 0.2s ease, color 0.2s ease;
 
-    // green underline indicator
+    // blue underline indicator
     &::after {
         content: '';
         position: absolute;
@@ -836,41 +836,41 @@
         left: 10%;
         width: 80%;
         height: 2.5px;
-        background: #10b981;
+        background: #3b82f6;
         border-radius: 999px;
     }
 
-    .tab-emoji { filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.7)); }
+    .tab-emoji { filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.7)); }
 }
 
-// Active line: override the coral/red with green
+// Active line: override the coral/red with blue
 .main .dc-tabs__active-line {
-    background: #10b981 !important;
-    background-color: #10b981 !important;
+    background: #3b82f6 !important;
+    background-color: #3b82f6 !important;
 }
 
-// Inactive tabs: subtle hover hint
+// Inactive tabs: subtle blue hover hint
 .main .dc-tabs__item:not(.dc-tabs__active):hover {
-    color: #10b981 !important;
-    background: rgba(16, 185, 129, 0.06) !important;
+    color: #3b82f6 !important;
+    background: rgba(59, 130, 246, 0.07) !important;
     border-radius: 8px;
     transition: background 0.15s, color 0.15s;
 }
 
-// Dark-mode keeps same green
+// Dark-mode: lighter blue so it stays readable
 .theme--dark .main .dc-tabs__item.dc-tabs__active {
-    color: #34d399 !important;
-    background: rgba(52, 211, 153, 0.14) !important;
-    &::after { background: #34d399; }
-    .tab-emoji { filter: drop-shadow(0 0 8px rgba(52, 211, 153, 0.75)); }
+    color: #60a5fa !important;
+    background: rgba(96, 165, 250, 0.15) !important;
+    &::after { background: #60a5fa; }
+    .tab-emoji { filter: drop-shadow(0 0 8px rgba(96, 165, 250, 0.75)); }
 }
 .theme--dark .main .dc-tabs__active-line {
-    background: #34d399 !important;
-    background-color: #34d399 !important;
+    background: #60a5fa !important;
+    background-color: #60a5fa !important;
 }
 .theme--dark .main .dc-tabs__item:not(.dc-tabs__active):hover {
-    color: #34d399 !important;
-    background: rgba(52, 211, 153, 0.08) !important;
+    color: #60a5fa !important;
+    background: rgba(96, 165, 250, 0.09) !important;
 }
 
 .tab-emoji {
