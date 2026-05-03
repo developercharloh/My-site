@@ -823,3 +823,17 @@
     margin-right: 0.6rem;
     font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Twemoji Mozilla', sans-serif;
 }
+
+// ── Mobile tab strip: shrink emojis + label so all 9 tabs are reachable ──
+@media (max-width: 720px) {
+    .tab-emoji { font-size: 1.15rem; margin-right: 0.3rem; }
+    .main .dc-tabs__item .dc-text,
+    .main .dc-tabs__item span { font-size: 0.78rem; white-space: nowrap; }
+    .main .dc-tabs__item { padding-left: 10px; padding-right: 10px; }
+}
+// Tiny phones (≤380px): drop emoji entirely, keep just the label
+@media (max-width: 380px) {
+    .tab-emoji { display: none; }
+    .main .dc-tabs__item .dc-text,
+    .main .dc-tabs__item span { font-size: 0.72rem; }
+}

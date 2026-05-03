@@ -577,13 +577,13 @@
     .dtp__accu-chart     { padding: 8px 8px 6px; margin-bottom: 8px; }
 
     // Reserve space at the bottom of the page for the sticky action bar
-    // (~80px BUY + ~80px CASH OUT + breathing room)
-    .dtp { padding-bottom: 180px; }
+    // (~80px BUY + ~80px CASH OUT + breathing room + iOS home-bar)
+    .dtp { padding-bottom: calc(180px + env(safe-area-inset-bottom, 0px)); }
 
     // Pin BUY to the viewport bottom so the trader can always see + tap it
     .dtp__buy-btn {
         position: fixed;
-        left: 8px; right: 8px; bottom: 8px;
+        left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0px));
         margin: 0;
         z-index: 50;
         box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.25);
@@ -593,7 +593,7 @@
     // CASH OUT sits just above BUY when an ACCU/MULT contract is open
     .dtp__cashout-btn {
         position: fixed;
-        left: 8px; right: 8px; bottom: 76px;
+        left: 8px; right: 8px; bottom: calc(76px + env(safe-area-inset-bottom, 0px));
         margin: 0;
         z-index: 51;
         box-shadow: 0 -4px 16px rgba(220, 38, 38, 0.35);
@@ -602,15 +602,15 @@
 
     // For digit contracts there's no BUY button, so the cash-out drops to
     // the very bottom (no BUY underneath it).
-    .dtp:not(:has(.dtp__buy-btn)) .dtp__cashout-btn { bottom: 8px; }
+    .dtp:not(:has(.dtp__buy-btn)) .dtp__cashout-btn { bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
 
     // Buy feedback toast slides in just above the sticky buttons
     .dtp__buy-feedback {
         position: fixed;
-        left: 8px; right: 8px; bottom: 156px;
+        left: 8px; right: 8px; bottom: calc(156px + env(safe-area-inset-bottom, 0px));
         z-index: 52;
         margin: 0;
     }
-    .dtp:not(:has(.dtp__buy-btn)) .dtp__buy-feedback   { bottom: 76px; }
-    .dtp:not(:has(.dtp__cashout-btn)):not(:has(.dtp__buy-btn)) .dtp__buy-feedback { bottom: 16px; }
+    .dtp:not(:has(.dtp__buy-btn)) .dtp__buy-feedback   { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+    .dtp:not(:has(.dtp__cashout-btn)):not(:has(.dtp__buy-btn)) .dtp__buy-feedback { bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
 }

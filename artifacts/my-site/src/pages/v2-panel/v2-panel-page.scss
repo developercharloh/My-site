@@ -57,3 +57,10 @@
         color: #0ea5e9;
     }
 }
+
+@media (max-width: 480px) {
+    .v2pt__idle       { height: calc(100vh - 160px); padding: 16px; }
+    .v2pt__idle-icon  { font-size: 2.6rem; }
+    .v2pt__idle-title { font-size: 1.25rem; }
+    .v2pt__idle-msg   { font-size: 1rem; }
+}
