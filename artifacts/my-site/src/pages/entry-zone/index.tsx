@@ -133,9 +133,40 @@ const EntryZone: React.FC = () => {
         for (const d of digits) freq[d] += 1;
         const freqPct = freq.map(f => f / N);
 
-        // For each "entry digit" candidate, find the conditional probability
-        // that the NEXT tick wins the trade. Returns top 2 by conditional %.
-        const conditionalEntryDigits = (winFn: (nextDigit: number, nextPrev: number) => boolean) => {
+        /* ── Statistical helpers ─────────────────────────────────────────
+         *
+         * The naive "top-2 conditional win rate" approach overweights
+         * small samples (a digit seen 8 times with 6 wins gives 75% but
+         * has a ±30% confidence interval at 95%).
+         *
+         * We use the Wilson score interval lower bound at 95% confidence
+         * — the same statistic used in Reddit's "best" comment ranking.
+         * It penalizes small samples, rewards consistency, and is the
+         * gold standard for ranking proportions under uncertainty.
+         */
+        const wilsonLower = (wins: number, total: number, z = 1.96): number => {
+            if (total === 0) return 0;
+            const phat = wins / total;
+            const z2 = z * z;
+            const denom = 1 + z2 / total;
+            const centre = phat + z2 / (2 * total);
+            const margin = z * Math.sqrt((phat * (1 - phat) + z2 / (4 * total)) / total);
+            return (centre - margin) / denom;
+        };
+
+        /**
+         * For each "entry digit" candidate, return the digits whose conditional
+         * probability of WINNING the next tick is *statistically* the highest.
+         *
+         *  baseline       — the unconditional win probability of the trade
+         *                   (so we only pick digits that materially beat it)
+         *  Returns the top-2 by Wilson 95% lower bound, filtered to those
+         *  that genuinely beat the baseline (>= baseline + 3pp lower bound).
+         */
+        const conditionalEntryDigits = (
+            winFn:    (nextDigit: number, nextPrev: number) => boolean,
+            baseline: number,
+        ) => {
             const cond = new Array(10).fill(0).map(() => ({ wins: 0, total: 0 }));
             for (let i = 0; i < digits.length - 1; i++) {
                 const cur  = digits[i];
@@ -143,11 +174,30 @@ const EntryZone: React.FC = () => {
                 cond[cur].total += 1;
                 if (winFn(next, cur)) cond[cur].wins += 1;
             }
+            // Dynamic minimum sample threshold: the bigger the dataset, the
+            // more we demand of each candidate. Floor at 15 samples per digit.
+            const minSamples = Math.max(15, Math.floor(N / 50));
             return cond
-                .map((c, d) => ({ digit: d, conditional: c.total > 0 ? c.wins / c.total : 0, total: c.total }))
-                .filter(c => c.total >= 8) // enough samples
-                .sort((a, b) => b.conditional - a.conditional)
-                .slice(0, 2);
+                .map((c, d) => ({
+                    digit:        d,
+                    wins:         c.wins,
+                    total:        c.total,
+                    conditional:  c.total > 0 ? c.wins / c.total : 0,
+                    lowerBound:   wilsonLower(c.wins, c.total),
+                }))
+                // 1) Need a real sample to draw conclusions
+                .filter(c => c.total >= minSamples)
+                // 2) The 95%-CI lower bound must beat the baseline by >=3pp.
+                //    This guarantees the edge isn't just noise.
+                .filter(c => c.lowerBound >= baseline + 0.03)
+                // 3) Rank by Wilson lower bound (most-defensible edge first),
+                //    then by raw conditional, then by sample size.
+                .sort((a, b) =>
+                    b.lowerBound  - a.lowerBound  ||
+                    b.conditional - a.conditional ||
+                    b.total       - a.total)
+                .slice(0, 2)
+                .map(c => ({ digit: c.digit, conditional: c.conditional }));
         };
 
         let direction      = '';
@@ -162,11 +212,11 @@ const EntryZone: React.FC = () => {
             const odd  = N - even;
             if (even >= odd) {
                 direction = 'EVEN'; contractType = 'DIGITEVEN'; probability = even / N;
-                entryRaw  = conditionalEntryDigits(nx => nx % 2 === 0);
+                entryRaw  = conditionalEntryDigits(nx => nx % 2 === 0, probability);
                 rationale = `Across the last ${N} ticks of ${sym.label}, ${(probability * 100).toFixed(1)}% ended on an even digit. The market is currently biased toward EVEN.`;
             } else {
                 direction = 'ODD'; contractType = 'DIGITODD'; probability = odd / N;
-                entryRaw  = conditionalEntryDigits(nx => nx % 2 === 1);
+                entryRaw  = conditionalEntryDigits(nx => nx % 2 === 1, probability);
                 rationale = `Across the last ${N} ticks of ${sym.label}, ${(probability * 100).toFixed(1)}% ended on an odd digit. The market is currently biased toward ODD.`;
             }
         }
@@ -179,7 +229,7 @@ const EntryZone: React.FC = () => {
             direction     = `DIFFERS ${rare}`;
             contractType  = 'DIGITDIFF';
             probability   = 1 - freqPct[rare];
-            entryRaw      = conditionalEntryDigits(nx => nx !== rare);
+            entryRaw      = conditionalEntryDigits(nx => nx !== rare, probability);
             rationale     = `Digit ${rare} appeared only ${freq[rare]}/${N} times (${(freqPct[rare] * 100).toFixed(1)}%) — the rarest in the window. Trading DIFFERS ${rare} gives you ~${(probability * 100).toFixed(1)}% historical win rate.`;
         }
         else if (mk === 'over_under') {
@@ -201,8 +251,9 @@ const EntryZone: React.FC = () => {
             direction    = `${best.side} ${best.barrier}`;
             contractType = best.side === 'UNDER' ? 'DIGITUNDER' : 'DIGITOVER';
             probability  = best.prob;
-            entryRaw     = conditionalEntryDigits(nx =>
-                best.side === 'UNDER' ? nx < best.barrier : nx > best.barrier
+            entryRaw     = conditionalEntryDigits(
+                nx => best.side === 'UNDER' ? nx < best.barrier : nx > best.barrier,
+                probability,
             );
             rationale    = `Out of the last ${N} ticks, ${(probability * 100).toFixed(1)}% ended ${best.side === 'UNDER' ? 'below' : 'above'} ${best.barrier}. ${best.side} ${best.barrier} is the highest-probability digit barrier on ${sym.label} right now.`;
         }
@@ -216,12 +267,13 @@ const EntryZone: React.FC = () => {
             const total = rises + falls;
             if (rises >= falls) {
                 direction = 'RISE'; contractType = 'CALL'; probability = rises / total;
-                entryRaw = conditionalEntryDigits((_nx, prev) => prev !== undefined ? false : false);
             } else {
                 direction = 'FALL'; contractType = 'PUT';  probability = falls / total;
             }
-            // For rise/fall the "entry digit" loses its conditional meaning;
-            // use the digits that most often preceded a same-direction move.
+            // For rise/fall the "entry digit" loses its next-tick-digit
+            // meaning; instead, find which last-digits most often preceded a
+            // same-direction price move, ranked by Wilson lower bound.
+            const moveMin = Math.max(15, Math.floor(N / 50));
             const moveCond = new Array(10).fill(0).map(() => ({ wins: 0, total: 0 }));
             for (let i = 1; i < prices.length - 1; i++) {
                 const curD  = digits[i];
@@ -232,22 +284,76 @@ const EntryZone: React.FC = () => {
                 }
             }
             entryRaw = moveCond
-                .map((c, d) => ({ digit: d, conditional: c.total > 0 ? c.wins / c.total : 0, total: c.total }))
-                .filter(c => c.total >= 8)
-                .sort((a, b) => b.conditional - a.conditional)
-                .slice(0, 2);
+                .map((c, d) => ({
+                    digit:       d,
+                    conditional: c.total > 0 ? c.wins / c.total : 0,
+                    total:       c.total,
+                    lowerBound:  wilsonLower(c.wins, c.total),
+                }))
+                .filter(c => c.total >= moveMin)
+                .filter(c => c.lowerBound >= probability + 0.03)
+                .sort((a, b) =>
+                    b.lowerBound  - a.lowerBound  ||
+                    b.conditional - a.conditional ||
+                    b.total       - a.total)
+                .slice(0, 2)
+                .map(c => ({ digit: c.digit, conditional: c.conditional }));
             rationale = `Across ${total} valid tick comparisons on ${sym.label}, the price moved ${direction === 'RISE' ? 'up' : 'down'} ${(probability * 100).toFixed(1)}% of the time — a ${direction === 'RISE' ? 'bullish' : 'bearish'} short-term bias.`;
         }
 
-        // Pad to 2 entry digits if conditional scan returned fewer
-        while (entryRaw.length < 2) {
-            const used = new Set(entryRaw.map(e => e.digit));
-            const fallback = freqPct
-                .map((p, d) => ({ digit: d, conditional: p }))
-                .filter(e => !used.has(e.digit))
-                .sort((a, b) => b.conditional - a.conditional)[0];
-            if (!fallback) break;
-            entryRaw.push(fallback);
+        /* ── Fallback: significance bar wasn't met for ≥1 digits ──────────
+         *
+         * Re-run the per-digit scan WITHOUT the strict baseline+3pp filter,
+         * still ranked by Wilson 95% lower bound, so the user sees the
+         * best-supported triggers even when no digit cleanly beats baseline.
+         * Better than the old "just pad with most-frequent digits" which
+         * had nothing to do with the trade win-condition.
+         */
+        if (entryRaw.length < 2) {
+            const winFn: ((nx: number, prev: number) => boolean) | null =
+                mk === 'even_odd'
+                    ? (nx) => (direction === 'EVEN' ? nx % 2 === 0 : nx % 2 === 1)
+                : mk === 'matches_differs'
+                    ? (nx) => nx !== barrierDigit
+                : mk === 'over_under' && barrierDigit !== null
+                    ? (nx) => (direction.startsWith('UNDER') ? nx < barrierDigit! : nx > barrierDigit!)
+                    : null;
+
+            if (winFn) {
+                const cond = new Array(10).fill(0).map(() => ({ wins: 0, total: 0 }));
+                for (let i = 0; i < digits.length - 1; i++) {
+                    cond[digits[i]].total += 1;
+                    if (winFn(digits[i + 1], digits[i])) cond[digits[i]].wins += 1;
+                }
+                const used = new Set(entryRaw.map(e => e.digit));
+                const fallback = cond
+                    .map((c, d) => ({
+                        digit:       d,
+                        conditional: c.total > 0 ? c.wins / c.total : 0,
+                        total:       c.total,
+                        lowerBound:  wilsonLower(c.wins, c.total),
+                    }))
+                    .filter(c => !used.has(c.digit) && c.total >= 8)
+                    .sort((a, b) =>
+                        b.lowerBound  - a.lowerBound  ||
+                        b.conditional - a.conditional ||
+                        b.total       - a.total);
+                while (entryRaw.length < 2 && fallback.length > 0) {
+                    const f = fallback.shift()!;
+                    entryRaw.push({ digit: f.digit, conditional: f.conditional });
+                }
+            }
+
+            // Last-ditch pad with most-frequent digits not yet used (rise/fall, etc.)
+            while (entryRaw.length < 2) {
+                const used = new Set(entryRaw.map(e => e.digit));
+                const fallback = freqPct
+                    .map((p, d) => ({ digit: d, conditional: p }))
+                    .filter(e => !used.has(e.digit))
+                    .sort((a, b) => b.conditional - a.conditional)[0];
+                if (!fallback) break;
+                entryRaw.push(fallback);
+            }
         }
 
         const entryDigits = entryRaw.map((e, i) => ({
