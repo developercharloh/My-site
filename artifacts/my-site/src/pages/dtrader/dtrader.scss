@@ -192,6 +192,66 @@
         &--big { font-size: 1.15rem; }
     }
 
+    // ── Digit-frequency analyzer card ────────────────────────────────────
+    &__digits-card {
+        margin: 12px 0; padding: 12px;
+        background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    }
+    &__digits-head {
+        display: flex; align-items: baseline; justify-content: space-between;
+        font-size: 0.85rem; font-weight: 700; color: #111827;
+        text-transform: uppercase; letter-spacing: 0.05em;
+        margin-bottom: 10px;
+    }
+    &__digits-sub {
+        font-size: 0.7rem; font-weight: 500; color: #6b7280;
+        text-transform: none; letter-spacing: 0;
+    }
+    // Two-row, five-column grid → top row 0-4, bottom row 5-9
+    &__digits-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 8px;
+    }
+    &__digit-cell {
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        aspect-ratio: 1 / 1;
+        border-radius: 50%;
+        background: #f3f4f6; color: #6b7280;
+        border: 2px solid transparent;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+        min-width: 0; min-height: 48px;
+    }
+    &__digit-num { font-size: 1.05rem; font-weight: 800; line-height: 1; }
+    &__digit-pct { font-size: 0.7rem; font-weight: 600; opacity: 0.85; margin-top: 2px; }
+
+    // Shading by rank — green / blue / yellow / red
+    &__digit-cell--best  { background: #10b981; color: #fff; }
+    &__digit-cell--good  { background: #3b82f6; color: #fff; }
+    &__digit-cell--bad   { background: #facc15; color: #1f2937; }
+    &__digit-cell--worst { background: #ef4444; color: #fff; }
+
+    // Highlight the live last-digit on top of whatever shading it has
+    &__digit-cell--current {
+        border-color: #111827;
+        box-shadow: 0 0 0 2px rgba(17, 24, 39, 0.15);
+        transform: scale(1.05);
+    }
+
+    &__digits-legend {
+        display: flex; flex-wrap: wrap; gap: 10px;
+        margin-top: 10px; font-size: 0.7rem; color: #6b7280;
+        span { display: inline-flex; align-items: center; gap: 4px; }
+    }
+    &__legend-dot {
+        display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+        &--best  { background: #10b981; }
+        &--good  { background: #3b82f6; }
+        &--bad   { background: #facc15; }
+        &--worst { background: #ef4444; }
+    }
+
     // ── Sell button on open positions ────────────────────────────────────
     &__sell-btn {
         padding: 4px 10px; border-radius: 4px;

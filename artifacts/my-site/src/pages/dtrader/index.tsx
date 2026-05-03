@@ -219,10 +219,11 @@ const DTraderPage = observer(() => {
     const [status,    setStatus]    = useState<DTStatus>('idle');
     const [spot,      setSpot]      = useState<string>('—');
     const [lastDigit, setLastDigit] = useState<number | null>(null);
-    const [proposal,  setProposal]  = useState<DTProposal | null>(null);
-    const [logs,      setLogs]      = useState<DTLog[]>([]);
-    const [positions, setPositions] = useState<DTPosition[]>([]);
-    const [feedback,  setFeedback]  = useState<DTBuyFeedback | null>(null);
+    const [proposal,    setProposal]    = useState<DTProposal | null>(null);
+    const [logs,        setLogs]        = useState<DTLog[]>([]);
+    const [positions,   setPositions]   = useState<DTPosition[]>([]);
+    const [feedback,    setFeedback]    = useState<DTBuyFeedback | null>(null);
+    const [digitCounts, setDigitCounts] = useState<number[]>(() => new Array(10).fill(0));
 
     const category = useMemo(() => CATEGORIES.find(c => c.key === categoryKey)!, [categoryKey]);
 
@@ -243,9 +244,41 @@ const DTraderPage = observer(() => {
             return copy;
         });
         engine.onBuyFeedback = f => setFeedback(f);
+        engine.onDigitStats  = c => setDigitCounts(c);
 
         return () => { engine.stop(); };
     }, [engine]);
+
+    // Whether the current contract category cares about last-digit frequencies
+    const showsDigitCard = category.needsPrediction || categoryKey === 'even_odd';
+
+    // Rank-based color shading for the digit circles, recomputed only when
+    // the counts actually change. Returns one of:
+    //   'best'   — green  (most-frequent over the 1000 window)
+    //   'good'   — blue   (second-most)
+    //   'bad'    — yellow (second-least)
+    //   'worst'  — red    (least-frequent)
+    //   'plain'  — neutral
+    const digitShades = useMemo<Array<'best'|'good'|'bad'|'worst'|'plain'>>(() => {
+        const total = digitCounts.reduce((a, b) => a + b, 0);
+        if (total === 0) return new Array(10).fill('plain');
+        // Rank digits 0-9 by count, descending. Tie-break by digit so result
+        // is stable when several digits have identical counts (early in
+        // history seeding, that's likely).
+        const ranked = digitCounts
+            .map((c, d) => ({ d, c }))
+            .sort((a, b) => b.c - a.c || a.d - b.d);
+        const out: Array<'best'|'good'|'bad'|'worst'|'plain'> = new Array(10).fill('plain');
+        out[ranked[0].d] = 'best';
+        if (ranked.length > 1) out[ranked[1].d] = 'good';
+        out[ranked[ranked.length - 1].d] = 'worst';
+        if (ranked.length > 1) out[ranked[ranked.length - 2].d] = 'bad';
+        return out;
+    }, [digitCounts]);
+
+    const digitTotal   = useMemo(() => digitCounts.reduce((a, b) => a + b, 0), [digitCounts]);
+    const digitPercent = (d: number) =>
+        digitTotal === 0 ? 0 : (digitCounts[d] / digitTotal) * 100;
 
     // Auto-dismiss feedback after a few seconds (success faster than error)
     useEffect(() => {
@@ -378,6 +411,34 @@ const DTraderPage = observer(() => {
                     )}
                 </div>
             </div>
+
+            {/* ── Digit-frequency analyzer (only for digit-based contracts) ── */}
+            {showsDigitCard && (
+                <div className='dtp__digits-card'>
+                    <div className='dtp__digits-head'>
+                        <span>Last-digit frequency</span>
+                        <span className='dtp__digits-sub'>over last {digitTotal || 0} ticks</span>
+                    </div>
+                    <div className='dtp__digits-grid'>
+                        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => (
+                            <div
+                                key={d}
+                                className={`dtp__digit-cell dtp__digit-cell--${digitShades[d]} ${lastDigit === d ? 'dtp__digit-cell--current' : ''}`}
+                                title={`${digitCounts[d]} of ${digitTotal} ticks ended in ${d}`}
+                            >
+                                <span className='dtp__digit-num'>{d}</span>
+                                <span className='dtp__digit-pct'>{digitPercent(d).toFixed(1)}%</span>
+                            </div>
+                        ))}
+                    </div>
+                    <div className='dtp__digits-legend'>
+                        <span><span className='dtp__legend-dot dtp__legend-dot--best'/>most</span>
+                        <span><span className='dtp__legend-dot dtp__legend-dot--good'/>2nd most</span>
+                        <span><span className='dtp__legend-dot dtp__legend-dot--bad'/>2nd least</span>
+                        <span><span className='dtp__legend-dot dtp__legend-dot--worst'/>least</span>
+                    </div>
+                </div>
+            )}
 
             {/* ── Body: form on left, ticket on right (stacks on mobile) ──── */}
             <div className='dtp__body'>

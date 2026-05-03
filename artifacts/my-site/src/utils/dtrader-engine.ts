@@ -100,6 +100,10 @@ export class DTraderEngine {
     public onStatus:   (s: DTStatus)                  => void = () => {};
     public onLog:      (l: DTLog)                     => void = () => {};
     public onBuyFeedback: (f: DTBuyFeedback)          => void = () => {};
+    /** Last-digit frequency counts over the rolling 1000-tick window.
+     *  Always 10 elements long, indices 0-9 → counts. Emit once on
+     *  history seed, then once per new tick. */
+    public onDigitStats: (counts: number[])           => void = () => {};
 
     // ── State ─────────────────────────────────────────────────────────────────
     private cfg: DTConfig | null = null;
@@ -125,6 +129,16 @@ export class DTraderEngine {
 
     // Buy in-flight guard
     private buyInflight = false;
+
+    // Rolling last-digit window for the digit-frequency analyzer
+    private readonly DIGIT_WINDOW = 1000;
+    private digitBuf: number[] = [];                    // FIFO of last 1000 last-digits
+    private digitCounts: number[] = new Array(10).fill(0);
+    /** Pip size for the currently-subscribed symbol — needed to compute the
+     *  last digit correctly (e.g. V100 has pip_size 2, but the raw quote
+     *  string can have trailing zeros stripped). Defaults to undefined until
+     *  we get the first tick/history response that includes it. */
+    private pipSize: number | undefined = undefined;
 
     // Engine-owned latest proposal — single source of truth for buy.
     // React state can lag a render behind, which would send a stale id
@@ -177,8 +191,9 @@ export class DTraderEngine {
         const oldSymbol = this.cfg.symbol;
         this.cfg = { ...this.cfg, ...patch };
         if (patch.symbol && patch.symbol !== oldSymbol) {
-            // Re-subscribe ticks on new symbol
+            // Re-subscribe ticks on new symbol + reset the digit window
             if (this.tickSubId) { this.rawSend({ forget: this.tickSubId }); this.tickSubId = null; }
+            this.resetDigitWindow();
             this.subscribeTick();
         }
         this.scheduleProposal();
@@ -235,7 +250,35 @@ export class DTraderEngine {
 
     private subscribeTick(): void {
         if (!this.cfg) return;
-        this.send({ ticks: this.cfg.symbol, subscribe: 1 });
+        // Use ticks_history with subscribe:1 — Deriv returns the last 1000
+        // ticks (used to seed the digit-frequency window) AND opens the
+        // tick subscription in a single round-trip.
+        this.send({
+            ticks_history: this.cfg.symbol,
+            adjust_start_time: 1,
+            count: this.DIGIT_WINDOW,
+            end:   'latest',
+            start: 1,
+            style: 'ticks',
+            subscribe: 1,
+        });
+    }
+
+    private resetDigitWindow(): void {
+        this.digitBuf = [];
+        this.digitCounts = new Array(10).fill(0);
+        this.pipSize = undefined;
+        this.onDigitStats(this.digitCounts.slice());
+    }
+
+    private pushDigit(d: number): void {
+        if (d < 0 || d > 9 || !Number.isInteger(d)) return;
+        this.digitBuf.push(d);
+        this.digitCounts[d] += 1;
+        while (this.digitBuf.length > this.DIGIT_WINDOW) {
+            const old = this.digitBuf.shift()!;
+            this.digitCounts[old] -= 1;
+        }
     }
 
     private scheduleProposal(): void {
@@ -319,6 +362,12 @@ export class DTraderEngine {
         }
 
         switch (msg.msg_type) {
+            case 'history':
+                // ticks_history response — bulk-seed the rolling digit window
+                // and capture the tick subscription id in one go.
+                if (subId && !this.tickSubId) this.tickSubId = subId;
+                this.handleHistory(msg);
+                break;
             case 'tick':
                 if (subId && !this.tickSubId) this.tickSubId = subId;
                 this.handleTick(msg.tick);
@@ -339,12 +388,31 @@ export class DTraderEngine {
         }
     }
 
+    private handleHistory(msg: any): void {
+        const prices = msg?.history?.prices as Array<number | string> | undefined;
+        const pip    = msg?.pip_size as number | undefined;
+        if (typeof pip === 'number') this.pipSize = pip;
+        if (!prices || !Array.isArray(prices)) return;
+        // Seed the rolling window from oldest → newest
+        this.digitBuf = [];
+        this.digitCounts = new Array(10).fill(0);
+        for (const raw of prices) {
+            const q = typeof raw === 'string' ? parseFloat(raw) : raw;
+            if (!Number.isFinite(q)) continue;
+            this.pushDigit(this.lastDigit(q, this.pipSize));
+        }
+        this.onDigitStats(this.digitCounts.slice());
+    }
+
     private handleTick(tick: { quote: number; pip_size?: number } | undefined): void {
         if (!tick) return;
-        const spot  = this.formatQuote(tick.quote, tick.pip_size);
-        const digit = this.lastDigit(tick.quote);
+        if (typeof tick.pip_size === 'number') this.pipSize = tick.pip_size;
+        const spot  = this.formatQuote(tick.quote, this.pipSize);
+        const digit = this.lastDigit(tick.quote, this.pipSize);
         if (this.status === 'subscribing') this.setStatus('ready');
         this.onTick(spot, digit);
+        this.pushDigit(digit);
+        this.onDigitStats(this.digitCounts.slice());
     }
 
     private handleProposal(p: any): void {
@@ -535,7 +603,15 @@ export class DTraderEngine {
         return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
     }
 
-    private lastDigit(q: number): number {
+    private lastDigit(q: number, pipSize?: number): number {
+        // Use pip_size when available — otherwise V100's "1379.5" trailing
+        // zero gets stripped and we'd misread "5" as the last digit when
+        // really the contract sees "1379.55" (last digit 5) or "1379.50"
+        // (last digit 0). pip_size guarantees the correct decimal width.
+        if (typeof pipSize === 'number' && pipSize > 0) {
+            const fixed = q.toFixed(pipSize);
+            return parseInt(fixed[fixed.length - 1] ?? '0', 10);
+        }
         const s = q.toString().replace(/^.*\./, '');
         return parseInt(s[s.length - 1] ?? '0', 10);
     }
