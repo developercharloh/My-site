@@ -17,7 +17,7 @@ const NonEUAccounts = ({
     }
 
     const account_switcher_title_non_eu =
-        modifiedMFAccountList?.length === 0 ? localize('Deriv accounts') : localize('Non-Eu Deriv account');
+        modifiedMFAccountList?.length === 0 ? localize('accounts') : localize('Non-Eu account');
 
     const sortedCRAccountList = [...modifiedCRAccountList].sort((a, b) => {
         // Remove commas from balance strings before converting to numbers
