@@ -344,6 +344,12 @@
         border: 2px solid transparent;
         transition: transform 0.15s ease, box-shadow 0.15s ease;
         min-width: 0; min-height: 48px;
+        // Cap circle size on desktop so they don't become enormous
+        max-height: 80px;
+        max-width: 80px;
+        // Centre each capped circle within its grid cell
+        justify-self: center;
+        width: 100%;
     }
     &__digit-num { font-size: 1.05rem; font-weight: 800; line-height: 1; }
     &__digit-pct { font-size: 0.7rem; font-weight: 600; opacity: 0.85; margin-top: 2px; }
