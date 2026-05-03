@@ -294,6 +294,19 @@ const DTraderPage = observer(() => {
     const digitPercent = (d: number) =>
         digitTotal === 0 ? 0 : (digitCounts[d] / digitTotal) * 100;
 
+    // Winning-side digits for any currently OPEN digit contract — drives the
+    // green ring around qualifying circles. Union across contracts in case
+    // the user has stacked multiple open trades. Cleared automatically the
+    // moment every open digit contract has settled.
+    const winningDigits = useMemo<Set<number>>(() => {
+        const set = new Set<number>();
+        for (const p of positions) {
+            if (!p.isOpen) continue;
+            for (const d of digitsThatWin(p.contractType, p.barrier)) set.add(d);
+        }
+        return set;
+    }, [positions]);
+
     // Auto-dismiss feedback after a few seconds (success faster than error)
     useEffect(() => {
         if (!feedback) return;
@@ -464,7 +477,7 @@ const DTraderPage = observer(() => {
                             return (
                                 <div
                                     key={d}
-                                    className={`dtp__digit-cell dtp__digit-cell--${digitShades[d]} ${lastDigit === d ? 'dtp__digit-cell--current' : ''}`}
+                                    className={`dtp__digit-cell dtp__digit-cell--${digitShades[d]} ${lastDigit === d ? 'dtp__digit-cell--current' : ''} ${winningDigits.has(d) ? 'dtp__digit-cell--winning' : ''}`}
                                     title={`${digitCounts[d]} of ${digitTotal} ticks ended in ${d}`}
                                 >
                                     <span className='dtp__digit-num'>{d}</span>
@@ -935,6 +948,28 @@ function parseLastDigitFromSpot(spot: string | null | undefined): number | null 
     if (!spot) return null;
     const m = String(spot).match(/(\d)\D*$/);
     return m ? parseInt(m[1], 10) : null;
+}
+
+// Which last-digits would WIN this digit contract — used to ring the
+// winning-side circles in green while the contract is open.
+//   OVER  7 → {8, 9}
+//   UNDER 7 → {0..6}
+//   MATCH 5 → {5}
+//   DIFF  5 → {0,1,2,3,4,6,7,8,9}
+//   EVEN    → {0,2,4,6,8}
+//   ODD     → {1,3,5,7,9}
+function digitsThatWin(t: DTContractType, barrier: string | null): number[] {
+    const all = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    const b   = barrier !== null && barrier !== '' ? parseInt(barrier, 10) : NaN;
+    switch (t) {
+        case 'DIGITOVER':  return Number.isFinite(b) ? all.filter(d => d > b) : [];
+        case 'DIGITUNDER': return Number.isFinite(b) ? all.filter(d => d < b) : [];
+        case 'DIGITMATCH': return Number.isFinite(b) ? [b] : [];
+        case 'DIGITDIFF':  return Number.isFinite(b) ? all.filter(d => d !== b) : [];
+        case 'DIGITEVEN':  return [0, 2, 4, 6, 8];
+        case 'DIGITODD':   return [1, 3, 5, 7, 9];
+        default: return [];
+    }
 }
 
 DTraderPage.displayName = 'DTraderPage';

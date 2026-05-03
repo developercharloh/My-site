@@ -244,6 +244,21 @@
         transform: scale(1.05);
     }
 
+    // Green ring around every winning-side digit while a digit contract is
+    // OPEN. e.g. UNDER 7 rings 0..6 with green. Disappears the moment the
+    // contract closes. Combines with --current (live cursor digit) cleanly.
+    &__digit-cell--winning {
+        border-color: #10b981;
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.35);
+    }
+    // When a digit is BOTH winning AND the live cursor digit, keep the
+    // green ring but add an inner dark outline for emphasis.
+    &__digit-cell--winning.dtp__digit-cell--current {
+        border-color: #10b981;
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.55),
+                    inset 0 0 0 2px #111827;
+    }
+
     // Live last-digit cursor — small red dot that slides from circle to
     // circle as new ticks arrive. Uses pure-CSS positioning driven by --col
     // and --row variables set in JS, with smooth transition between hops.

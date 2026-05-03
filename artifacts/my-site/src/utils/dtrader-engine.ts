@@ -56,6 +56,10 @@ export interface DTProposal {
 export interface DTPosition {
     contractId:   string;
     contractType: DTContractType;
+    /** Snapshot of the barrier/prediction the contract was bought with —
+     *  needed to highlight the winning-side digits for open digit contracts
+     *  (e.g. UNDER '7' → digits 0-6 win). null for contracts without one. */
+    barrier:      string | null;
     symbol:       string;
     stake:        number;
     payout:       number;
@@ -511,6 +515,7 @@ export class DTraderEngine {
         const pos: DTPosition = {
             contractId,
             contractType: this.cfg?.contractType ?? 'CALL',
+            barrier:      this.cfg?.barrier ?? null,
             symbol:       this.cfg?.symbol ?? '',
             stake,
             payout,
