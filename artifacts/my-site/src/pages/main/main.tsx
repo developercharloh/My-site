@@ -428,8 +428,8 @@ const AppWrapper = observer(() => {
                             <div
                                 label={
                                     <>
-                                        <span className='tab-emoji' role='img' aria-hidden='true'>🎯</span>
-                                        <Localize i18n_default_text='Entry Zone' />
+                                        <span className='tab-emoji' role='img' aria-hidden='true'>🤖</span>
+                                        <Localize i18n_default_text='AI Analysis Tool' />
                                     </>
                                 }
                                 id='id-entry-zone'
@@ -437,7 +437,7 @@ const AppWrapper = observer(() => {
                                 <div className='entry-zone-wrapper'>
                                     <Suspense
                                         fallback={
-                                            <TabSkeleton variant='list' label={localize('Please wait, loading Entry Zone...')} />
+                                            <TabSkeleton variant='list' label={localize('Please wait, loading AI Analysis Tool...')} />
                                         }
                                     >
                                         <EntryZone />

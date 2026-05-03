@@ -1,427 +1,73 @@
-.ez-root {
+// AI Analysis Tool — coming-soon placeholder
+.ai-soon {
     display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
-    padding: 1.25rem 1.25rem 6rem;
-    max-width: 680px;
-    margin: 0 auto;
-    font-family: inherit;
-}
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    padding: 24px 16px;
 
-/* ── Header ── */
-.ez-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1rem;
-    flex-wrap: wrap;
+    &__card {
+        max-width: 520px;
+        width: 100%;
+        padding: 32px 24px;
+        text-align: center;
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+    }
 
-    &__title-block {
-        display: flex;
-        flex-direction: column;
-        gap: 0.2rem;
+    &__emoji {
+        font-size: 4rem;
+        line-height: 1;
+        margin-bottom: 12px;
+        animation: aiSoonFloat 3s ease-in-out infinite;
+    }
+
+    &__badge {
+        display: inline-block;
+        padding: 4px 12px;
+        margin-bottom: 12px;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #2563eb;
+        background: #dbeafe;
+        border-radius: 999px;
     }
 
     &__title {
-        font-size: 1.4rem;
-        font-weight: 900;
-        letter-spacing: -0.01em;
-        color: var(--text-general, #1e293b);
+        margin: 0 0 12px;
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: #0f172a;
     }
 
     &__sub {
-        font-size: 0.7rem;
-        color: var(--text-less-prominent, #94a3b8);
-        font-weight: 600;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
+        margin: 0 0 12px;
+        font-size: 0.95rem;
+        line-height: 1.5;
+        color: #475569;
+    }
+
+    &__hint {
+        margin: 0;
+        font-size: 0.82rem;
+        color: #94a3b8;
+        font-style: italic;
     }
 }
 
-/* ── Market selector ── */
-.ez-selector {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-
-    &__label {
-        font-size: 0.65rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: var(--text-less-prominent, #94a3b8);
-    }
-
-    &__wrap {
-        position: relative;
-    }
-
-    &__select {
-        appearance: none;
-        padding: 0.45rem 2rem 0.45rem 0.75rem;
-        border-radius: 0.75rem;
-        font-size: 0.75rem;
-        font-weight: 700;
-        cursor: pointer;
-        outline: none;
-        transition: border-color 0.2s, box-shadow 0.2s;
-        background: rgba(14, 165, 233, 0.08);
-        border: 1.5px solid rgba(14, 165, 233, 0.35);
-        color: #0ea5e9;
-        min-width: 210px;
-
-        &:focus {
-            border-color: rgba(14, 165, 233, 0.7);
-            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
-        }
-
-        option, optgroup {
-            background: #1e293b;
-            color: #e2e8f0;
-        }
-    }
-
-    &__chevron {
-        position: absolute;
-        right: 0.6rem;
-        top: 50%;
-        transform: translateY(-50%);
-        pointer-events: none;
-        width: 13px;
-        height: 13px;
-        color: #0ea5e9;
-    }
+@keyframes aiSoonFloat {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-6px); }
 }
 
-/* ── Live price row ── */
-.ez-price-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    padding: 0.9rem 1.1rem;
-    border-radius: 1rem;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(14, 165, 233, 0.18);
-    backdrop-filter: blur(12px);
-}
-
-.ez-price {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-
-    &__status {
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-    }
-
-    &__status-text {
-        font-size: 0.65rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: var(--text-less-prominent, #94a3b8);
-    }
-
-    &__arrow {
-        width: 12px;
-        height: 12px;
-
-        &--up   { color: #10b981; }
-        &--down { color: #ef4444; }
-    }
-
-    &__value {
-        display: flex;
-        align-items: baseline;
-        gap: 0;
-        font-family: 'JetBrains Mono', 'Fira Code', monospace;
-        font-weight: 900;
-        line-height: 1;
-    }
-
-    &__prefix {
-        font-size: 1.6rem;
-        color: var(--text-general, #1e293b);
-    }
-
-    &__last-digit {
-        font-size: 2rem;
-        display: inline-block;
-    }
-}
-
-/* Status dots */
-.ez-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-
-    &--live        { background: #10b981; animation: ez-pulse 1.5s ease-in-out infinite; }
-    &--connecting  { background: #f59e0b; animation: ez-pulse 0.8s ease-in-out infinite; }
-    &--error       { background: #ef4444; }
-}
-
-@keyframes ez-pulse {
-    0%, 100% { opacity: 1;   transform: scale(1);   }
-    50%       { opacity: 0.5; transform: scale(0.75); }
-}
-
-/* Cursor tag (tracker badge) */
-.ez-cursor-tag {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.5rem 1rem;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.07);
-    border: 1px solid rgba(255, 255, 255, 0.14);
-
-    &__arrow {
-        font-size: 0.9rem;
-        line-height: 1;
-    }
-
-    &__label {
-        font-size: 0.65rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.07em;
-        color: var(--text-less-prominent, #94a3b8);
-    }
-
-    &__digit {
-        font-size: 1.3rem;
-        font-weight: 900;
-        font-family: 'JetBrains Mono', monospace;
-        line-height: 1;
-    }
-}
-
-.ez-spinner    { width: 16px; height: 16px; color: #f59e0b; animation: spin 1s linear infinite; }
-.ez-error-icon { width: 16px; height: 16px; color: #ef4444; }
-.ez-wifi-icon  { width: 16px; height: 16px; color: #10b981; }
-
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
-}
-
-/* ── Quadrants wrapper ── */
-.ez-quadrants {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-}
-
-/* ── Quadrant ── */
-.ez-quadrant {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    padding: 1rem;
-    border-radius: 1rem;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(100, 116, 139, 0.2);
-
-    &__label {
-        font-size: 0.65rem;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 0.07em;
-        color: var(--text-less-prominent, #94a3b8);
-        padding-bottom: 0.25rem;
-        border-bottom: 1px solid rgba(100, 116, 139, 0.15);
-    }
-}
-
-/* Cursor layer — positioned relative, cursor floats above circles */
-.ez-cursor-layer {
-    position: relative;
-    height: 20px;
-    pointer-events: none;
-}
-
-.ez-cursor {
-    position: absolute;
-    top: 0;
-    /* x is set via motion animate — translateX(-50%) centers it */
-    transform: translateX(-50%);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-
-    &__arrow {
-        font-size: 0.85rem;
-        line-height: 1;
-        color: #ef4444;
-        filter: drop-shadow(0 0 6px #ef444488);
-    }
-}
-
-/* Circles row */
-.ez-circles {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 0.35rem;
-}
-
-/* Two-row split: 0–4 top, 5–9 bottom inside ONE quadrant card.
-   Each band has its own cursor + 5-column grid so circles cannot shove
-   neighbours when their size animates per tick. */
-.ez-quadrant--split {
-    gap: 0.35rem;
-}
-
-.ez-band {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-}
-
-.ez-circles--grid {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 0.35rem;
-    align-items: end;
-}
-
-/* Fixed-size slot that holds the (animated) circle.
-   Reserves the max circle footprint so size changes do not reflow. */
-.ez-circle-holder {
-    width: 100%;
-    height: 74px;             /* matches max circleSize (72px) + 2px breathing */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-/* Single-row layout: all 10 digits in one card, no per-quadrant stacking */
-.ez-quadrants--single {
-    .ez-quadrant {
-        padding: 0.85rem 0.75rem;
-    }
-    .ez-circles {
-        gap: 0.25rem;
-    }
-}
-
-.ez-circle-col {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.3rem;
-    flex: 1;
-    min-width: 0;
-}
-
-.ez-rank-badge {
-    display: none;
-}
-
-.ez-circle {
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'JetBrains Mono', monospace;
-    font-weight: 900;
-    font-size: 0.9rem;
-    cursor: default;
-    user-select: none;
-    position: relative;
-    overflow: hidden;
-    transition: border-color 0.3s, color 0.3s;
-
-    &__pulse {
-        position: absolute;
-        inset: 0;
-        border-radius: 50%;
-    }
-}
-
-.ez-bar-track {
-    width: 100%;
-    height: 5px;
-    border-radius: 99px;
-    background: rgba(100, 116, 139, 0.15);
-    overflow: hidden;
-}
-
-.ez-bar-fill {
-    height: 100%;
-    border-radius: 99px;
-}
-
-.ez-pct {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.65rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-}
-
-/* ── Recent strip ── */
-.ez-section {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-
-    &__title {
-        font-size: 0.65rem;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 0.07em;
-        color: var(--text-less-prominent, #94a3b8);
-    }
-}
-
-.ez-strip {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem;
-
-    &__chip {
-        width: 20px;
-        height: 20px;
-        border-radius: 5px;
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.65rem;
-        font-weight: 800;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        user-select: none;
-    }
-}
-
-/* ── Legend ── */
-.ez-legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    padding-top: 0.25rem;
-    border-top: 1px solid rgba(100, 116, 139, 0.15);
-
-    &__item {
-        display: flex;
-        align-items: center;
-        gap: 0.3rem;
-        font-size: 0.65rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: var(--text-less-prominent, #94a3b8);
-    }
-
-    &__dot {
-        width: 9px;
-        height: 9px;
-        border-radius: 50%;
-        flex-shrink: 0;
-    }
+@media (prefers-color-scheme: dark) {
+    .ai-soon__card  { background: #1e293b; border-color: #334155; box-shadow: 0 4px 24px rgba(0,0,0,0.4); }
+    .ai-soon__title { color: #f1f5f9; }
+    .ai-soon__sub   { color: #cbd5e1; }
+    .ai-soon__hint  { color: #64748b; }
+    .ai-soon__badge { color: #93c5fd; background: rgba(37, 99, 235, 0.15); }
 }
