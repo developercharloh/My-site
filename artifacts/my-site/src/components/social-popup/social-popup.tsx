@@ -1,27 +1,17 @@
 import React from 'react';
 import './social-popup.scss';
 
-const STORAGE_KEY = 'slx_social_popup_seen';
+interface SocialPopupProps {
+    onClose?: () => void;
+}
 
-const SocialPopup = () => {
-    const [visible, setVisible] = React.useState(false);
+const SocialPopup: React.FC<SocialPopupProps> = ({ onClose }) => {
     const [closing, setClosing] = React.useState(false);
-
-    React.useEffect(() => {
-        const seen = sessionStorage.getItem(STORAGE_KEY);
-        if (!seen) {
-            const t = setTimeout(() => setVisible(true), 800);
-            return () => clearTimeout(t);
-        }
-    }, []);
 
     const close = () => {
         setClosing(true);
-        sessionStorage.setItem(STORAGE_KEY, '1');
-        setTimeout(() => setVisible(false), 350);
+        setTimeout(() => onClose?.(), 380);
     };
-
-    if (!visible) return null;
 
     return (
         <div className={`slx-popup-overlay${closing ? ' slx-popup-overlay--out' : ''}`} onClick={close}>
@@ -86,7 +76,7 @@ const SocialPopup = () => {
 
                 {/* Footer action */}
                 <button className='slx-popup__dismiss' onClick={close}>
-                    Continue to App
+                    Continue to App →
                 </button>
             </div>
         </div>
