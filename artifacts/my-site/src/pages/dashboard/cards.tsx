@@ -51,24 +51,6 @@ const Cards = observer(({ is_mobile, has_dashboard_strategies }: TCardProps) => 
 
     const actions: TCardArray[] = [
         {
-            id: 'my-computer',
-            icon: (
-                <span className='dashboard-card__emoji' aria-hidden='true'>
-                    📱⇢📂
-                </span>
-            ),
-            content: is_mobile ? <Localize i18n_default_text='Local' /> : <Localize i18n_default_text='Local' />,
-            callback: () => {
-                openFileLoader();
-                rudderStackSendOpenEvent({
-                    subpage_name:      'bot_builder',
-                    subform_source:    'dashboard',
-                    subform_name:      'load_strategy',
-                    load_strategy_tab: 'local',
-                });
-            },
-        },
-        {
             id: 'google-drive',
             icon: (
                 <span className='dashboard-card__emoji dashboard-card__emoji--gdrive' aria-hidden='true'>
