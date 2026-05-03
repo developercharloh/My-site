@@ -28,6 +28,7 @@ import BlocklyLoading from '../components/blockly-loading';
 import BotStopped from '../components/bot-stopped';
 import BotBuilder from '../pages/bot-builder';
 import Main from '../pages/main';
+import LoginGate from '../components/login-gate/login-gate';
 import './app.scss';
 import 'react-toastify/dist/ReactToastify.css';
 import '../components/bot-notification/bot-notification.scss';
@@ -275,18 +276,41 @@ const AppContent = observer(() => {
     const getLoadingMessage = () => {
         if (is_eu_error_loading) return '';
         if (!isOnline) return localize('Loading offline dashboard...');
-        return localize('Initializing Deriv Bot account...');
+        return localize('Initializing Mr CharlohFX...');
     };
 
     // Skip loading entirely when offline - show dashboard directly
     if (!isOnline) {
         console.log('[Offline] Bypassing loader, showing dashboard directly');
         return (
+            <LoginGate>
+                <AuthLoadingWrapper>
+                    <ThemeProvider theme={is_dark_mode_on ? 'dark' : 'light'}>
+                        <BlocklyLoading />
+                        <div className='bot-dashboard bot' data-testid='dt_bot_dashboard'>
+                            <Audio />
+                            <Main />
+                            <BotBuilder />
+                            <BotStopped />
+                            <TransactionDetailsModal />
+                            <PWAInstallModal />
+                            <ToastContainer limit={3} draggable={false} />
+                            <TncStatusUpdateModal />
+                        </div>
+                    </ThemeProvider>
+                </AuthLoadingWrapper>
+            </LoginGate>
+        );
+    }
+
+    return is_loading ? (
+        <ChunkLoader message={getLoadingMessage()} />
+    ) : (
+        <LoginGate>
             <AuthLoadingWrapper>
                 <ThemeProvider theme={is_dark_mode_on ? 'dark' : 'light'}>
                     <BlocklyLoading />
                     <div className='bot-dashboard bot' data-testid='dt_bot_dashboard'>
-                        {/* <PWAInstallModalTest /> */}
                         <Audio />
                         <Main />
                         <BotBuilder />
@@ -298,28 +322,7 @@ const AppContent = observer(() => {
                     </div>
                 </ThemeProvider>
             </AuthLoadingWrapper>
-        );
-    }
-
-    return is_loading ? (
-        <ChunkLoader message={getLoadingMessage()} />
-    ) : (
-        <AuthLoadingWrapper>
-            <ThemeProvider theme={is_dark_mode_on ? 'dark' : 'light'}>
-                <BlocklyLoading />
-                <div className='bot-dashboard bot' data-testid='dt_bot_dashboard'>
-                    {/* <PWAInstallModalTest /> */}
-                    <Audio />
-                    <Main />
-                    <BotBuilder />
-                    <BotStopped />
-                    <TransactionDetailsModal />
-                    <PWAInstallModal />
-                    <ToastContainer limit={3} draggable={false} />
-                    <TncStatusUpdateModal />
-                </div>
-            </ThemeProvider>
-        </AuthLoadingWrapper>
+        </LoginGate>
     );
 });
 
