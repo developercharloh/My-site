@@ -72,7 +72,7 @@ const HeaderEngineSelector = () => {
                         <span className='hdr-engine__opt-icon'>⚙️</span>
                         <span>
                             <strong>Classic V1</strong>
-                            <span className='hdr-engine__opt-sub'>Deriv DBot engine</span>
+                            <span className='hdr-engine__opt-sub'>Mr CharlohFX engine</span>
                         </span>
                     </button>
                     <button
