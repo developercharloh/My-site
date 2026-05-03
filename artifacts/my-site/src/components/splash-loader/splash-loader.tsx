@@ -10,7 +10,7 @@ const PHRASES = [
     { top: 'Your Edge', bottom: 'Starts Here.' },
 ];
 
-const TOTAL_MS = 20000;
+const TOTAL_MS = 7000;
 const PHRASE_MS = TOTAL_MS / PHRASES.length; // ~3333ms each
 
 const CANDLES = [
