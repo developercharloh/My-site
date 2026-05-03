@@ -229,6 +229,46 @@ export function getBotPatches(
     }
 }
 
+// ─── Raw XML cache ────────────────────────────────────────────────────────────
+// Bot XML files are static assets (~50–200 KB each) served from /bots/. The
+// HTTP round-trip + DOMParser pass costs 200–500 ms cold. Caching the raw text
+// in memory makes every subsequent fetchAndPatchBot call effectively
+// instantaneous — patching itself is sub-millisecond.
+
+const rawXmlCache:    Map<string, string>          = new Map();
+const inflightFetches: Map<string, Promise<string>> = new Map();
+
+async function loadRawXml(botId: string): Promise<string> {
+    const cached = rawXmlCache.get(botId);
+    if (cached) return cached;
+
+    const inflight = inflightFetches.get(botId);
+    if (inflight) return inflight;
+
+    const xmlPath = BOT_XML_PATHS[botId];
+    if (!xmlPath) throw new Error(`Unknown bot id: ${botId}`);
+
+    const p = (async () => {
+        const res = await fetch(xmlPath);
+        if (!res.ok) throw new Error(`HTTP ${res.status} fetching bot XML (${xmlPath})`);
+        const text = await res.text();
+        rawXmlCache.set(botId, text);
+        return text;
+    })();
+
+    inflightFetches.set(botId, p);
+    try { return await p; }
+    finally { inflightFetches.delete(botId); }
+}
+
+// Public — call this when the user opens the Save & Run modal (or earlier)
+// so the XML is warm in memory by the time they click Run.
+export function prefetchBotXml(botId: string): void {
+    if (!BOT_XML_PATHS[botId]) return;
+    if (rawXmlCache.has(botId) || inflightFetches.has(botId)) return;
+    void loadRawXml(botId).catch(() => { /* silent — Run-time will surface errors */ });
+}
+
 // ─── Fetch, patch, and load into Blockly workspace ────────────────────────────
 // Returns the patched Document so the caller can load it however it needs.
 
@@ -241,13 +281,7 @@ export async function fetchAndPatchBot(
     martingale: number,
     duration:   number = 1,
 ): Promise<Document> {
-    const xmlPath = BOT_XML_PATHS[botId];
-    if (!xmlPath) throw new Error(`Unknown bot id: ${botId}`);
-
-    const res = await fetch(xmlPath);
-    if (!res.ok) throw new Error(`HTTP ${res.status} fetching bot XML (${xmlPath})`);
-    const rawXml = await res.text();
-
+    const rawXml  = await loadRawXml(botId);
     const patches = getBotPatches(botId, signal, stake, takeProfit, stopLoss, martingale);
     const doc     = patchBotXml(rawXml, signal.symbol, patches, duration);
 

@@ -9,7 +9,7 @@ import {
 } from './signal-brain';
 import { useStore } from '@/hooks/useStore';
 import { DBOT_TABS } from '@/constants/bot-contents';
-import { botIdFromSignal, fetchAndPatchBot, parseDigitFrom } from '@/utils/bot-patch';
+import { botIdFromSignal, fetchAndPatchBot, parseDigitFrom, prefetchBotXml } from '@/utils/bot-patch';
 
 const ENGINE_KEY    = 'free_bots_engine_mode';
 const V2_CONFIG_KEY = 'free_bots_v2_config';
@@ -434,6 +434,13 @@ function SignalSettingsModal({ signal, rank, onClose }: {
     );
     const color = MARKET_COLOR[signal.market];
 
+    // Pre-warm the bot XML the moment the modal opens. By the time the user
+    // finishes adjusting stake/TP/SL/martingale and clicks Run, the file is
+    // already cached in memory — saves the ~200–500 ms cold fetch + parse.
+    useEffect(() => {
+        try { prefetchBotXml(botIdFromSignal(signal)); } catch { /* ignore */ }
+    }, [signal.market, signal.direction]);
+
     async function handleRun() {
         localStorage.setItem(storageKey, JSON.stringify(cfg));
         setRunState('launching');
@@ -530,11 +537,14 @@ function SignalSettingsModal({ signal, rank, onClose }: {
                 dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
                 onClose();
 
+                // 150 ms is enough for the Bot Builder tab to mount and the
+                // Blockly workspace to register the freshly-loaded XML. The old
+                // 500 ms was an over-conservative buffer.
                 setTimeout(() => {
                     if (!(run_panel as any).is_running) {
                         run_panel.onRunButtonClick();
                     }
-                }, 500);
+                }, 150);
             }
 
         } catch (e: any) {
