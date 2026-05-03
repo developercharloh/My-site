@@ -463,8 +463,8 @@
 
     &--bottom {
         grid-template-columns: 1.4fr 1fr;
-        flex: 1;
-        min-height: 320px;
+        align-items: stretch;
+        min-height: 440px;
     }
 }
 
@@ -578,8 +578,20 @@
     display: flex;
     flex-direction: column;
     gap: 0.3rem;
-    overflow: auto;
-    max-height: 50vh;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 160px;
+    max-height: none;
+
+    &__list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        overflow-y: auto;
+        flex: 1;
+        min-height: 160px;
+        max-height: none;
+    }
 
     &__entry {
         display: flex;
@@ -960,9 +972,12 @@
     // scroller, so the user can swipe down naturally to reach Transactions
     // and below — including any data that arrives during a live session.
     .sb-tx__table-wrap,
-    .sb-journal {
+    .sb-journal,
+    .sb-journal__list {
         max-height: none;
         overflow: visible;
+        flex: unset;
+        min-height: unset;
     }
 
     .sb-tx__summary {
