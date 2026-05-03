@@ -8,27 +8,27 @@ export type TSidebarItem = {
 
 export const SIDEBAR_INTRO = (): TSidebarItem[] => [
     {
-        label: localize('Welcome to Deriv Bot!'),
+        label: localize('Welcome to Mr CharlohFX!'),
         content: [
             {
                 data: localize(
-                    'Ready to automate your trading strategy without writing any code? You’ve come to the right place.'
+                    "Ready to automate your trading strategy without writing any code? You've come to the right place."
                 ),
             },
-            { data: localize('Check out these guides and FAQs to learn more about building your bot:') },
+            { data: localize('Check out these guides and FAQs to learn more about Mr CharlohFX.') },
         ],
         link: false,
     },
     {
         label: localize('Guide'),
-        content: [{ data: localize('Deriv Bot - your automated trading partner') }],
+        content: [{ data: localize('Mr CharlohFX \u2013 Where precision meets opportunity') }],
         link: true,
     },
     {
         label: localize('FAQs'),
         content: [
             {
-                data: localize('What is Deriv Bot?'),
+                data: localize('What is Mr CharlohFX?'),
                 faq_id: 'faq-0',
             },
             {
