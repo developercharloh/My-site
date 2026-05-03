@@ -278,17 +278,11 @@ function QuadrantRow({ digits, distribution, ranks, liveDigit }: {
                 <div className='ez-circle-holder'>
                     <motion.div
                         className='ez-circle'
-                        animate={{ width: size, height: size, ...(isLive ? { boxShadow:[`0 0 0px ${color}00`,`0 0 32px ${color}cc`,`0 0 12px ${color}66`], scale:[1,1.2,1] } : {}) }}
+                        animate={{ width: size, height: size }}
                         transition={{ duration: 0.45, ease: 'easeOut' }}
                         style={{ background: isHigh ? color : `${color}20`, border: `2px solid ${color}`, color: isHigh ? '#fff' : color, boxShadow: isLive ? `0 0 16px ${color}` : isHigh ? `0 0 6px ${color}44` : 'none' }}
                     >
                         {d}
-                        {isLive && (
-                            <motion.div className='ez-circle__pulse'
-                                animate={{ scale:[1,1.8], opacity:[0.5,0] }}
-                                transition={{ duration:0.7, ease:'easeOut' }}
-                                style={{ background: color }} />
-                        )}
                     </motion.div>
                 </div>
                 <div className='ez-bar-track'><motion.div className='ez-bar-fill' style={{ background: color }} animate={{ width:`${Math.min(100,p*7)}%` }} transition={{ duration:0.6,ease:'easeOut' }} /></div>
@@ -305,9 +299,9 @@ function QuadrantRow({ digits, distribution, ranks, liveDigit }: {
                     <AnimatePresence>
                         {liveIdx !== -1 && (
                             <motion.div className='ez-cursor'
-                                initial={{ opacity: 0, y: -8 }}
+                                initial={{ opacity: 0, y: -4 }}
                                 animate={{ opacity: 1, y: 0, left: `${(liveIdx + 0.5) * 20}%` }}
-                                transition={{ type: 'spring', stiffness: 500, damping: 28 }}>
+                                transition={{ duration: 0.2, ease: 'easeOut' }}>
                                 <span className='ez-cursor__arrow'>▼</span>
                             </motion.div>
                         )}
@@ -1000,10 +994,10 @@ const SignalEngine = () => {
                                     key={liveDigit}
                                     className='se-digit-pill__value'
                                     style={{ color: D_COLORS[liveDigit], textShadow: `0 0 18px ${D_COLORS[liveDigit]}99` }}
-                                    initial={{ scale: 0.4, opacity: 0 }}
-                                    animate={{ scale: 1,   opacity: 1 }}
-                                    exit={{ scale: 0.4,    opacity: 0 }}
-                                    transition={{ type: 'spring', stiffness: 520, damping: 24 }}
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    transition={{ duration: 0.15, ease: 'easeOut' }}
                                 >
                                     {liveDigit}
                                 </motion.span>
