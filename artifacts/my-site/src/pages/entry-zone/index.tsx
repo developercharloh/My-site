@@ -349,54 +349,53 @@ const EntryZone: React.FC = () => {
                 </div>
             </header>
 
-            {/* Step 1: symbol */}
+            {/* Volatility (dropdown) */}
             <section className='ai-tool__step'>
-                <div className='ai-tool__step-head'>
-                    <span className='ai-tool__step-num'>1</span>
-                    <span className='ai-tool__step-title'>Choose volatility index</span>
-                </div>
-                <div className='ai-tool__chips'>
-                    {SYMBOLS.map(s => (
-                        <button
-                            key={s.code}
-                            type='button'
-                            className={`ai-chip ${symbol === s.code ? 'ai-chip--on' : ''}`}
-                            onClick={() => setSymbol(s.code)}
-                        >
-                            {s.label}
-                        </button>
-                    ))}
+                <label className='ai-tool__step-title' htmlFor='ai-vol'>Volatility index</label>
+                <div className='ai-select'>
+                    <select
+                        id='ai-vol'
+                        className='ai-select__field'
+                        value={symbol}
+                        onChange={e => setSymbol(e.target.value)}
+                    >
+                        <optgroup label='2-second ticks'>
+                            {SYMBOLS.filter(s => s.tickEvery === 2).map(s => (
+                                <option key={s.code} value={s.code}>{s.label}</option>
+                            ))}
+                        </optgroup>
+                        <optgroup label='1-second ticks (faster)'>
+                            {SYMBOLS.filter(s => s.tickEvery === 1).map(s => (
+                                <option key={s.code} value={s.code}>{s.label}</option>
+                            ))}
+                        </optgroup>
+                    </select>
+                    <span className='ai-select__chev' aria-hidden='true'>▾</span>
                 </div>
             </section>
 
-            {/* Step 2: market */}
+            {/* Market (dropdown) */}
             <section className='ai-tool__step'>
-                <div className='ai-tool__step-head'>
-                    <span className='ai-tool__step-num'>2</span>
-                    <span className='ai-tool__step-title'>Choose market</span>
-                </div>
-                <div className='ai-tool__market-grid'>
-                    {MARKETS.map(m => (
-                        <button
-                            key={m.id}
-                            type='button'
-                            className={`ai-market ${market === m.id ? 'ai-market--on' : ''}`}
-                            onClick={() => setMarket(m.id)}
-                        >
-                            <span className='ai-market__emoji'>{m.emoji}</span>
-                            <span className='ai-market__label'>{m.label}</span>
-                            <span className='ai-market__sub'>{m.sub}</span>
-                        </button>
-                    ))}
+                <label className='ai-tool__step-title' htmlFor='ai-mkt'>Market</label>
+                <div className='ai-select'>
+                    <select
+                        id='ai-mkt'
+                        className='ai-select__field'
+                        value={market}
+                        onChange={e => setMarket(e.target.value as MarketKind)}
+                    >
+                        {MARKETS.map(m => (
+                            <option key={m.id} value={m.id}>
+                                {m.emoji}  {m.label} — {m.sub}
+                            </option>
+                        ))}
+                    </select>
+                    <span className='ai-select__chev' aria-hidden='true'>▾</span>
                 </div>
             </section>
 
-            {/* Step 3: launch */}
+            {/* Launch */}
             <section className='ai-tool__step'>
-                <div className='ai-tool__step-head'>
-                    <span className='ai-tool__step-num'>3</span>
-                    <span className='ai-tool__step-title'>Launch the scan</span>
-                </div>
                 <button
                     type='button'
                     className='ai-launch'
