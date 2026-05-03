@@ -334,6 +334,30 @@
         font-weight: 600;
     }
 
+    &__trade-row-prices {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 6px;
+        margin: 2px 0;
+        background: rgba(100, 116, 139, 0.06);
+        border-radius: 4px;
+        font-family: 'SF Mono', Menlo, Consolas, monospace;
+        font-variant-numeric: tabular-nums;
+    }
+
+    &__trade-price {
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: #475569;
+        letter-spacing: -0.01em;
+    }
+
+    &__trade-price-arrow {
+        color: #94a3b8;
+        font-size: 0.7rem;
+    }
+
     &__trade-row3 {
         display: flex;
         justify-content: space-between;
