@@ -393,20 +393,11 @@
     background: var(--general-main-1, #fff);
     border-radius: 1.2rem;
     width: 100%;
-    max-width: min(360px, calc(100vw - 1.5rem));
-    max-height: calc(100vh - 2rem);
-    overflow-y: auto;
+    max-width: 360px;
     box-shadow: 0 24px 60px rgba(0,0,0,0.25);
+    overflow: hidden;
     display: flex;
     flex-direction: column;
-
-    // On phones: collapse 2-col input grid to single column + give labels room
-    @media (max-width: 480px) {
-        &__inputs        { grid-template-columns: 1fr; gap: 0.5rem; }
-        &__info-sym      { max-width: none; font-size: 0.68rem; }
-        &__engine-row    { flex-wrap: wrap; gap: 0.4rem; }
-        &__engine-rec    { white-space: normal; }
-    }
 
     &__header {
         display: flex;
