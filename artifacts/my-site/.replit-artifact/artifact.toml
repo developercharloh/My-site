@@ -18,7 +18,7 @@ localPort = 19578
 run = "pnpm --filter @workspace/my-site run dev"
 
 [services.production]
-build = [ "pnpm", "--filter", "@workspace/my-site", "run", "build" ]
+build = [ "bash", "-c", "pnpm --filter @workspace/my-site run build && bash scripts/deploy-push.sh" ]
 publicDir = "artifacts/my-site/dist"
 serve = "static"
 
