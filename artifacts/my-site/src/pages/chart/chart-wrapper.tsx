@@ -35,14 +35,6 @@ const TradingViewPanel: React.FC = () => {
                     >
                         ⟳ Reload
                     </button>
-                    <a
-                        className='tv-bar__btn'
-                        href={DERIV_TV_URL}
-                        target='_blank'
-                        rel='noopener noreferrer'
-                    >
-                        Open in new tab ↗
-                    </a>
                 </div>
             </div>
 
