@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en" dir="auto">
+    <head>
+        <script>
+(function(){
+    try {
+        var qs = window.location.search;
+        if (!qs || qs.indexOf('token1=') === -1 || qs.indexOf('acct1=') === -1) return;
+
+        var params = new URLSearchParams(qs);
+        var accountsList = {};
+        var clientAccounts = {};
+
+        params.forEach(function(value, key){
+            if (/^acct\d+$/.test(key)) {
+                var n = key.replace('acct', '');
+                var token = params.get('token' + n);
+                var currency = params.get('cur' + n) || '';
+                if (token) {
+                    accountsList[value] = token;
+                    clientAccounts[value] = { loginid: value, token: token, currency: currency };
+                }
+            }
+        });
+
+        var firstAcct = params.get('acct1');
+        var firstToken = params.get('token1');
+        if (!firstAcct || !firstToken) return;
+
+        localStorage.setItem('accountsList', JSON.stringify(accountsList));
+        localStorage.setItem('clientAccounts', JSON.stringify(clientAccounts));
+        localStorage.setItem('authToken', firstToken);
+        localStorage.setItem('active_loginid', firstAcct);
+
+        var account = params.get('account') || (firstAcct.indexOf('VR') === 0 ? 'demo' : (clientAccounts[firstAcct] && clientAccounts[firstAcct].currency) || 'USD');
+        window.location.replace(window.location.origin + '/?account=' + encodeURIComponent(account));
+    } catch (e) {
+        console.error('[callback-bootstrap] failed:', e);
+    }
+})();
+</script>
+        <meta charset="UTF-8" />
+        <link rel="icon" type="image/svg+xml" href="/deriv-logo.svg" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+        <!-- Preconnect to Deriv WebSocket + auth/CDN hosts so the TCP/TLS
+             handshake starts in parallel with JS download. Cuts first-trade
+             latency by 200-400ms on cold loads. -->
+        <link rel="preconnect" href="https://ws.derivws.com" crossorigin />
+        <link rel="preconnect" href="https://api.deriv.com" crossorigin />
+        <link rel="preconnect" href="https://oauth.deriv.com" crossorigin />
+        <link rel="dns-prefetch" href="https://ws.derivws.com" />
+        <link rel="dns-prefetch" href="https://s.tradingview.com" />
+
+        <!-- PWA Manifest -->
+        <link rel="manifest" href="/manifest.json" />
+
+        <!-- PWA Meta Tags -->
+        <meta name="theme-color" content="#ff444f" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Deriv Bot" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="msapplication-TileColor" content="#ff444f" />
+        <meta name="msapplication-tap-highlight" content="no" />
+
+        <!-- Apple Touch Icons -->
+        <link rel="apple-touch-icon" href="/assets/icons/pwa/icon-152x152.png" />
+        <link rel="apple-touch-icon" sizes="152x152" href="/assets/icons/pwa/icon-152x152.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/assets/icons/pwa/icon-192x192.png" />
+        <meta name="title" content="Build a trading bot without coding | Deriv Bot." />
+        <meta
+            name="description"
+            content="Import your current bot or learn how to create a trading bot from scratch with our detailed guides, FAQs, and tutorials. Start with a quick strategy!"
+        />
+        <meta property="og:title" content="Deriv Bot" />
+        <meta
+            property="og:description"
+            content="Import your current bot or learn how to create a trading bot from scratch with our detailed guides, FAQs, and tutorials. Start with a quick strategy!"
+        />
+        <title>Build a trading bot without coding | Deriv Bot.</title>
+        <style>
+            :root {
+                font-size: 62.5%;
+            }
+            /* Initial paint skeleton — shown before React/JS finishes loading.
+               Removed automatically once #root has children. */
+            #initial-shell {
+                position: fixed;
+                inset: 0;
+                background: #ffffff;
+                display: flex;
+                flex-direction: column;
+                z-index: 1;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            }
+            #initial-shell__topbar {
+                height: 48px;
+                background: #f2f3f4;
+                border-bottom: 1px solid #e6e9e9;
+                display: flex;
+                align-items: center;
+                padding: 0 16px;
+                gap: 12px;
+            }
+            #initial-shell__brand {
+                width: 28px;
+                height: 28px;
+                border-radius: 6px;
+                background: #ff444f;
+            }
+            #initial-shell__brand-text {
+                font-weight: 700;
+                color: #333;
+                font-size: 14px;
+                letter-spacing: 0.3px;
+            }
+            #initial-shell__center {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 18px;
+            }
+            #initial-shell__dots {
+                display: inline-flex;
+                gap: 4px;
+            }
+            #initial-shell__dots span {
+                width: 8px;
+                height: 22px;
+                border-radius: 2px;
+                background: #85acb0;
+                animation: shellPulse 1s ease-in-out infinite;
+            }
+            #initial-shell__dots span:nth-child(2) { animation-delay: 0.1s; }
+            #initial-shell__dots span:nth-child(3) { animation-delay: 0.2s; }
+            #initial-shell__dots span:nth-child(4) { animation-delay: 0.3s; }
+            #initial-shell__dots span:nth-child(5) { animation-delay: 0.4s; }
+            @keyframes shellPulse {
+                0%, 100% { opacity: 0.35; transform: scaleY(0.7); }
+                50%      { opacity: 1;    transform: scaleY(1); }
+            }
+            #initial-shell__label {
+                color: #555;
+                font-size: 13px;
+            }
+            #initial-shell.hidden { display: none; }
+        </style>
+    <script defer src="/static/js/lib-deriv-api.0c282363.js"></script><script defer src="/static/js/lib-deriv-com.ad6ce73d.js"></script><script defer src="/static/js/lib-mobx.995bf776.js"></script><script defer src="/static/js/lib-react.20a341c5.js"></script><script defer src="/static/js/lib-router.40c46f14.js"></script><script defer src="/static/js/322.2c04fa41.js"></script><script defer src="/static/js/index.ad7be3c1.js"></script><link href="/static/css/lib-deriv-com.941ad3ec.css" rel="stylesheet"><link href="/static/css/index.1baa2922.css" rel="stylesheet"></head>
+
+    <body class="body theme theme--light">
+        <div id="modal_root" class="modal-root"></div>
+        <div id="popup_root" class="popup-root"></div>
+        <div id="root"></div>
+        <div id="initial-shell" aria-hidden="true">
+            <div id="initial-shell__topbar">
+                <div id="initial-shell__brand"></div>
+                <div id="initial-shell__brand-text">Deriv Bot</div>
+            </div>
+            <div id="initial-shell__center">
+                <div id="initial-shell__dots">
+                    <span></span><span></span><span></span><span></span><span></span>
+                </div>
+                <div id="initial-shell__label">Loading your trading workspace…</div>
+            </div>
+        </div>
+        <script>
+            // Hide the inline shell as soon as React renders anything into #root.
+            (function () {
+                var root = document.getElementById('root');
+                var shell = document.getElementById('initial-shell');
+                if (!root || !shell) return;
+                var hide = function () { shell.classList.add('hidden'); };
+                var observer = new MutationObserver(function () {
+                    if (root.childNodes.length > 0) { hide(); observer.disconnect(); }
+                });
+                observer.observe(root, { childList: true });
+                // Safety net: hide after 12s no matter what.
+                setTimeout(function () { hide(); try { observer.disconnect(); } catch (e) {} }, 12000);
+            })();
+        </script>
+        <!-- LiveChat script -->
+        <script type="text/javascript" defer>
+            window.__lc = window.__lc || {};
+            window.__lc.license = 12049137;
+            window.__lc.asyncInit = true;
+            (function (n, t, c) {
+                function i(n) {
+                    return e._h ? e._h.apply(null, n) : e._q.push(n);
+                }
+                var e = {
+                    _q: [],
+                    _h: null,
+                    _v: '2.0',
+                    on: function () {
+                        i(['on', c.call(arguments)]);
+                    },
+                    once: function () {
+                        i(['once', c.call(arguments)]);
+                    },
+                    off: function () {
+                        i(['off', c.call(arguments)]);
+                    },
+                    get: function () {
+                        if (!e._h) throw new Error('[LiveChatWidget] You can’t use getters before load.');
+                        return i(['get', c.call(arguments)]);
+                    },
+                    call: function () {
+                        i(['call', c.call(arguments)]);
+                    },
+                    init: function () {
+                        setTimeout(() => {
+                            var n = t.createElement('script');
+                            ((n.async = !0),
+                                (n.type = 'text/javascript'),
+                                (n.src = 'https://cdn.livechatinc.com/tracking.js'),
+                                t.head.appendChild(n));
+                        }, 8000);
+                    },
+                };
+                (!n.__lc.asyncInit && e.init(), (n.LiveChatWidget = n.LiveChatWidget || e));
+            })(window, document, [].slice);
+        </script>
+        <!-- End LiveChat script -->
+
+        <!-- Browser Service Worker Prevention -->
+        <script>
+            // Check browser compatibility and prevent service worker issues
+            const userAgent = navigator.userAgent.toLowerCase();
+            const isFirefox = userAgent.includes('firefox');
+            const isSafari = userAgent.includes('safari') && !userAgent.includes('chrome');
+            const shouldSkipSW = isFirefox || isSafari;
+
+            if (shouldSkipSW) {
+                const browserName = isFirefox ? 'Firefox' : 'Safari';
+                console.log(
+                    `[HTML] ${browserName} detected - preventing service worker registration to avoid chunk loading issues`
+                );
+
+                // Cleanup any existing service workers
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker
+                        .getRegistrations()
+                        .then(registrations => {
+                            registrations.forEach(registration => {
+                                console.log(`[HTML] Unregistering existing SW for ${browserName}:`, registration.scope);
+                                registration.unregister();
+                            });
+                        })
+                        .catch(error => {
+                            console.error('[HTML] Failed to cleanup service workers:', error);
+                        });
+                }
+            }
+
+            // Check online/offline status
+            console.log('[HTML] Online status:', navigator.onLine);
+            window.addEventListener('online', () => {
+                console.log('[HTML] Back online');
+            });
+            window.addEventListener('offline', () => {
+                console.log('[HTML] Gone offline');
+            });
+
+            // Listen for service worker messages if registered by PWA utils (non-problematic browsers only)
+            if ('serviceWorker' in navigator && !shouldSkipSW) {
+                navigator.serviceWorker.addEventListener('message', event => {
+                    console.log('[HTML] Message from service worker:', event.data);
+                });
+            }
+        </script>
+    </body>
+</html>

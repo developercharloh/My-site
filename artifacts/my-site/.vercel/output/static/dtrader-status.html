@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>DTrader Status</title>
+<style>
+body{margin:0;background:#1e1e1e;color:#fff;font:13px monospace;}
+#info{padding:10px;background:#000;border-bottom:2px solid #333;}
+#info h2{margin:0 0 6px;color:#0f0;font-size:14px;}
+#info pre{margin:0;color:#0f0;font-size:11px;white-space:pre-wrap;}
+iframe{width:100%;height:calc(100vh - 120px);border:0;display:block;}
+</style>
+</head>
+<body>
+<div id="info"><h2 id="title">DTrader loading...</h2><pre id="detail">Waiting for init...</pre></div>
+<iframe id="f" src="/dtrader/"></iframe>
+<script>
+var st=Date.now();
+function check(){
+  try{
+    var d=document.getElementById('f').contentDocument;
+    if(!d){document.getElementById('detail').textContent='iframe not accessible';return;}
+    var skel=d.querySelectorAll('.dc-skeleton-rect,.skeleton').length;
+    var tradeForm=d.querySelector('.trade-container__price-info,.trade-container,.contract-type__container,.positions-drawer');
+    var wsPanel=d.getElementById('__ws_panel');
+    var wsText=wsPanel?wsPanel.textContent.slice(0,300):'no-overlay';
+    var elapsed=((Date.now()-st)/1000).toFixed(1);
+    document.getElementById('title').textContent='T+'+elapsed+'s | FORM:'+(tradeForm?tradeForm.className.slice(0,50):'not-found')+' | SKELS:'+skel;
+    document.getElementById('detail').textContent=wsText;
+    if(tradeForm){document.getElementById('title').style.color='#0f0';document.body.style.borderTop='4px solid #0f0';}
+    else if(skel>0){document.getElementById('title').style.color='#ff0';}
+    else{document.getElementById('title').style.color='#f00';}
+  }catch(e){
+    document.getElementById('detail').textContent='Error: '+e.message;
+  }
+}
+setInterval(check,500);
+</script>
+</body>
+</html>
