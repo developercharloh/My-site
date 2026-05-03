@@ -14,6 +14,7 @@ import { useDevice } from '@deriv-com/ui';
 import { rudderStackSendOpenEvent } from '../../analytics/rudderstack-common-events';
 import { rudderStackSendDashboardClickEvent } from '../../analytics/rudderstack-dashboard';
 import DashboardBotList from './bot-list/dashboard-bot-list';
+import Cashier from '../cashier';
 
 type TCardProps = {
     has_dashboard_strategies: boolean;
@@ -33,6 +34,8 @@ const Cards = observer(({ is_mobile, has_dashboard_strategies }: TCardProps) => 
     const { isDesktop } = useDevice();
     const { onCloseDialog, dialog_options, is_dialog_open, setActiveTab, setPreviewOnPopup } = dashboard;
     const { setFormVisibility } = quick_strategy;
+
+    const [is_cashier_open, setCashierOpen] = React.useState(false);
 
     const openGoogleDriveDialog = () => {
         toggleLoadModal();
@@ -58,9 +61,9 @@ const Cards = observer(({ is_mobile, has_dashboard_strategies }: TCardProps) => 
             callback: () => {
                 openFileLoader();
                 rudderStackSendOpenEvent({
-                    subpage_name: 'bot_builder',
-                    subform_source: 'dashboard',
-                    subform_name: 'load_strategy',
+                    subpage_name:      'bot_builder',
+                    subform_source:    'dashboard',
+                    subform_name:      'load_strategy',
                     load_strategy_tab: 'local',
                 });
             },
@@ -76,9 +79,9 @@ const Cards = observer(({ is_mobile, has_dashboard_strategies }: TCardProps) => 
             callback: () => {
                 openGoogleDriveDialog();
                 rudderStackSendOpenEvent({
-                    subpage_name: 'bot_builder',
-                    subform_source: 'dashboard',
-                    subform_name: 'load_strategy',
+                    subpage_name:      'bot_builder',
+                    subform_source:    'dashboard',
+                    subform_name:      'load_strategy',
                     load_strategy_tab: 'google drive',
                 });
             },
@@ -95,7 +98,7 @@ const Cards = observer(({ is_mobile, has_dashboard_strategies }: TCardProps) => 
                 setActiveTab(DBOT_TABS.BOT_BUILDER);
                 rudderStackSendDashboardClickEvent({
                     dashboard_click_name: 'bot_builder',
-                    subpage_name: 'bot_builder',
+                    subpage_name:         'bot_builder',
                 });
             },
         },
@@ -111,91 +114,112 @@ const Cards = observer(({ is_mobile, has_dashboard_strategies }: TCardProps) => 
                 setActiveTab(DBOT_TABS.BOT_BUILDER);
                 setFormVisibility(true);
                 rudderStackSendOpenEvent({
-                    subpage_name: 'bot_builder',
+                    subpage_name:   'bot_builder',
                     subform_source: 'dashboard',
-                    subform_name: 'quick_strategy',
+                    subform_name:   'quick_strategy',
                 });
+            },
+        },
+        {
+            id: 'cashier',
+            icon: (
+                <span className='dashboard-card__emoji dashboard-card__emoji--cashier' aria-hidden='true'>
+                    💳
+                </span>
+            ),
+            content: <Localize i18n_default_text='Cashier' />,
+            callback: () => {
+                setCashierOpen(true);
             },
         },
     ];
 
-    return React.useMemo(
-        () => (
+    return (
+        <div
+            className={classNames('tab__dashboard__table', {
+                'tab__dashboard__table--minimized': has_dashboard_strategies && is_mobile,
+            })}
+        >
             <div
-                className={classNames('tab__dashboard__table', {
-                    'tab__dashboard__table--minimized': has_dashboard_strategies && is_mobile,
+                className={classNames('tab__dashboard__table__tiles', {
+                    'tab__dashboard__table__tiles--minimized': has_dashboard_strategies && is_mobile,
                 })}
+                id='tab__dashboard__table__tiles'
             >
-                <div
-                    className={classNames('tab__dashboard__table__tiles', {
-                        'tab__dashboard__table__tiles--minimized': has_dashboard_strategies && is_mobile,
-                    })}
-                    id='tab__dashboard__table__tiles'
-                >
-                    {actions.map(icons => {
-                        const { icon, content, callback, id } = icons;
-                        return (
+                {actions.map(icons => {
+                    const { icon, content, callback, id } = icons;
+                    return (
+                        <div
+                            key={id}
+                            className={classNames('tab__dashboard__table__block', {
+                                'tab__dashboard__table__block--minimized': has_dashboard_strategies && is_mobile,
+                            })}
+                        >
                             <div
-                                key={id}
-                                className={classNames('tab__dashboard__table__block', {
-                                    'tab__dashboard__table__block--minimized': has_dashboard_strategies && is_mobile,
+                                className={classNames('tab__dashboard__table__images', {
+                                    'tab__dashboard__table__images--minimized': has_dashboard_strategies,
                                 })}
+                                width='8rem'
+                                height='8rem'
+                                icon={icon}
+                                id={id}
+                                onClick={() => {
+                                    callback();
+                                }}
                             >
-                                <div
-                                    className={classNames('tab__dashboard__table__images', {
-                                        'tab__dashboard__table__images--minimized': has_dashboard_strategies,
-                                    })}
-                                    width='8rem'
-                                    height='8rem'
-                                    icon={icon}
-                                    id={id}
-                                    onClick={() => {
-                                        callback();
-                                    }}
-                                >
-                                    {icon}
-                                </div>
-                                <Text color='prominent' size={is_mobile ? 'xxs' : 'xs'}>
-                                    {content}
-                                </Text>
+                                {icon}
                             </div>
-                        );
-                    })}
+                            <Text color='prominent' size={is_mobile ? 'xxs' : 'xs'}>
+                                {content}
+                            </Text>
+                        </div>
+                    );
+                })}
 
-                    {!isDesktop ? (
-                        <Dialog
-                            title={dialog_options.title}
-                            is_visible={is_dialog_open}
-                            onCancel={onCloseDialog}
-                            is_mobile_full_width
-                            className='dc-dialog__wrapper--google-drive'
-                            has_close_icon
-                        >
+                {!isDesktop ? (
+                    <Dialog
+                        title={dialog_options.title}
+                        is_visible={is_dialog_open}
+                        onCancel={onCloseDialog}
+                        is_mobile_full_width
+                        className='dc-dialog__wrapper--google-drive'
+                        has_close_icon
+                    >
+                        <GoogleDrive />
+                    </Dialog>
+                ) : (
+                    <MobileFullPageModal
+                        is_modal_open={is_dialog_open}
+                        className='load-strategy__wrapper'
+                        header={localize('Load strategy')}
+                        onClickClose={() => {
+                            setPreviewOnPopup(false);
+                            onCloseDialog();
+                        }}
+                        height_offset='80px'
+                        page_overlay
+                    >
+                        <div label='Google Drive' className='google-drive-label'>
                             <GoogleDrive />
-                        </Dialog>
-                    ) : (
-                        <MobileFullPageModal
-                            is_modal_open={is_dialog_open}
-                            className='load-strategy__wrapper'
-                            header={localize('Load strategy')}
-                            onClickClose={() => {
-                                setPreviewOnPopup(false);
-                                onCloseDialog();
-                            }}
-                            height_offset='80px'
-                            page_overlay
-                        >
-                            <div label='Google Drive' className='google-drive-label'>
-                                <GoogleDrive />
-                            </div>
-                        </MobileFullPageModal>
-                    )}
-                </div>
-                <DashboardBotList />
+                        </div>
+                    </MobileFullPageModal>
+                )}
+
+                <MobileFullPageModal
+                    is_modal_open={is_cashier_open}
+                    className='cashier-modal__wrapper'
+                    header={localize('Cashier')}
+                    onClickClose={() => setCashierOpen(false)}
+                    height_offset='80px'
+                    page_overlay
+                >
+                    <div label='Cashier'>
+                        <Cashier />
+                    </div>
+                </MobileFullPageModal>
             </div>
-        ),
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [is_dialog_open, has_dashboard_strategies]
+            <DashboardBotList />
+        </div>
     );
 });
 

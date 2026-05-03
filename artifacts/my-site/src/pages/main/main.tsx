@@ -44,7 +44,6 @@ const EntryZone = lazy(() => import('../entry-zone'));
 const SpeedBots = lazy(() => import('../speed-bots/speed-bots'));
 const V2PanelTab = lazy(() => import('../v2-panel'));
 const DTrader = lazy(() => import('../dtrader'));
-const Cashier = lazy(() => import('../cashier'));
 
 const AppWrapper = observer(() => {
     const { connectionStatus } = useApiBase();
@@ -462,30 +461,13 @@ const AppWrapper = observer(() => {
                                     <V2PanelTab />
                                 </Suspense>
                             </div>
-                            <div
-                                label={
-                                    <>
-                                        <span className='tab-emoji' role='img' aria-hidden='true'>💳</span>
-                                        <Localize i18n_default_text='Cashier' />
-                                    </>
-                                }
-                                id='id-cashier'
-                            >
-                                <Suspense
-                                    fallback={
-                                        <TabSkeleton variant='panel' label={localize('Loading Cashier...')} />
-                                    }
-                                >
-                                    <Cashier />
-                                </Suspense>
-                            </div>
                         </Tabs>
                         {!isDesktop && right_tab_shadow && <span className='tabs-shadow tabs-shadow--right' />}{' '}
                     </div>
                 </div>
             </div>
             <DesktopWrapper>
-                {active_tab !== DBOT_TABS.SPEED_BOTS && active_tab !== DBOT_TABS.ANALYSIS_TOOL && active_tab !== DBOT_TABS.ENTRY_ZONE && active_tab !== DBOT_TABS.V2_PANEL && active_tab !== DBOT_TABS.DTRADER && active_tab !== DBOT_TABS.CASHIER && (
+                {active_tab !== DBOT_TABS.SPEED_BOTS && active_tab !== DBOT_TABS.ANALYSIS_TOOL && active_tab !== DBOT_TABS.ENTRY_ZONE && active_tab !== DBOT_TABS.V2_PANEL && active_tab !== DBOT_TABS.DTRADER && (
                     <div className='main__run-strategy-wrapper'>
                         <RunStrategy />
                         <RunPanel />
@@ -495,7 +477,7 @@ const AppWrapper = observer(() => {
                 <TradingViewModal />
             </DesktopWrapper>
             <MobileWrapper>
-                {!is_open && active_tab !== DBOT_TABS.SPEED_BOTS && active_tab !== DBOT_TABS.ANALYSIS_TOOL && active_tab !== DBOT_TABS.ENTRY_ZONE && active_tab !== DBOT_TABS.V2_PANEL && active_tab !== DBOT_TABS.DTRADER && active_tab !== DBOT_TABS.CASHIER && <RunPanel />}
+                {!is_open && active_tab !== DBOT_TABS.SPEED_BOTS && active_tab !== DBOT_TABS.ANALYSIS_TOOL && active_tab !== DBOT_TABS.ENTRY_ZONE && active_tab !== DBOT_TABS.V2_PANEL && active_tab !== DBOT_TABS.DTRADER && <RunPanel />}
             </MobileWrapper>
             <Dialog
                 cancel_button_text={cancel_button_text || localize('Cancel')}
