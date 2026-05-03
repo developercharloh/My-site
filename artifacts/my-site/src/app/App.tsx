@@ -2,6 +2,7 @@ import { initSurvicate } from '../public-path';
 import { lazy, Suspense } from 'react';
 import React from 'react';
 import SocialPopup from '@/components/social-popup/social-popup';
+import SplashLoader from '@/components/splash-loader/splash-loader';
 import { createBrowserRouter, createRoutesFromElements, Route, RouterProvider } from 'react-router-dom';
 import RoutePromptDialog from '@/components/route-prompt-dialog';
 import { crypto_currencies_display_order, fiat_currencies_display_order } from '@/components/shared';
@@ -58,6 +59,15 @@ const router = createBrowserRouter(
 );
 
 function App() {
+    const [splashDone, setSplashDone] = React.useState(() => {
+        try { return !!sessionStorage.getItem('splash_shown'); } catch { return false; }
+    });
+
+    const handleSplashDone = React.useCallback(() => {
+        try { sessionStorage.setItem('splash_shown', '1'); } catch { /* ignore */ }
+        setSplashDone(true);
+    }, []);
+
     React.useEffect(() => {
         // Use the invalid token handler hook to automatically retrigger OIDC authentication
         // when an invalid token is detected and the cookie logged state is true
@@ -126,6 +136,7 @@ function App() {
 
     return (
         <>
+            {!splashDone && <SplashLoader onDone={handleSplashDone} />}
             <SocialPopup />
             <RouterProvider router={router} />
         </>
