@@ -685,10 +685,14 @@
 // ─── Circle size overrides (smaller than entry-zone) ─────────────────────────
 .se-root {
     .ez-quadrants  { gap: 0.1rem; }
-    .ez-quadrant   { padding: 0.5rem 0.6rem; gap: 0.3rem; }
+    .ez-quadrant   { padding: 0.5rem 0.6rem; gap: 0.25rem; }
+    .ez-quadrant--split { gap: 0.25rem; }
+    .ez-band       { gap: 0.2rem; }
     .ez-cursor-layer { height: 14px; }
     .ez-circles    { gap: 0.18rem; justify-content: space-between; }
+    .ez-circles--grid { gap: 0.22rem; }
     .ez-circle-col { gap: 0.2rem; }
+    .ez-circle-holder { height: 46px; }   // matches max circleSize (44px) + 2px breathing
     .ez-circle     { font-size: 0.75rem; }
     .ez-rank-badge { font-size: 0.5rem; min-height: 10px; }
     .ez-pct        { font-size: 0.58rem; }

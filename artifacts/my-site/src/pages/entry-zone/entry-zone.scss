@@ -270,6 +270,37 @@
     gap: 0.35rem;
 }
 
+/* Two-row split: 0–4 top, 5–9 bottom inside ONE quadrant card.
+   Each band has its own cursor + 5-column grid so circles cannot shove
+   neighbours when their size animates per tick. */
+.ez-quadrant--split {
+    gap: 0.35rem;
+}
+
+.ez-band {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.ez-circles--grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.35rem;
+    align-items: end;
+}
+
+/* Fixed-size slot that holds the (animated) circle.
+   Reserves the max circle footprint so size changes do not reflow. */
+.ez-circle-holder {
+    width: 100%;
+    height: 74px;             /* matches max circleSize (72px) + 2px breathing */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
 /* Single-row layout: all 10 digits in one card, no per-quadrant stacking */
 .ez-quadrants--single {
     .ez-quadrant {

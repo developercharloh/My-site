@@ -274,62 +274,68 @@ function fmtCountdown(ms: number): string {
 function QuadrantRow({ digits, distribution, ranks, liveDigit }: {
     digits: number[]; distribution: number[]; ranks: number[]; liveDigit: number | null;
 }) {
-    const circleRefs = useRef<(HTMLDivElement | null)[]>([]);
-    const rowRef     = useRef<HTMLDivElement>(null);
-    const [cursorX, setCursorX] = useState<number | null>(null);
+    // Split 0–9 across two fixed-cell rows (0–4 upper, 5–9 lower) so a
+    // circle resizing on each tick stays *inside* its grid cell instead of
+    // shoving neighbors around. Cursor X is computed from the row index
+    // (no DOM measurement → no per-tick reflow).
+    const upper = digits.slice(0, 5);
+    const lower = digits.slice(5, 10);
 
-    useEffect(() => {
-        if (liveDigit === null) return;
-        const idx = digits.indexOf(liveDigit);
-        if (idx === -1) return;
-        const el  = circleRefs.current[idx];
-        const row = rowRef.current;
-        if (!el || !row) return;
-        const er = el.getBoundingClientRect(), rr = row.getBoundingClientRect();
-        setCursorX(er.left - rr.left + er.width / 2);
-    }, [liveDigit, digits]);
+    const renderCell = (d: number) => {
+        const rank   = ranks[d]; const color = getRankColor(rank);
+        const p      = distribution[d] ?? 0; const size = circleSize(p);
+        const isLive = liveDigit === d; const isHigh = rank <= 2 || rank >= 9;
+        return (
+            <div key={d} className='ez-circle-col'>
+                <div className='ez-circle-holder'>
+                    <motion.div
+                        className='ez-circle'
+                        animate={{ width: size, height: size, ...(isLive ? { boxShadow:[`0 0 0px ${color}00`,`0 0 32px ${color}cc`,`0 0 12px ${color}66`], scale:[1,1.2,1] } : {}) }}
+                        transition={{ duration: 0.45, ease: 'easeOut' }}
+                        style={{ background: isHigh ? color : `${color}20`, border: `2px solid ${color}`, color: isHigh ? '#fff' : color, boxShadow: isLive ? `0 0 16px ${color}` : isHigh ? `0 0 6px ${color}44` : 'none' }}
+                    >
+                        {d}
+                        {isLive && (
+                            <motion.div className='ez-circle__pulse'
+                                animate={{ scale:[1,1.8], opacity:[0.5,0] }}
+                                transition={{ duration:0.7, ease:'easeOut' }}
+                                style={{ background: color }} />
+                        )}
+                    </motion.div>
+                </div>
+                <div className='ez-bar-track'><motion.div className='ez-bar-fill' style={{ background: color }} animate={{ width:`${Math.min(100,p*7)}%` }} transition={{ duration:0.6,ease:'easeOut' }} /></div>
+                <span className='ez-pct' style={{ color }}>{p.toFixed(1)}%</span>
+            </div>
+        );
+    };
+
+    const renderBand = (rowDigits: number[], key: string) => {
+        const liveIdx = liveDigit !== null ? rowDigits.indexOf(liveDigit) : -1;
+        return (
+            <div className='ez-band' key={key}>
+                <div className='ez-cursor-layer'>
+                    <AnimatePresence>
+                        {liveIdx !== -1 && (
+                            <motion.div className='ez-cursor'
+                                initial={{ opacity: 0, y: -8 }}
+                                animate={{ opacity: 1, y: 0, left: `${(liveIdx + 0.5) * 20}%` }}
+                                transition={{ type: 'spring', stiffness: 500, damping: 28 }}>
+                                <span className='ez-cursor__arrow'>▼</span>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+                <div className='ez-circles ez-circles--grid'>
+                    {rowDigits.map(renderCell)}
+                </div>
+            </div>
+        );
+    };
 
     return (
-        <div className='ez-quadrant'>
-            <div className='ez-cursor-layer' ref={rowRef}>
-                <AnimatePresence>
-                    {cursorX !== null && (
-                        <motion.div className='ez-cursor'
-                            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0, x: cursorX }}
-                            transition={{ type: 'spring', stiffness: 500, damping: 28 }}>
-                            <span className='ez-cursor__arrow'>▼</span>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </div>
-            <div className='ez-circles'>
-                {digits.map((d, i) => {
-                    const rank  = ranks[d]; const color = getRankColor(rank);
-                    const p     = distribution[d] ?? 0; const size = circleSize(p);
-                    const isLive = liveDigit === d; const isHigh = rank <= 2 || rank >= 9;
-                    return (
-                        <div key={d} className='ez-circle-col'>
-                            <motion.div
-                                ref={el => { circleRefs.current[i] = el; }}
-                                className='ez-circle'
-                                animate={{ width: size, height: size, ...(isLive ? { boxShadow:[`0 0 0px ${color}00`,`0 0 32px ${color}cc`,`0 0 12px ${color}66`], scale:[1,1.2,1] } : {}) }}
-                                transition={{ duration: 0.45, ease: 'easeOut' }}
-                                style={{ background: isHigh ? color : `${color}20`, border: `2px solid ${color}`, color: isHigh ? '#fff' : color, boxShadow: isLive ? `0 0 16px ${color}` : isHigh ? `0 0 6px ${color}44` : 'none' }}
-                            >
-                                {d}
-                                {isLive && (
-                                    <motion.div className='ez-circle__pulse'
-                                        animate={{ scale:[1,1.8], opacity:[0.5,0] }}
-                                        transition={{ duration:0.7, ease:'easeOut' }}
-                                        style={{ background: color }} />
-                                )}
-                            </motion.div>
-                            <div className='ez-bar-track'><motion.div className='ez-bar-fill' style={{ background: color }} animate={{ width:`${Math.min(100,p*7)}%` }} transition={{ duration:0.6,ease:'easeOut' }} /></div>
-                            <span className='ez-pct' style={{ color }}>{p.toFixed(1)}%</span>
-                        </div>
-                    );
-                })}
-            </div>
+        <div className='ez-quadrant ez-quadrant--split'>
+            {renderBand(upper, 'upper')}
+            {renderBand(lower, 'lower')}
         </div>
     );
 }
