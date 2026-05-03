@@ -1,11 +1,11 @@
 {
-  "name": "Deriv Bot - Automated Trading Platform",
-  "short_name": "Deriv Bot",
-  "description": "Automated trading at your fingertips. No coding needed.",
+  "name": "Mr CharlohFX — Automated Trading Platform",
+  "short_name": "Mr CharlohFX",
+  "description": "Build and run automated Deriv trading bots — no coding needed. Speed bots, quick strategies, real-time Volatility index charts and more.",
   "start_url": "/?source=mobile",
   "display": "standalone",
-  "background_color": "#0e0e0e",
-  "theme_color": "#ff444f",
+  "background_color": "#0d0d0d",
+  "theme_color": "#d4af37",
   "orientation": "portrait-primary",
   "scope": "/",
   "lang": "en",
@@ -59,6 +59,12 @@
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "maskable any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
     }
   ],
   "screenshots": [
@@ -67,21 +73,21 @@
       "sizes": "1280x720",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "Deriv Bot Dashboard"
+      "label": "Mr CharlohFX Dashboard"
     },
     {
       "src": "/assets/screenshots/mobile-screenshot.png",
       "sizes": "640x1136",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Deriv Bot Mobile View"
+      "label": "Mr CharlohFX Mobile View"
     }
   ],
   "shortcuts": [
     {
       "name": "Bot Builder",
       "short_name": "Builder",
-      "description": "Create new trading bot",
+      "description": "Create a new trading strategy",
       "url": "/?shortcut=builder",
       "icons": [
         {
@@ -93,7 +99,7 @@
     {
       "name": "Dashboard",
       "short_name": "Dashboard",
-      "description": "View bot performance",
+      "description": "View trading performance",
       "url": "/?shortcut=dashboard",
       "icons": [
         {
@@ -109,7 +115,7 @@
     "/",
     "/offline.html",
     "/manifest.json",
-    "/deriv-logo.svg"
+    "/logo.png"
   ],
   "offline_fallback": "/offline.html"
 }
