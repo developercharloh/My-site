@@ -99,6 +99,24 @@
     }
     &__input { flex: 1; }
     &__unit-select { cursor: pointer; }
+    &__dur-select {
+        flex: 1;
+        padding: 8px 10px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        font-variant-numeric: tabular-nums;
+        background: white;
+        cursor: pointer;
+        min-width: 0;
+        appearance: none;
+        -webkit-appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        padding-right: 28px;
+        &:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99,102,241,0.15); }
+    }
     &__hint { font-size: 0.7rem; color: #94a3b8; }
 
     // ── Digit picker ─────────────────────────────────────────────────────

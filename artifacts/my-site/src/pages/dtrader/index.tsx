@@ -672,32 +672,51 @@ const DTraderPage = observer(() => {
                             <div className='dtp__field'>
                                 <label className='dtp__lbl'>Duration</label>
                                 <div className='dtp__field-row'>
-                                    <input
-                                        type='number'
-                                        className='dtp__input'
-                                        value={durationValue}
-                                        min={minDur}
-                                        max={maxDur}
-                                        onChange={e => {
-                                            const v = parseInt(e.target.value, 10);
-                                            if (!isNaN(v)) setDurationValue(Math.min(maxDur, Math.max(minDur, v)));
-                                        }}
-                                    />
-                                    <select
-                                        className='dtp__unit-select'
-                                        value={durationUnit}
-                                        onChange={e => {
-                                            const u = e.target.value as DTDurationUnit;
-                                            setDurationUnit(u);
-                                            const lo = category.minDuration[u] ?? 1;
-                                            const hi = category.maxDuration[u] ?? 10;
-                                            setDurationValue(v => Math.min(hi, Math.max(lo, v)));
-                                        }}
-                                    >
-                                        {category.units.map(u => (
-                                            <option key={u} value={u}>{UNIT_LABEL[u]}</option>
-                                        ))}
-                                    </select>
+                                    {durationUnit === 't' ? (
+                                        /* Tick range: show a clean 1–10 dropdown */
+                                        <select
+                                            className='dtp__dur-select'
+                                            value={durationValue}
+                                            onChange={e => setDurationValue(Number(e.target.value))}
+                                        >
+                                            {Array.from({ length: maxDur - minDur + 1 }, (_, i) => i + minDur).map(n => (
+                                                <option key={n} value={n}>
+                                                    {n} {n === 1 ? 'tick' : 'ticks'}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        /* Seconds / minutes: keep free-form number input */
+                                        <input
+                                            type='number'
+                                            className='dtp__input'
+                                            value={durationValue}
+                                            min={minDur}
+                                            max={maxDur}
+                                            onChange={e => {
+                                                const v = parseInt(e.target.value, 10);
+                                                if (!isNaN(v)) setDurationValue(Math.min(maxDur, Math.max(minDur, v)));
+                                            }}
+                                        />
+                                    )}
+                                    {/* Unit selector — hidden when only ticks available */}
+                                    {category.units.length > 1 && (
+                                        <select
+                                            className='dtp__unit-select'
+                                            value={durationUnit}
+                                            onChange={e => {
+                                                const u = e.target.value as DTDurationUnit;
+                                                setDurationUnit(u);
+                                                const lo = category.minDuration[u] ?? 1;
+                                                const hi = category.maxDuration[u] ?? 10;
+                                                setDurationValue(v => Math.min(hi, Math.max(lo, v)));
+                                            }}
+                                        >
+                                            {category.units.map(u => (
+                                                <option key={u} value={u}>{UNIT_LABEL[u]}</option>
+                                            ))}
+                                        </select>
+                                    )}
                                 </div>
                                 <div className='dtp__hint'>{minDur}–{maxDur} {UNIT_LABEL[durationUnit]}</div>
                             </div>
