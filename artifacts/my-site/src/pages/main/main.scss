@@ -819,6 +819,60 @@
     justify-content: flex-start !important;
 }
 
+// ── Active tab: green pill + green indicator line ──────────────────────────
+.main .dc-tabs__item.dc-tabs__active {
+    color: #10b981 !important;
+    background: rgba(16, 185, 129, 0.12) !important;
+    border-radius: 8px;
+    font-weight: 800 !important;
+    position: relative;
+    transition: background 0.2s ease, color 0.2s ease;
+
+    // green underline indicator
+    &::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 10%;
+        width: 80%;
+        height: 2.5px;
+        background: #10b981;
+        border-radius: 999px;
+    }
+
+    .tab-emoji { filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.7)); }
+}
+
+// Active line: override the coral/red with green
+.main .dc-tabs__active-line {
+    background: #10b981 !important;
+    background-color: #10b981 !important;
+}
+
+// Inactive tabs: subtle hover hint
+.main .dc-tabs__item:not(.dc-tabs__active):hover {
+    color: #10b981 !important;
+    background: rgba(16, 185, 129, 0.06) !important;
+    border-radius: 8px;
+    transition: background 0.15s, color 0.15s;
+}
+
+// Dark-mode keeps same green
+.theme--dark .main .dc-tabs__item.dc-tabs__active {
+    color: #34d399 !important;
+    background: rgba(52, 211, 153, 0.14) !important;
+    &::after { background: #34d399; }
+    .tab-emoji { filter: drop-shadow(0 0 8px rgba(52, 211, 153, 0.75)); }
+}
+.theme--dark .main .dc-tabs__active-line {
+    background: #34d399 !important;
+    background-color: #34d399 !important;
+}
+.theme--dark .main .dc-tabs__item:not(.dc-tabs__active):hover {
+    color: #34d399 !important;
+    background: rgba(52, 211, 153, 0.08) !important;
+}
+
 .tab-emoji {
     display: inline-flex;
     align-items: center;
