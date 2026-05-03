@@ -159,6 +159,7 @@ function useMultiMarket(selectedSym: string): MultiMarketHook {
 
     useEffect(() => {
         const wsList: WebSocket[] = [];
+        const timerIds: ReturnType<typeof setTimeout>[] = [];
 
         ALL_SYMBOLS.forEach((sym, idx) => {
             const timer = setTimeout(() => {
@@ -171,14 +172,17 @@ function useMultiMarket(selectedSym: string): MultiMarketHook {
                 }));
 
                 ws.onmessage = (ev: MessageEvent) => {
-                    const msg = JSON.parse(ev.data as string);
+                    let msg: any;
+                    try { msg = JSON.parse(ev.data as string); } catch { return; }
                     if (msg.error) {
-                        bufsRef.current.get(sym)!.status = 'error';
+                        const buf = bufsRef.current.get(sym);
+                        if (buf) buf.status = 'error';
                         setScan(s => ({ ...s, [sym]: 'error' }));
                         return;
                     }
 
-                    const buf = bufsRef.current.get(sym)!;
+                    const buf = bufsRef.current.get(sym);
+                    if (!buf) return;
 
                     if (msg.msg_type === 'history') {
                         const prices: number[] = msg.history?.prices ?? [];
@@ -218,18 +222,30 @@ function useMultiMarket(selectedSym: string): MultiMarketHook {
                 };
 
                 ws.onerror = () => {
-                    bufsRef.current.get(sym)!.status = 'error';
+                    const buf = bufsRef.current.get(sym);
+                    if (buf) buf.status = 'error';
                     setScan(s => ({ ...s, [sym]: 'error' }));
+                };
+
+                ws.onclose = () => {
+                    const buf = bufsRef.current.get(sym);
+                    if (buf && buf.status !== 'live') {
+                        buf.status = 'error';
+                        setScan(s => ({ ...s, [sym]: 'error' }));
+                    }
                 };
             }, idx * 150);
 
-            return () => clearTimeout(timer);
+            timerIds.push(timer);
         });
 
-        return () => wsList.forEach(ws => {
-            ws.onopen = ws.onmessage = ws.onerror = ws.onclose = null;
-            ws.close();
-        });
+        return () => {
+            timerIds.forEach(clearTimeout);
+            wsList.forEach(ws => {
+                ws.onopen = ws.onmessage = ws.onerror = ws.onclose = null;
+                ws.close();
+            });
+        };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
