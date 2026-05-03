@@ -819,10 +819,65 @@ const DTraderPage = observer(() => {
                             </div>
                         )}
 
-                        {/* Prediction (digits) */}
-                        {category.needsPrediction && (
+                        {/* ── Over / Under barrier selector ───────────────── */}
+                        {categoryKey === 'over_under' && (() => {
+                            const isOver = contractType === 'DIGITOVER';
+                            const winCount = isOver ? (9 - prediction) : prediction;
+                            const winPct   = winCount * 10;
+                            return (
+                                <div className='dtp__field dtp__field--full'>
+                                    <label className='dtp__lbl'>Barrier digit</label>
+                                    <div className='dtp__barrier-wrap'>
+                                        <div className='dtp__barrier-pills'>
+                                            {[0,1,2,3,4,5,6,7,8,9].map(d => {
+                                                const isBarrier = d === prediction;
+                                                const isWin = isOver ? d > prediction : d < prediction;
+                                                return (
+                                                    <button
+                                                        key={d}
+                                                        className={[
+                                                            'dtp__barrier-pill',
+                                                            isBarrier ? 'dtp__barrier-pill--barrier' : '',
+                                                            !isBarrier && isWin  ? 'dtp__barrier-pill--win'  : '',
+                                                            !isBarrier && !isWin ? 'dtp__barrier-pill--lose' : '',
+                                                        ].join(' ')}
+                                                        onClick={() => setPrediction(d)}
+                                                        title={
+                                                            isBarrier ? 'Barrier (not counted)' :
+                                                            isWin ? `Digit ${d} → WIN` : `Digit ${d} → LOSE`
+                                                        }
+                                                    >
+                                                        <span className='dtp__barrier-pill-num'>{d}</span>
+                                                        {isBarrier && <span className='dtp__barrier-pill-tag'>barrier</span>}
+                                                        {!isBarrier && <span className='dtp__barrier-pill-tag'>{isWin ? 'win' : 'lose'}</span>}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                        <div className='dtp__barrier-zone'>
+                                            <div className='dtp__barrier-win-bar'>
+                                                <span style={{ width: `${winPct}%` }} />
+                                            </div>
+                                            <span className='dtp__barrier-prob'>
+                                                {winCount} digit{winCount !== 1 ? 's' : ''} win · {winPct}%
+                                            </span>
+                                        </div>
+                                        <div className='dtp__barrier-legend'>
+                                            <span className='dtp__barrier-legend-item dtp__barrier-legend-item--win'>● win zone</span>
+                                            <span className='dtp__barrier-legend-item dtp__barrier-legend-item--barrier'>● barrier</span>
+                                            <span className='dtp__barrier-legend-item dtp__barrier-legend-item--lose'>● lose zone</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
+                        {/* ── Matches / Differs digit picker ───────────────── */}
+                        {categoryKey === 'matches_diff' && (
                             <div className='dtp__field dtp__field--full'>
-                                <label className='dtp__lbl'>Prediction (digit)</label>
+                                <label className='dtp__lbl'>
+                                    {contractType === 'DIGITMATCH' ? 'Match digit (last digit must equal)' : 'Differ digit (last digit must not equal)'}
+                                </label>
                                 <div className='dtp__digit-row'>
                                     {[0,1,2,3,4,5,6,7,8,9].map(d => (
                                         <button
@@ -833,6 +888,11 @@ const DTraderPage = observer(() => {
                                             {d}
                                         </button>
                                     ))}
+                                </div>
+                                <div className='dtp__hint'>
+                                    {contractType === 'DIGITMATCH'
+                                        ? `Wins if last digit = ${prediction} · 10% chance`
+                                        : `Wins if last digit ≠ ${prediction} · 90% chance`}
                                 </div>
                             </div>
                         )}

@@ -177,6 +177,10 @@ export class DTraderEngine {
      *  this flag clears. Used by placeBuyNow() so a single button tap can
      *  set the contract type AND fire the trade with one fresh proposal. */
     private pendingBuy = false;
+    /** Fingerprint of the config that generated the latest currentProposal.
+     *  If placeBuyNow() is called with an identical fingerprint we skip the
+     *  proposal refresh entirely and buy in the same network round-trip. */
+    private currentProposalCfgKey: string | null = null;
 
     // ── Connection liveness ──────────────────────────────────────────────
     /** Wall-clock time of the most recent tick. If this gets stale the
@@ -280,6 +284,7 @@ export class DTraderEngine {
         this.buyInflight = false;
         this.pendingBuy = false;
         this.currentProposal = null;
+        this.currentProposalCfgKey = null;
         this.setStatus('idle');
     }
 
@@ -331,7 +336,36 @@ export class DTraderEngine {
             this.emitBuyError('A buy is already being placed…');
             return;
         }
-        this.cfg = { ...this.cfg, ...patch };
+
+        const newCfg = { ...this.cfg, ...patch };
+
+        // ── Fast path: instant buy with the existing proposal ──────────────
+        // If we already have a fresh proposal that covers exactly this config,
+        // skip the network round-trip to refresh and fire the buy right now.
+        // This makes 1-tick digit trades execute on the very next tick.
+        const newKey = [
+            newCfg.contractType,
+            newCfg.barrier ?? '',
+            newCfg.durationValue,
+            newCfg.durationUnit,
+            newCfg.symbol,
+            newCfg.stake,
+            newCfg.currency,
+        ].join('|');
+
+        if (
+            this.currentProposal !== null &&
+            this.currentProposalCfgKey === newKey
+        ) {
+            this.cfg = newCfg;
+            this.pendingBuy = false;
+            this.log('⚡ Instant buy — proposal already valid', 'info');
+            this.buy();
+            return;
+        }
+
+        // ── Slow path: refresh proposal then auto-buy ───────────────────────
+        this.cfg = newCfg;
         this.pendingBuy = true;
         // Cancel any debounced refresh and fire an immediate one — the user
         // tapped a buy button, they want it to feel snappy.
@@ -458,6 +492,7 @@ export class DTraderEngine {
         // Forget previous proposal sub, then ask for a fresh subscribed one.
         if (this.proposalSubId) { this.rawSend({ forget: this.proposalSubId }); this.proposalSubId = null; }
         this.currentProposal = null;
+        this.currentProposalCfgKey = null;
         this.onProposal(null); // clear UI while loading
 
         const ct = this.cfg.contractType;
@@ -657,6 +692,19 @@ export class DTraderEngine {
         // Engine-owned source of truth — used by buy() so we always send the
         // latest id, never one that React state hasn't caught up to.
         this.currentProposal = proposal;
+        // Fingerprint the current config so placeBuyNow() can skip a refresh
+        // next time the user taps the same direction with the same settings.
+        if (this.cfg) {
+            this.currentProposalCfgKey = [
+                this.cfg.contractType,
+                this.cfg.barrier ?? '',
+                this.cfg.durationValue,
+                this.cfg.durationUnit,
+                this.cfg.symbol,
+                this.cfg.stake,
+                this.cfg.currency,
+            ].join('|');
+        }
         this.onProposal(proposal);
 
         // Tap-to-buy completion path: if a buy was armed via placeBuyNow(),
