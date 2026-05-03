@@ -562,78 +562,73 @@ const DTraderPage = observer(() => {
                 </div>
             </div>
 
-            {/* ── Digit-frequency analyzer (only for digit-based contracts) ── */}
-            {showsDigitCard && (
-                <div className='dtp__digits-card'>
-                    <div className='dtp__digits-head'>
-                        <span>Last-digit frequency</span>
-                        <span className='dtp__digits-sub'>over last {digitTotal || 0} ticks</span>
-                    </div>
-                    <div className='dtp__digits-grid'>
-                        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => {
-                            const isSettleDigit = lastSettlement?.digit === d;
-                            return (
-                                <div
-                                    key={d}
-                                    className={`dtp__digit-cell dtp__digit-cell--${digitShades[d]} ${lastDigit === d ? 'dtp__digit-cell--current' : ''} ${winningDigits.has(d) ? 'dtp__digit-cell--winning' : ''}`}
-                                    title={`${digitCounts[d]} of ${digitTotal} ticks ended in ${d}`}
-                                >
-                                    <span className='dtp__digit-num'>{d}</span>
-                                    <span className='dtp__digit-pct'>{digitPercent(d).toFixed(1)}%</span>
-                                    {isSettleDigit && (
-                                        <span className={`dtp__digit-result dtp__digit-result--${lastSettlement!.isWin ? 'win' : 'loss'}`}>
-                                            {lastSettlement!.isWin ? '✅ Won' : '❌ Lost'}
-                                        </span>
-                                    )}
-                                </div>
-                            );
-                        })}
-                        {/* Live last-digit cursor — small red dot that hops
-                            from circle to circle as new ticks arrive. */}
-                        {lastDigit !== null && (
-                            <span
-                                className='dtp__digit-cursor'
-                                style={{
-                                    ['--col' as any]: lastDigit % 5,
-                                    ['--row' as any]: Math.floor(lastDigit / 5),
-                                }}
-                            />
-                        )}
-                    </div>
-                    <div className='dtp__digits-legend'>
-                        <span><span className='dtp__legend-dot dtp__legend-dot--best'/>most</span>
-                        <span><span className='dtp__legend-dot dtp__legend-dot--good'/>2nd most</span>
-                        <span><span className='dtp__legend-dot dtp__legend-dot--bad'/>2nd least</span>
-                        <span><span className='dtp__legend-dot dtp__legend-dot--worst'/>least</span>
-                    </div>
-
-                    {/* ── χ² significance banner ─────────────────────────── */}
-                    {chiSqStats ? (
-                        <div className='dtp__chisq'>
-                            <span className='dtp__chisq-label'>χ² = {chiSqStats.chiSq.toFixed(2)}</span>
-                            <span className='dtp__chisq-verdict' style={{ color: chiSqStats.color }}>
-                                {chiSqStats.label}
-                            </span>
-                        </div>
-                    ) : digitTotal > 0 ? (
-                        <div className='dtp__chisq dtp__chisq--waiting'>
-                            Collecting ticks for χ² significance test ({digitTotal}/30)…
-                        </div>
-                    ) : null}
-
-                    {/* ── Same-digit streak alert ─────────────────────────── */}
-                    {sameDigitStreak && (
-                        <div className='dtp__streak'>
-                            🔥 Digit <strong>{sameDigitStreak.digit}</strong> repeated{' '}
-                            <strong>{sameDigitStreak.count}×</strong> in a row
-                        </div>
-                    )}
-                </div>
-            )}
-
             {/* ── Body: form on left, ticket on right (stacks on mobile) ──── */}
             <div className='dtp__body'>
                 <div className='dtp__form'>
+                    {/* ── Digit-frequency analyzer — lives inside the form column
+                        on desktop so it never pushes the buy ticket off-screen. ── */}
+                    {showsDigitCard && (
+                        <div className='dtp__digits-card'>
+                            <div className='dtp__digits-head'>
+                                <span>Last-digit frequency</span>
+                                <span className='dtp__digits-sub'>over last {digitTotal || 0} ticks</span>
+                            </div>
+                            <div className='dtp__digits-grid'>
+                                {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => {
+                                    const isSettleDigit = lastSettlement?.digit === d;
+                                    return (
+                                        <div
+                                            key={d}
+                                            className={`dtp__digit-cell dtp__digit-cell--${digitShades[d]} ${lastDigit === d ? 'dtp__digit-cell--current' : ''} ${winningDigits.has(d) ? 'dtp__digit-cell--winning' : ''}`}
+                                            title={`${digitCounts[d]} of ${digitTotal} ticks ended in ${d}`}
+                                        >
+                                            <span className='dtp__digit-num'>{d}</span>
+                                            <span className='dtp__digit-pct'>{digitPercent(d).toFixed(1)}%</span>
+                                            {isSettleDigit && (
+                                                <span className={`dtp__digit-result dtp__digit-result--${lastSettlement!.isWin ? 'win' : 'loss'}`}>
+                                                    {lastSettlement!.isWin ? '✅ Won' : '❌ Lost'}
+                                                </span>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                                {lastDigit !== null && (
+                                    <span
+                                        className='dtp__digit-cursor'
+                                        style={{
+                                            ['--col' as any]: lastDigit % 5,
+                                            ['--row' as any]: Math.floor(lastDigit / 5),
+                                        }}
+                                    />
+                                )}
+                            </div>
+                            <div className='dtp__digits-legend'>
+                                <span><span className='dtp__legend-dot dtp__legend-dot--best'/>most</span>
+                                <span><span className='dtp__legend-dot dtp__legend-dot--good'/>2nd most</span>
+                                <span><span className='dtp__legend-dot dtp__legend-dot--bad'/>2nd least</span>
+                                <span><span className='dtp__legend-dot dtp__legend-dot--worst'/>least</span>
+                            </div>
+                            {chiSqStats ? (
+                                <div className='dtp__chisq'>
+                                    <span className='dtp__chisq-label'>χ² = {chiSqStats.chiSq.toFixed(2)}</span>
+                                    <span className='dtp__chisq-verdict' style={{ color: chiSqStats.color }}>
+                                        {chiSqStats.label}
+                                    </span>
+                                </div>
+                            ) : digitTotal > 0 ? (
+                                <div className='dtp__chisq dtp__chisq--waiting'>
+                                    Collecting ticks for χ² significance test ({digitTotal}/30)…
+                                </div>
+                            ) : null}
+                            {sameDigitStreak && (
+                                <div className='dtp__streak'>
+                                    🔥 Digit <strong>{sameDigitStreak.digit}</strong> repeated{' '}
+                                    <strong>{sameDigitStreak.count}×</strong> in a row
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {/* Category dropdown — replaces the old grid */}
                     <div className='dtp__field'>
                         <label className='dtp__lbl'>Trade type</label>
