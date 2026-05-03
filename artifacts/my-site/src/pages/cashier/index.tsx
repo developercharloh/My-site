@@ -22,7 +22,7 @@ const ACTIONS: Action[] = [
         id:      'deposit',
         icon:    '💰',
         title:   'Deposit',
-        blurb:   'Add funds to your Deriv account using cards, e-wallets, bank transfer or crypto.',
+        blurb:   'Add funds to your account using cards, e-wallets, bank transfer or crypto.',
         href:    DEPOSIT_URL,
         accent:  '#10b981',
         accent2: '#059669',
@@ -40,7 +40,7 @@ const ACTIONS: Action[] = [
         id:      'transfer',
         icon:    '🔄',
         title:   'Transfer between accounts',
-        blurb:   'Move funds between your Deriv wallets, MT5 and Deriv X accounts instantly.',
+        blurb:   'Move funds between your your wallets, MT5 and Deriv X accounts instantly.',
         href:    TRANSFER_URL,
         accent:  '#0ea5e9',
         accent2: '#0369a1',
@@ -77,8 +77,8 @@ const Cashier: React.FC = () => {
                 <div>
                     <h1 className='cashier__title'>Cashier</h1>
                     <p className='cashier__sub'>
-                        Manage funds on your Deriv account — deposit, withdraw, transfer between accounts
-                        and view your statement. All actions open in the official Deriv cashier in a new tab.
+                        Manage funds on your account — deposit, withdraw, transfer between accounts
+                        and view your statement. All actions open in the cashier in a new tab.
                     </p>
                 </div>
             </header>
