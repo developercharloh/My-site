@@ -81,6 +81,13 @@ export interface DTPosition {
     entrySpotNum:   number | null;
     /** Set true the moment a price tick is observed outside [low,high]. */
     barrierBroken:  boolean;
+    /** MULT only: auto-liquidation price level (Deriv's stop_out). If the
+     *  spot crosses it, the position is closed for the configured loss. */
+    stopOutLevel:    number | null;
+    /** MULT only: user-set take-profit / stop-loss price levels (Deriv
+     *  reports them as `limit_order.take_profit.value` / `.stop_loss.value`). */
+    takeProfitLevel: number | null;
+    stopLossLevel:   number | null;
 }
 
 export type DTContractEventKind = 'cashout' | 'tp' | 'sl';
@@ -649,6 +656,9 @@ export class DTraderEngine {
             lowBarrier:     null,
             entrySpotNum:   null,
             barrierBroken:  false,
+            stopOutLevel:    null,
+            takeProfitLevel: null,
+            stopLossLevel:   null,
             exitSpot:     null,
             longcode:     buy.longcode ?? '',
             purchaseTime: this.nowTime(),
@@ -721,6 +731,28 @@ export class DTraderEngine {
         if (poc.entry_spot !== undefined && pos.entrySpotNum === null) {
             const es = parseFloat(poc.entry_spot);
             if (Number.isFinite(es)) pos.entrySpotNum = es;
+        }
+        // MULT: pull stop-out + take-profit / stop-loss price levels from
+        // limit_order so the chart can draw the auto-liquidation line + any
+        // user-configured TP/SL targets.
+        const lo = poc.limit_order;
+        if (lo) {
+            if (lo.stop_out?.value !== undefined) {
+                const v = parseFloat(lo.stop_out.value);
+                if (Number.isFinite(v)) pos.stopOutLevel = v;
+            }
+            if (lo.take_profit?.value !== undefined) {
+                const v = parseFloat(lo.take_profit.value);
+                if (Number.isFinite(v)) pos.takeProfitLevel = v;
+            } else if (lo.take_profit === null) {
+                pos.takeProfitLevel = null;
+            }
+            if (lo.stop_loss?.value !== undefined) {
+                const v = parseFloat(lo.stop_loss.value);
+                if (Number.isFinite(v)) pos.stopLossLevel = v;
+            } else if (lo.stop_loss === null) {
+                pos.stopLossLevel = null;
+            }
         }
 
         if (settled) {

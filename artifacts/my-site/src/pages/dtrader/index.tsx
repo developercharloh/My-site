@@ -1032,11 +1032,18 @@ const AccuChart: React.FC<{
     const data = prices.length > 80 ? prices.slice(prices.length - 80) : prices;
     const last = data.length > 0 ? data[data.length - 1] : null;
 
-    // Y-axis range — include barriers and entry spot so they're never clipped
+    // Y-axis range — include barriers, entry spot, stop-out, TP/SL so
+    // they're never clipped off-screen.
     const candidates: number[] = data.slice();
-    if (position?.highBarrier !== null && position?.highBarrier !== undefined) candidates.push(position.highBarrier);
-    if (position?.lowBarrier  !== null && position?.lowBarrier  !== undefined) candidates.push(position.lowBarrier);
-    if (position?.entrySpotNum !== null && position?.entrySpotNum !== undefined) candidates.push(position.entrySpotNum);
+    const pushIf = (v: number | null | undefined) => {
+        if (v !== null && v !== undefined && Number.isFinite(v)) candidates.push(v);
+    };
+    pushIf(position?.highBarrier);
+    pushIf(position?.lowBarrier);
+    pushIf(position?.entrySpotNum);
+    pushIf(position?.stopOutLevel);
+    pushIf(position?.takeProfitLevel);
+    pushIf(position?.stopLossLevel);
     const minV = candidates.length ? Math.min(...candidates) : 0;
     const maxV = candidates.length ? Math.max(...candidates) : 1;
     // 8% padding above/below so the line never hugs the edge
@@ -1057,6 +1064,10 @@ const AccuChart: React.FC<{
     const hb = position?.highBarrier ?? null;
     const lb = position?.lowBarrier  ?? null;
     const es = position?.entrySpotNum ?? null;
+    const so = position?.stopOutLevel ?? null;
+    const tp = position?.takeProfitLevel ?? null;
+    const sl = position?.stopLossLevel   ?? null;
+    const isMult = position?.contractType === 'MULTUP' || position?.contractType === 'MULTDOWN';
     const broken    = position?.barrierBroken ?? false;
     const profit    = position?.profit ?? null;
     const inProfit  = profit !== null && profit >= 0;
@@ -1145,6 +1156,48 @@ const AccuChart: React.FC<{
                         <text x={W - PAD_R + 4} y={yOf(lb) + 3}
                             fontSize='10' fill={broken ? '#dc2626' : '#2563eb'} fontWeight='700'>
                             {fmt(lb)}
+                        </text>
+                    </>
+                )}
+
+                {/* MULT overlays: stop-out (red, auto-liquidation),
+                    take-profit (green), stop-loss (orange) */}
+                {hasContract && isMult && so !== null && (
+                    <>
+                        <line
+                            x1={PAD_L} x2={W - PAD_R}
+                            y1={yOf(so)} y2={yOf(so)}
+                            stroke='#dc2626' strokeWidth={1.5} strokeDasharray='4 3'
+                        />
+                        <text x={W - PAD_R + 4} y={yOf(so) + 3}
+                            fontSize='10' fill='#dc2626' fontWeight='800'>
+                            SO {fmt(so)}
+                        </text>
+                    </>
+                )}
+                {hasContract && isMult && tp !== null && (
+                    <>
+                        <line
+                            x1={PAD_L} x2={W - PAD_R}
+                            y1={yOf(tp)} y2={yOf(tp)}
+                            stroke='#16a34a' strokeWidth={1.5} strokeDasharray='4 3'
+                        />
+                        <text x={W - PAD_R + 4} y={yOf(tp) + 3}
+                            fontSize='10' fill='#16a34a' fontWeight='800'>
+                            TP {fmt(tp)}
+                        </text>
+                    </>
+                )}
+                {hasContract && isMult && sl !== null && (
+                    <>
+                        <line
+                            x1={PAD_L} x2={W - PAD_R}
+                            y1={yOf(sl)} y2={yOf(sl)}
+                            stroke='#f59e0b' strokeWidth={1.5} strokeDasharray='4 3'
+                        />
+                        <text x={W - PAD_R + 4} y={yOf(sl) + 3}
+                            fontSize='10' fill='#f59e0b' fontWeight='800'>
+                            SL {fmt(sl)}
                         </text>
                     </>
                 )}
