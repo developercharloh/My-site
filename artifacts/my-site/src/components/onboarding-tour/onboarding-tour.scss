@@ -1,0 +1,142 @@
+.onb-tour {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+
+    &__backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.55);
+        backdrop-filter: blur(2px);
+        animation: onbFade 0.25s ease-out;
+    }
+
+    @keyframes onbFade { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes onbSlide {
+        from { opacity: 0; transform: translateY(0.6rem) scale(0.97); }
+        to   { opacity: 1; transform: translateY(0)      scale(1);    }
+    }
+
+    &__card {
+        position: relative;
+        background: #fff;
+        color: #1e293b;
+        max-width: 420px;
+        width: 100%;
+        padding: 1.4rem 1.4rem 1rem;
+        border-radius: 1.1rem;
+        box-shadow: 0 20px 60px rgba(15, 23, 42, 0.45);
+        text-align: center;
+        animation: onbSlide 0.28s ease-out;
+    }
+
+    &__close {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.7rem;
+        font-size: 1.4rem;
+        background: transparent;
+        border: 0;
+        color: #94a3b8;
+        cursor: pointer;
+        line-height: 1;
+        padding: 0.2rem 0.4rem;
+
+        &:hover { color: #475569; }
+    }
+
+    &__emoji {
+        font-size: 2.6rem;
+        line-height: 1;
+        margin-bottom: 0.5rem;
+    }
+
+    &__title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin: 0 0 0.45rem;
+    }
+
+    &__body {
+        font-size: 0.88rem;
+        line-height: 1.45;
+        color: #475569;
+        margin: 0 0 1rem;
+    }
+
+    &__dots {
+        display: flex;
+        justify-content: center;
+        gap: 0.35rem;
+        margin-bottom: 1rem;
+    }
+    &__dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #cbd5e1;
+        transition: background 0.2s, transform 0.2s;
+        &--active {
+            background: #6366f1;
+            transform: scale(1.35);
+        }
+    }
+
+    &__actions {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+        margin-bottom: 0.6rem;
+    }
+
+    &__btn {
+        font-size: 0.85rem;
+        font-weight: 700;
+        padding: 0.55rem 1.1rem;
+        border-radius: 0.55rem;
+        border: 0;
+        cursor: pointer;
+        transition: background 0.18s, transform 0.12s;
+
+        &:active { transform: scale(0.97); }
+
+        &--ghost {
+            background: #f1f5f9;
+            color: #475569;
+            &:hover { background: #e2e8f0; }
+        }
+
+        &--primary {
+            background: linear-gradient(135deg, #4f46e5, #6366f1);
+            color: #fff;
+            &:hover { filter: brightness(1.05); }
+        }
+    }
+
+    &__skip {
+        background: transparent;
+        border: 0;
+        color: #94a3b8;
+        font-size: 0.75rem;
+        cursor: pointer;
+        padding: 0.2rem;
+
+        &:hover { color: #475569; text-decoration: underline; }
+    }
+}
+
+.theme--dark .onb-tour__card {
+    background: #1e293b;
+    color: #f1f5f9;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+
+    .onb-tour__body { color: #cbd5e1; }
+    .onb-tour__dot  { background: #475569; &--active { background: #818cf8; } }
+    .onb-tour__btn--ghost { background: #334155; color: #e2e8f0; &:hover { background: #475569; } }
+    .onb-tour__close { color: #64748b; &:hover { color: #cbd5e1; } }
+    .onb-tour__skip  { color: #64748b; &:hover { color: #cbd5e1; } }
+}

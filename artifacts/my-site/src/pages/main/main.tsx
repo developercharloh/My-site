@@ -26,10 +26,16 @@ import { Localize, localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 import RunPanel from '../../components/run-panel';
 import ChartModal from '../chart/chart-modal';
-import Dashboard from '../dashboard';
 import RunStrategy from '../dashboard/run-strategy';
+import OnboardingTour from '@/components/onboarding-tour';
+import PwaInstallPrompt from '@/components/pwa-install-prompt';
+import TrustFooter from '@/components/trust-footer';
 import './main.scss';
 
+// Dashboard is the default tab so it loads on first paint, but at ~100KB+
+// it still benefits from being a separate chunk so the initial JS bundle is
+// smaller and other tabs can preload in parallel.
+const Dashboard = lazy(() => import('../dashboard'));
 const ChartWrapper = lazy(() => import('../chart/chart-wrapper'));
 const FreeBots = lazy(() => import('../free-bots'));
 const SignalEngine = lazy(() => import('../signal-engine'));
@@ -317,7 +323,9 @@ const AppWrapper = observer(() => {
                                 }
                                 id='id-dbot-dashboard'
                             >
-                                <Dashboard handleTabChange={handleTabChange} />
+                                <Suspense fallback={<ChunkLoader message={localize('Loading dashboard…')} />}>
+                                    <Dashboard handleTabChange={handleTabChange} />
+                                </Suspense>
                             </div>
                             <div
                                 label={
@@ -470,6 +478,9 @@ const AppWrapper = observer(() => {
             >
                 {message}
             </Dialog>
+            <TrustFooter />
+            <PwaInstallPrompt />
+            <OnboardingTour />
         </React.Fragment>
     );
 });

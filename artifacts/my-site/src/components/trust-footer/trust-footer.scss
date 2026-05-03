@@ -1,0 +1,63 @@
+.trust-footer {
+    width: 100%;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.02) 0%, rgba(15, 23, 42, 0.06) 100%);
+    border-top: 1px solid rgba(100, 116, 139, 0.18);
+    padding: 0.55rem 0.9rem;
+    font-size: 0.72rem;
+    color: var(--text-less-prominent, #6b7280);
+    line-height: 1.4;
+
+    &__inner {
+        max-width: 1280px;
+        margin: 0 auto;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.55rem 1.1rem;
+        justify-content: space-between;
+    }
+
+    &__risk {
+        flex: 1 1 auto;
+        min-width: 220px;
+
+        strong {
+            color: #b45309;
+            font-weight: 700;
+        }
+    }
+
+    &__github {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        color: var(--text-prominent, #1e293b);
+        font-weight: 600;
+        text-decoration: none;
+        padding: 0.3rem 0.55rem;
+        border-radius: 0.4rem;
+        border: 1px solid rgba(100, 116, 139, 0.25);
+        white-space: nowrap;
+        transition: background 0.18s, color 0.18s;
+
+        &:hover {
+            background: rgba(99, 102, 241, 0.12);
+            color: #4f46e5;
+        }
+
+        svg { flex-shrink: 0; }
+    }
+}
+
+.theme--dark .trust-footer {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.05) 100%);
+    border-top-color: rgba(255, 255, 255, 0.08);
+    color: #cbd5e1;
+
+    &__risk strong { color: #fbbf24; }
+    &__github {
+        color: #e2e8f0;
+        border-color: rgba(255, 255, 255, 0.18);
+        &:hover { background: rgba(99, 102, 241, 0.18); color: #a5b4fc; }
+    }
+}
