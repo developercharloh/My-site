@@ -225,6 +225,8 @@ const DTraderPage = observer(() => {
     const [positions,   setPositions]   = useState<DTPosition[]>([]);
     const [feedback,    setFeedback]    = useState<DTBuyFeedback | null>(null);
     const [digitCounts, setDigitCounts] = useState<number[]>(() => new Array(10).fill(0));
+    /** Rolling raw-price window — drives the live ACCU/MULT chart. */
+    const [priceWindow, setPriceWindow] = useState<number[]>([]);
     /** Last settled digit contract — drives the ✅ / ❌ overlay on the
      *  exit-tick's circle in the digit analyzer. Auto-dismisses after 6s. */
     const [lastSettlement, setLastSettlement] =
@@ -264,6 +266,7 @@ const DTraderPage = observer(() => {
         };
         engine.onBuyFeedback = f => setFeedback(f);
         engine.onDigitStats  = c => setDigitCounts(c);
+        engine.onPriceWindow = p => setPriceWindow(p);
         engine.onContractEvent = e => {
             popupSeqRef.current += 1;
             setPopup({ ...e, seq: popupSeqRef.current });
@@ -744,6 +747,15 @@ const DTraderPage = observer(() => {
                     </div>
                 </div>
 
+                {/* ── Live price chart with barrier overlay (ACCU + MULT) ── */}
+                {(category.needsGrowthRate || category.needsMultiplier) && (
+                    <AccuChart
+                        prices={priceWindow}
+                        position={sellableOpen}
+                        currency={currency}
+                    />
+                )}
+
                 {/* ── Ticket (proposal + buy) ────────────────────────────── */}
                 <div className='dtp__ticket'>
                     <div className='dtp__ticket-title'>Ticket</div>
@@ -1001,6 +1013,176 @@ const DTraderPage = observer(() => {
         </div>
     );
 });
+
+// ─── Live price chart with Accumulators-style barrier overlay ────────────
+// Renders the rolling price window as an SVG line. When an ACCU contract
+// is open we overlay the upper / lower barrier lines, tint the safe band
+// in light blue, and flash a red "BARRIER BROKEN" badge the moment a
+// tick steps outside the band. Profit / loss appears on the right rail.
+const AccuChart: React.FC<{
+    prices:   number[];
+    position: DTPosition | null;
+    currency: string;
+}> = React.memo(({ prices, position, currency }) => {
+    const W = 320, H = 160, PAD_L = 8, PAD_R = 56, PAD_T = 10, PAD_B = 14;
+    const innerW = W - PAD_L - PAD_R;
+    const innerH = H - PAD_T - PAD_B;
+
+    // Pull last N points so the chart never gets too dense
+    const data = prices.length > 80 ? prices.slice(prices.length - 80) : prices;
+    const last = data.length > 0 ? data[data.length - 1] : null;
+
+    // Y-axis range — include barriers and entry spot so they're never clipped
+    const candidates: number[] = data.slice();
+    if (position?.highBarrier !== null && position?.highBarrier !== undefined) candidates.push(position.highBarrier);
+    if (position?.lowBarrier  !== null && position?.lowBarrier  !== undefined) candidates.push(position.lowBarrier);
+    if (position?.entrySpotNum !== null && position?.entrySpotNum !== undefined) candidates.push(position.entrySpotNum);
+    const minV = candidates.length ? Math.min(...candidates) : 0;
+    const maxV = candidates.length ? Math.max(...candidates) : 1;
+    // 8% padding above/below so the line never hugs the edge
+    const span = (maxV - minV) || Math.max(1, Math.abs(maxV) * 0.0001);
+    const lo   = minV - span * 0.08;
+    const hi   = maxV + span * 0.08;
+    const range = hi - lo || 1;
+
+    const yOf = (v: number) => PAD_T + (1 - (v - lo) / range) * innerH;
+    const xOf = (i: number) => PAD_L + (data.length <= 1 ? innerW : (i / (data.length - 1)) * innerW);
+
+    const linePath = data.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xOf(i).toFixed(2)} ${yOf(p).toFixed(2)}`).join(' ');
+    const areaPath = data.length
+        ? `${linePath} L ${xOf(data.length - 1).toFixed(2)} ${(PAD_T + innerH).toFixed(2)} L ${PAD_L.toFixed(2)} ${(PAD_T + innerH).toFixed(2)} Z`
+        : '';
+
+    const hasContract = !!position;
+    const hb = position?.highBarrier ?? null;
+    const lb = position?.lowBarrier  ?? null;
+    const es = position?.entrySpotNum ?? null;
+    const broken    = position?.barrierBroken ?? false;
+    const profit    = position?.profit ?? null;
+    const inProfit  = profit !== null && profit >= 0;
+
+    // Y-axis tick labels (top, mid, bottom)
+    const ticks = [hi, (hi + lo) / 2, lo];
+    const decimals = Math.max(2, Math.min(5, Math.round(-Math.log10(Math.max(span, 1e-9))) + 2));
+    const fmt = (v: number) => v.toFixed(decimals);
+
+    return (
+        <div className={`dtp__accu-chart ${broken ? 'dtp__accu-chart--broken' : ''}`}>
+            <div className='dtp__accu-chart-head'>
+                <span className='dtp__accu-chart-title'>📈 Live price</span>
+                {hasContract ? (
+                    <span
+                        className='dtp__accu-chart-pnl'
+                        style={{ color: inProfit ? '#16a34a' : '#dc2626' }}
+                    >
+                        {inProfit ? '+' : ''}${(profit ?? 0).toFixed(2)} {currency}
+                    </span>
+                ) : (
+                    <span className='dtp__accu-chart-hint'>Buy to see barriers</span>
+                )}
+            </div>
+
+            <svg viewBox={`0 0 ${W} ${H}`} className='dtp__accu-chart-svg' preserveAspectRatio='none'>
+                {/* gridlines */}
+                {ticks.map((t, i) => (
+                    <line
+                        key={`g${i}`}
+                        x1={PAD_L} x2={W - PAD_R}
+                        y1={yOf(t)} y2={yOf(t)}
+                        stroke='#e2e8f0' strokeWidth={1} strokeDasharray='2 4'
+                    />
+                ))}
+
+                {/* safe band between barriers */}
+                {hasContract && hb !== null && lb !== null && (
+                    <rect
+                        x={PAD_L} width={innerW}
+                        y={yOf(hb)} height={Math.max(0, yOf(lb) - yOf(hb))}
+                        fill={broken ? 'rgba(220,38,38,0.12)' : 'rgba(37,99,235,0.10)'}
+                    />
+                )}
+
+                {/* price area + line */}
+                {data.length > 0 && (
+                    <>
+                        <path d={areaPath} fill='rgba(15,23,42,0.06)' />
+                        <path d={linePath} stroke='#0f172a' strokeWidth={1.5} fill='none' />
+                    </>
+                )}
+
+                {/* entry spot marker */}
+                {hasContract && es !== null && (
+                    <line
+                        x1={PAD_L} x2={W - PAD_R}
+                        y1={yOf(es)} y2={yOf(es)}
+                        stroke='#94a3b8' strokeWidth={1} strokeDasharray='1 3'
+                    />
+                )}
+
+                {/* barrier lines */}
+                {hasContract && hb !== null && (
+                    <>
+                        <line
+                            x1={PAD_L} x2={W - PAD_R}
+                            y1={yOf(hb)} y2={yOf(hb)}
+                            stroke={broken ? '#dc2626' : '#2563eb'}
+                            strokeWidth={1.5}
+                        />
+                        <text x={W - PAD_R + 4} y={yOf(hb) + 3}
+                            fontSize='10' fill={broken ? '#dc2626' : '#2563eb'} fontWeight='700'>
+                            {fmt(hb)}
+                        </text>
+                    </>
+                )}
+                {hasContract && lb !== null && (
+                    <>
+                        <line
+                            x1={PAD_L} x2={W - PAD_R}
+                            y1={yOf(lb)} y2={yOf(lb)}
+                            stroke={broken ? '#dc2626' : '#2563eb'}
+                            strokeWidth={1.5}
+                        />
+                        <text x={W - PAD_R + 4} y={yOf(lb) + 3}
+                            fontSize='10' fill={broken ? '#dc2626' : '#2563eb'} fontWeight='700'>
+                            {fmt(lb)}
+                        </text>
+                    </>
+                )}
+
+                {/* live price dot + right-rail label */}
+                {last !== null && data.length > 0 && (
+                    <>
+                        <circle
+                            cx={xOf(data.length - 1)} cy={yOf(last)} r={3.5}
+                            fill={broken ? '#dc2626' : (inProfit ? '#16a34a' : '#0f172a')}
+                        />
+                        <rect
+                            x={W - PAD_R + 1} y={yOf(last) - 8}
+                            width={PAD_R - 4} height={16}
+                            rx={3}
+                            fill='#0f172a'
+                        />
+                        <text
+                            x={W - PAD_R + (PAD_R - 4) / 2 + 1} y={yOf(last) + 4}
+                            fontSize='10' fill='white' fontWeight='800'
+                            textAnchor='middle'
+                        >
+                            {fmt(last)}
+                        </text>
+                    </>
+                )}
+            </svg>
+
+            {/* Breach banner — flashes the moment a tick falls outside the band */}
+            {hasContract && broken && (
+                <div className='dtp__accu-chart-breach'>
+                    🛑 BARRIER BROKEN — contract will close as a loss
+                </div>
+            )}
+        </div>
+    );
+});
+AccuChart.displayName = 'AccuChart';
 
 function shortLabel(t: DTContractType): string {
     switch (t) {

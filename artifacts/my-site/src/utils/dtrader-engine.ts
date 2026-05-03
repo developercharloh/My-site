@@ -73,6 +73,14 @@ export interface DTPosition {
     exitSpot:     string | null;
     longcode:     string;
     purchaseTime: string;
+    /** ACCU only: upper/lower barriers from the open contract (numeric).
+     *  Drawn on the live price chart so the trader can see whether the
+     *  next tick will keep them in profit or break the barrier. */
+    highBarrier:    number | null;
+    lowBarrier:     number | null;
+    entrySpotNum:   number | null;
+    /** Set true the moment a price tick is observed outside [low,high]. */
+    barrierBroken:  boolean;
 }
 
 export type DTContractEventKind = 'cashout' | 'tp' | 'sl';
@@ -116,6 +124,10 @@ export class DTraderEngine {
      *  Always 10 elements long, indices 0-9 → counts. Emit once on
      *  history seed, then once per new tick. */
     public onDigitStats: (counts: number[])           => void = () => {};
+    /** Rolling window of the last ~120 raw price quotes — used to draw the
+     *  Accumulators-style live price chart with barrier overlay. Emitted
+     *  once on history seed and once per new tick. */
+    public onPriceWindow: (prices: number[])          => void = () => {};
     /** Fires once when an open contract reaches a notable end state — used
      *  to drive the full-screen Cash-Out / TP / SL popups. Plain expiry of
      *  binary contracts does NOT fire this event (the position card already
@@ -166,6 +178,10 @@ export class DTraderEngine {
     private readonly DIGIT_WINDOW = 1000;
     private digitBuf: number[] = [];                    // FIFO of last 1000 last-digits
     private digitCounts: number[] = new Array(10).fill(0);
+
+    // Rolling raw-price window for the live ACCU/MULT chart
+    private readonly PRICE_WINDOW = 120;
+    private priceBuf: number[] = [];
     /** Pip size for the currently-subscribed symbol — needed to compute the
      *  last digit correctly (e.g. V100 has pip_size 2, but the raw quote
      *  string can have trailing zeros stripped). Defaults to undefined until
@@ -393,6 +409,30 @@ export class DTraderEngine {
         }
     }
 
+    private pushPrice(q: number): void {
+        if (!Number.isFinite(q)) return;
+        this.priceBuf.push(q);
+        if (this.priceBuf.length > this.PRICE_WINDOW) {
+            this.priceBuf.splice(0, this.priceBuf.length - this.PRICE_WINDOW);
+        }
+    }
+
+    /** Check every open ACCU position: if the latest tick is outside the
+     *  contract's [low,high] barriers, mark it as broken so the chart can
+     *  flash a "BARRIER BROKEN" warning even before settlement arrives. */
+    private detectBarrierBreach(price: number): void {
+        for (const pos of this.positions.values()) {
+            if (!pos.isOpen || pos.contractType !== 'ACCU') continue;
+            if (pos.barrierBroken) continue;
+            if (pos.highBarrier !== null && pos.lowBarrier !== null) {
+                if (price > pos.highBarrier || price < pos.lowBarrier) {
+                    pos.barrierBroken = true;
+                    this.onPosition(pos);
+                }
+            }
+        }
+    }
+
     private scheduleProposal(): void {
         if (this.proposalDebounce) clearTimeout(this.proposalDebounce);
         this.proposalDebounce = setTimeout(() => this.refreshProposal(), this.PROPOSAL_DEBOUNCE_MS);
@@ -515,12 +555,15 @@ export class DTraderEngine {
         // Seed the rolling window from oldest → newest
         this.digitBuf = [];
         this.digitCounts = new Array(10).fill(0);
+        this.priceBuf = [];
         for (const raw of prices) {
             const q = typeof raw === 'string' ? parseFloat(raw) : raw;
             if (!Number.isFinite(q)) continue;
             this.pushDigit(this.lastDigit(q, this.pipSize));
+            this.pushPrice(q);
         }
         this.onDigitStats(this.digitCounts.slice());
+        this.onPriceWindow(this.priceBuf.slice());
     }
 
     private handleTick(tick: { quote: number; pip_size?: number } | undefined): void {
@@ -532,7 +575,10 @@ export class DTraderEngine {
         if (this.status === 'subscribing') this.setStatus('ready');
         this.onTick(spot, digit);
         this.pushDigit(digit);
+        this.pushPrice(tick.quote);
+        this.detectBarrierBreach(tick.quote);
         this.onDigitStats(this.digitCounts.slice());
+        this.onPriceWindow(this.priceBuf.slice());
     }
 
     private handleProposal(p: any): void {
@@ -599,6 +645,10 @@ export class DTraderEngine {
             isOpen:       true,
             isWin:        null,
             entrySpot:    null,
+            highBarrier:    null,
+            lowBarrier:     null,
+            entrySpotNum:   null,
+            barrierBroken:  false,
             exitSpot:     null,
             longcode:     buy.longcode ?? '',
             purchaseTime: this.nowTime(),
@@ -657,6 +707,21 @@ export class DTraderEngine {
         pos.currentBid  = bid;
         if (spot) pos.currentSpot = spot;
         if (entry && !pos.entrySpot) pos.entrySpot = entry;
+
+        // ACCU contracts carry barrier prices on every POC — capture them so
+        // the chart can render the upper/lower lines and the breach band.
+        if (poc.high_barrier !== undefined) {
+            const hb = parseFloat(poc.high_barrier);
+            if (Number.isFinite(hb)) pos.highBarrier = hb;
+        }
+        if (poc.low_barrier !== undefined) {
+            const lb = parseFloat(poc.low_barrier);
+            if (Number.isFinite(lb)) pos.lowBarrier = lb;
+        }
+        if (poc.entry_spot !== undefined && pos.entrySpotNum === null) {
+            const es = parseFloat(poc.entry_spot);
+            if (Number.isFinite(es)) pos.entrySpotNum = es;
+        }
 
         if (settled) {
             pos.isOpen   = false;

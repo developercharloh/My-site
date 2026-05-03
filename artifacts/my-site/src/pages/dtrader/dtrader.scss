@@ -531,3 +531,37 @@
     .dtp__popup-subtitle { color: #94a3b8; }
     .dtp__popup-profit   { background: #0f172a; }
 }
+
+// ── Live price chart with barrier overlay (ACCU + MULT) ──────────────────
+.dtp {
+    &__accu-chart {
+        margin: 0 0 12px; padding: 10px 10px 8px;
+        background: white;
+        border: 1px solid #e2e8f0; border-radius: 10px;
+        &--broken { border-color: #fca5a5; box-shadow: 0 0 0 3px rgba(220,38,38,0.12); }
+    }
+    &__accu-chart-head {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 6px; font-size: 0.78rem;
+    }
+    &__accu-chart-title { font-weight: 700; color: #0f172a; }
+    &__accu-chart-hint  { color: #94a3b8; font-style: italic; }
+    &__accu-chart-pnl   { font-weight: 800; font-family: 'SF Mono', Menlo, monospace; }
+    &__accu-chart-svg   { display: block; width: 100%; height: 160px; }
+    &__accu-chart-breach {
+        margin-top: 6px; padding: 6px 8px;
+        background: #fee2e2; color: #991b1b;
+        border-radius: 6px; text-align: center;
+        font-size: 0.78rem; font-weight: 800;
+        animation: dtpBreachFlash 700ms ease-out;
+    }
+}
+@keyframes dtpBreachFlash {
+    0%   { background: #fecaca; transform: scale(1.02); }
+    100% { background: #fee2e2; transform: scale(1); }
+}
+@media (prefers-color-scheme: dark) {
+    .dtp__accu-chart       { background: #1e293b; border-color: #334155; }
+    .dtp__accu-chart-title { color: #f1f5f9; }
+    .dtp__accu-chart-hint  { color: #64748b; }
+}
