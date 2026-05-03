@@ -360,8 +360,8 @@ const AppWrapper = observer(() => {
                             <div
                                 label={
                                     <>
-                                        <span className='tab-emoji' role='img' aria-hidden='true'>💹</span>
-                                        <Localize i18n_default_text='DTrader' />
+                                        <span className='tab-emoji' role='img' aria-hidden='true'>🧠</span>
+                                        <Localize i18n_default_text='Advanced D-Trader' />
                                     </>
                                 }
                                 id='id-dtrader'
