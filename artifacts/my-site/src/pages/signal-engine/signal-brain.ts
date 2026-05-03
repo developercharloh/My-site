@@ -17,6 +17,7 @@ export interface Signal {
     sampleSize:     number;   // ticks used for analysis (100)
     recentScore:    number;   // agreeing ticks in last 20
     recentTotal:    number;   // always 20
+    recommendedTicks: number; // suggested contract duration in ticks (1–10)
 }
 
 export interface MLWeights { w: number[]; b: number; }
@@ -39,7 +40,7 @@ interface Vote { model: string; market: MarketType; direction: string; confidenc
 function getThresholds(market: MarketType, prefix: string): { minAgree: number; minConf: number } {
     if (market === 'matches_differs') {
         if (prefix === 'MATCHES') return { minAgree: 5, minConf: 70 };
-        return { minAgree: 3, minConf: 60 }; // DIFFERS
+        return { minAgree: 4, minConf: 68 }; // DIFFERS — tightened (was 3 / 60)
     }
     if (market === 'even_odd') return { minAgree: 4, minConf: 60 };
     return { minAgree: 3, minConf: 55 };     // over_under
@@ -108,7 +109,10 @@ function checkRecency(digits: number[], direction: string, market: MarketType): 
             minRequired = 3; // 15%+ in 20 ticks (expected 10%)
         } else {
             agreeing    = last20.filter(d => d !== dig).length;
-            minRequired = Math.ceil(n * (0.90 - RECENCY_EDGE)); // ≥80% not the digit
+            // Tightened DIFFERS recency: require ≥88% non-target in last 20
+            // (was 0.90 - RECENCY_EDGE = 84%) — the digit being avoided must
+            // be genuinely cold, not just slightly below baseline.
+            minRequired = Math.ceil(n * 0.88);
         }
     }
 
@@ -550,19 +554,20 @@ function modelStreak(digits: number[]): Vote[] {
             direction: `MATCHES ${topDigitOf(d100)}`, confidence: 62 });
     }
 
-    // DIFFERS: if a digit is absent from the last 15 ticks, vote to avoid it
-    const last15 = digits.slice(-15);
-    if (last15.length >= 15) {
-        const cntL15 = Array(10).fill(0) as number[];
-        last15.forEach(d => cntL15[d]++);
-        const absent = cntL15.map((c, i) => c === 0 ? i : -1).filter(i => i >= 0);
+    // DIFFERS: if a digit is absent from the last 20 ticks (raised from 15),
+    // vote to avoid it. Longer absence window = colder digit = stronger signal.
+    const last20 = digits.slice(-20);
+    if (last20.length >= 20) {
+        const cntL20 = Array(10).fill(0) as number[];
+        last20.forEach(d => cntL20[d]++);
+        const absent = cntL20.map((c, i) => c === 0 ? i : -1).filter(i => i >= 0);
         if (absent.length > 0) {
             // among absent digits, pick the one least frequent overall
             const cntAll = Array(10).fill(0) as number[];
             d100.forEach(d => cntAll[d]++);
             const rarest = absent.reduce((best, d) => cntAll[d] < cntAll[best] ? d : best, absent[0]);
             votes.push({ model: 'Streak/Pattern', market: 'matches_differs',
-                direction: `DIFFERS ${rarest}`, confidence: 66 });
+                direction: `DIFFERS ${rarest}`, confidence: 72 }); // raised 66 → 72
         }
     }
 
@@ -781,7 +786,28 @@ export function analyzeSignals(
                 sampleSize:     Math.min(digits.length, 100),
                 recentScore:    rec.score,
                 recentTotal:    rec.total,
+                recommendedTicks: recommendTicks(r.market, r.direction),
             };
         })
         .filter((s): s is Signal => s !== null);
+}
+
+// ─── Recommended tick duration per signal ─────────────────────────────────────
+// MATCHES / DIFFERS / EVEN / ODD: 1 tick — single-shot resolution is cleanest.
+// OVER / UNDER: scales with barrier safety. Wider safe margin = more room
+// for a longer hold. (1-tick contracts are always safe; this is just the
+// pre-fill the user can override 1–10.)
+function recommendTicks(market: MarketType, direction: string): number {
+    if (market === 'matches_differs' || market === 'even_odd') return 1;
+    // over_under
+    const b = Number(direction.split(' ')[1]);
+    if (direction.startsWith('OVER')) {
+        if (b === 1) return 3;       // wins on 8 digits
+        if (b === 2) return 2;       // wins on 7 digits
+        return 1;                    // OVER 3 — wins on 6 digits
+    }
+    // UNDER
+    if (b === 8) return 3;           // wins on 8 digits
+    if (b === 7) return 2;           // wins on 7 digits
+    return 1;                        // UNDER 6 — wins on 6 digits
 }

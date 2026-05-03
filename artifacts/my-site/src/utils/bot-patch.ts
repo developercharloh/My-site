@@ -52,6 +52,7 @@ export function patchBotXml(
     xmlText: string,
     symbol:  string,
     patches: BlockPatch[],
+    duration?: number,
 ): Document {
     const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
 
@@ -61,6 +62,59 @@ export function patchBotXml(
         if (allFields[i].getAttribute('name') === 'SYMBOL_LIST') {
             allFields[i].textContent = symbol;
             break;
+        }
+    }
+
+    // 1b. Patch DURATION values across the whole bot. Walks every
+    // <value name="DURATION"> and updates any nested math_number /
+    // math_number_positive NUM field to the chosen tick count. This is
+    // generic across all four bot XMLs because each one uses the standard
+    // Blockly DURATION value slot, regardless of the bot's specific block IDs.
+    if (typeof duration === 'number' && duration >= 1) {
+        const ticks    = Math.max(1, Math.min(10, Math.round(duration)));
+        const allValues = doc.getElementsByTagName('value');
+        for (let i = 0; i < allValues.length; i++) {
+            if (allValues[i].getAttribute('name') !== 'DURATION') continue;
+            // Look for shadow + nested block math_number(_positive) NUM
+            const numHosts = allValues[i].querySelectorAll('shadow, block');
+            for (let j = 0; j < numHosts.length; j++) {
+                const host = numHosts[j];
+                const t    = host.getAttribute('type') ?? '';
+                if (t !== 'math_number' && t !== 'math_number_positive') continue;
+                const numFields = host.getElementsByTagName('field');
+                for (let k = 0; k < numFields.length; k++) {
+                    if (numFields[k].getAttribute('name') === 'NUM') {
+                        numFields[k].textContent = String(ticks);
+                    }
+                }
+            }
+        }
+        // Also patch any variables_set block whose VAR is named "duration"
+        // (case-insensitive). Some bot XMLs initialise a duration variable
+        // separately from the DURATION value slot.
+        const allBlocks2 = doc.getElementsByTagName('block');
+        for (let i = 0; i < allBlocks2.length; i++) {
+            if (allBlocks2[i].getAttribute('type') !== 'variables_set') continue;
+            const vfields = allBlocks2[i].getElementsByTagName('field');
+            let isDur    = false;
+            for (let f = 0; f < vfields.length; f++) {
+                if (vfields[f].getAttribute('name') !== 'VAR') continue;
+                if ((vfields[f].textContent ?? '').trim().toLowerCase() === 'duration') {
+                    isDur = true; break;
+                }
+            }
+            if (!isDur) continue;
+            const inner = allBlocks2[i].getElementsByTagName('block');
+            for (let b = 0; b < inner.length; b++) {
+                if (inner[b].getAttribute('type') !== 'math_number') continue;
+                const nf = inner[b].getElementsByTagName('field');
+                for (let k = 0; k < nf.length; k++) {
+                    if (nf[k].getAttribute('name') === 'NUM') {
+                        nf[k].textContent = String(ticks);
+                    }
+                }
+                break;
+            }
         }
     }
 
@@ -185,6 +239,7 @@ export async function fetchAndPatchBot(
     takeProfit: number,
     stopLoss:   number,
     martingale: number,
+    duration:   number = 1,
 ): Promise<Document> {
     const xmlPath = BOT_XML_PATHS[botId];
     if (!xmlPath) throw new Error(`Unknown bot id: ${botId}`);
@@ -194,7 +249,7 @@ export async function fetchAndPatchBot(
     const rawXml = await res.text();
 
     const patches = getBotPatches(botId, signal, stake, takeProfit, stopLoss, martingale);
-    const doc     = patchBotXml(rawXml, signal.symbol, patches);
+    const doc     = patchBotXml(rawXml, signal.symbol, patches, duration);
 
     if (doc.querySelector('parsererror')) throw new Error('Bot XML parse error — check the bot file.');
     return doc;

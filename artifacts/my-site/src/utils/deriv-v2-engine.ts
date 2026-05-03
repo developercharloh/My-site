@@ -49,6 +49,7 @@ export interface V2BotConfig {
     takeProfit:      number;
     stopLoss:        number;
     currency?:       string;
+    duration?:       number;   // contract length in ticks (1–10), default 1
 }
 
 export interface V2BoundStores {
@@ -337,7 +338,7 @@ export class DerivV2Engine {
             basis:         'stake',
             contract_type: ct,
             currency:      this.config.currency ?? 'USD',
-            duration:      1,
+            duration:      Math.max(1, Math.min(10, this.config.duration ?? 1)),
             duration_unit: 't',
             symbol:        this.config.symbol,
         };

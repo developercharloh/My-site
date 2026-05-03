@@ -543,18 +543,49 @@
         display: flex;
         flex-direction: column;
         gap: 0.35rem;
+
+        &--full {
+            grid-column: 1 / -1;
+        }
     }
 
     &__field-label {
         font-size: 0.68rem;
         font-weight: 700;
         color: var(--text-general, #334155);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        flex-wrap: wrap;
     }
 
     &__field-hint {
         font-size: 0.6rem;
         font-weight: 600;
         color: var(--text-less-prominent, #94a3b8);
+    }
+
+    &__field-rec {
+        margin-left: auto;
+        font-size: 0.58rem;
+        font-weight: 700;
+        color: #10b981;
+        background: rgba(16, 185, 129, 0.1);
+        padding: 0.12rem 0.45rem;
+        border-radius: 0.4rem;
+        letter-spacing: 0.02em;
+    }
+
+    &__select {
+        appearance: none;
+        -webkit-appearance: none;
+        cursor: pointer;
+        background-image: linear-gradient(45deg, transparent 50%, #6366f1 50%),
+                          linear-gradient(135deg, #6366f1 50%, transparent 50%);
+        background-position: calc(100% - 14px) center, calc(100% - 9px) center;
+        background-size: 5px 5px, 5px 5px;
+        background-repeat: no-repeat;
+        padding-right: 2rem;
     }
 
     &__input {

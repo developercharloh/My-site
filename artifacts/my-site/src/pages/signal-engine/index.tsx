@@ -398,6 +398,7 @@ interface SignalSettings {
     takeProfit: string;
     stopLoss:   string;
     martingale: string;
+    ticks:      string;
 }
 
 type RunState = 'idle' | 'launching' | 'no-workspace' | 'error';
@@ -407,12 +408,24 @@ function SignalSettingsModal({ signal, rank, onClose }: {
 }) {
     const { dashboard, run_panel } = useStore();
     const storageKey = `sig_cfg_${signal.symbol}_${signal.market}`;
+    const defaultTicks = String(signal.recommendedTicks ?? 1);
     const [cfg, setCfg] = useState<SignalSettings>(() => {
         try {
             const raw = localStorage.getItem(storageKey);
-            if (raw) return JSON.parse(raw) as SignalSettings;
+            if (raw) {
+                const parsed = JSON.parse(raw) as Partial<SignalSettings>;
+                // Always honour the signal's recommended ticks for a fresh open
+                // (the user can still change it before clicking Save & Run).
+                return {
+                    stake:      parsed.stake      ?? '0.5',
+                    takeProfit: parsed.takeProfit ?? '10',
+                    stopLoss:   parsed.stopLoss   ?? '30',
+                    martingale: parsed.martingale ?? '2',
+                    ticks:      defaultTicks,
+                };
+            }
         } catch { /* ignore */ }
-        return { stake: '0.5', takeProfit: '10', stopLoss: '30', martingale: '2' };
+        return { stake: '0.5', takeProfit: '10', stopLoss: '30', martingale: '2', ticks: defaultTicks };
     });
     const [runState,   setRunState]   = useState<RunState>('idle');
     const [errMsg,     setErrMsg]     = useState('');
@@ -431,6 +444,7 @@ function SignalSettingsModal({ signal, rank, onClose }: {
             const takeProfit = parseFloat(cfg.takeProfit) || 10;
             const stopLoss   = parseFloat(cfg.stopLoss)   || 30;
             const martingale = parseFloat(cfg.martingale) || 2;
+            const ticks      = Math.max(1, Math.min(10, Math.round(parseInt(cfg.ticks, 10) || 1)));
 
             // Persist the chosen engine mode globally
             localStorage.setItem(ENGINE_KEY, engineMode);
@@ -483,6 +497,7 @@ function SignalSettingsModal({ signal, rank, onClose }: {
                     martingaleLevel,
                     takeProfit,
                     stopLoss,
+                    duration:        ticks,
                 };
 
                 const v2CfgStr = JSON.stringify(v2Cfg);
@@ -498,7 +513,7 @@ function SignalSettingsModal({ signal, rank, onClose }: {
             } else {
                 // ── V1: fetch XML, load into DBot Blockly workspace, auto-run ──────────
                 const botId  = botIdFromSignal(signal);
-                const doc    = await fetchAndPatchBot(botId, signal, stake, takeProfit, stopLoss, martingale);
+                const doc    = await fetchAndPatchBot(botId, signal, stake, takeProfit, stopLoss, martingale, ticks);
                 const xmlStr = new XMLSerializer().serializeToString(doc.documentElement);
 
                 const Blockly = (window as any).Blockly;
@@ -528,11 +543,12 @@ function SignalSettingsModal({ signal, rank, onClose }: {
         }
     }
 
-    const fields: { label: string; key: keyof SignalSettings; hint: string; step: string }[] = [
-        { label: 'Stake',       key: 'stake',      hint: '$', step: '0.01' },
-        { label: 'Take Profit', key: 'takeProfit',  hint: '$', step: '0.01' },
-        { label: 'Stop Loss',   key: 'stopLoss',    hint: '$', step: '0.01' },
-        { label: 'Martingale',  key: 'martingale',  hint: '×', step: '0.1'  },
+    const fields: { label: string; key: keyof SignalSettings; hint: string; step: string; min: string; max?: string }[] = [
+        { label: 'Stake',       key: 'stake',      hint: '$',     step: '0.01', min: '0' },
+        { label: 'Take Profit', key: 'takeProfit',  hint: '$',     step: '0.01', min: '0' },
+        { label: 'Stop Loss',   key: 'stopLoss',    hint: '$',     step: '0.01', min: '0' },
+        { label: 'Martingale',  key: 'martingale',  hint: '×',     step: '0.1',  min: '0' },
+        { label: 'Ticks',       key: 'ticks',       hint: 'duration', step: '1', min: '1', max: '10' },
     ];
 
     return (
@@ -583,20 +599,44 @@ function SignalSettingsModal({ signal, rank, onClose }: {
 
                 {/* Inputs 2×2 */}
                 <div className='se-modal__inputs'>
-                    {fields.map(({ label, key, hint, step }) => (
-                        <div key={key} className='se-modal__field'>
-                            <label className='se-modal__field-label'>
-                                {label} <span className='se-modal__field-hint'>{hint}</span>
-                            </label>
-                            <input
-                                className='se-modal__input'
-                                type='number' min='0' step={step}
-                                value={cfg[key]}
-                                onChange={e => setCfg(p => ({ ...p, [key]: e.target.value }))}
-                                disabled={runState === 'launching'}
-                            />
-                        </div>
-                    ))}
+                    {fields.map(({ label, key, hint, step, min, max }) => {
+                        const isTicks = key === 'ticks';
+                        return (
+                            <div key={key} className={`se-modal__field${isTicks ? ' se-modal__field--full' : ''}`}>
+                                <label className='se-modal__field-label'>
+                                    {label} <span className='se-modal__field-hint'>{hint}</span>
+                                    {isTicks && (
+                                        <span className='se-modal__field-rec'>
+                                            recommended: {signal.recommendedTicks}
+                                        </span>
+                                    )}
+                                </label>
+                                {isTicks ? (
+                                    <select
+                                        className='se-modal__input se-modal__select'
+                                        value={cfg.ticks}
+                                        onChange={e => setCfg(p => ({ ...p, ticks: e.target.value }))}
+                                        disabled={runState === 'launching'}
+                                    >
+                                        {Array.from({ length: 10 }, (_, i) => i + 1).map(n => (
+                                            <option key={n} value={String(n)}>
+                                                {n} {n === 1 ? 'tick' : 'ticks'}
+                                                {n === signal.recommendedTicks ? '  ★ recommended' : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <input
+                                        className='se-modal__input'
+                                        type='number' min={min} step={step} max={max}
+                                        value={cfg[key]}
+                                        onChange={e => setCfg(p => ({ ...p, [key]: e.target.value }))}
+                                        disabled={runState === 'launching'}
+                                    />
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
 
                 {/* No-workspace warning */}

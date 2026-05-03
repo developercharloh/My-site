@@ -10,10 +10,12 @@ export interface EvenOddBotParams {
     takeProfit: number;   // $ e.g. 10
     stopLoss:   number;   // $ e.g. 30
     martingale: number;   // multiplier e.g. 2
+    duration?:  number;   // contract length in ticks (1–10), default 1
 }
 
 export function generateEvenOddXml(p: EvenOddBotParams): string {
     const contract = p.direction === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD';
+    const ticks    = Math.max(1, Math.min(10, Math.round(p.duration ?? 1)));
 
     return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
@@ -111,7 +113,7 @@ export function generateEvenOddXml(p: EvenOddBotParams): string {
                             <field name="VAR" id="duration_id">duration</field>
                             <value name="VALUE">
                               <block type="math_number" id="dur_val">
-                                <field name="NUM">1</field>
+                                <field name="NUM">${ticks}</field>
                               </block>
                             </value>
                             <next>
@@ -273,7 +275,7 @@ export function generateEvenOddXml(p: EvenOddBotParams): string {
             <field name="TRADE_EACH_TICK">FALSE</field>
             <value name="DURATION">
               <shadow type="math_number_positive" id="dur_shadow">
-                <field name="NUM">1</field>
+                <field name="NUM">${ticks}</field>
               </shadow>
               <block type="variables_get" id="get_duration">
                 <field name="VAR" id="duration_id">duration</field>
@@ -513,10 +515,12 @@ export interface MatchesDiffersBotParams {
     takeProfit:      number;
     martingale:      number;           // multiplier per loss
     martingaleLevel: number;           // max consecutive losses before stopping
+    duration?:       number;           // contract length in ticks (1–10), default 1
 }
 
 export function generateMatchesDiffersXml(p: MatchesDiffersBotParams): string {
     const dirLabel = p.contract === 'DIGITMATCH' ? 'MATCHES' : 'DIFFERS';
+    const ticks    = Math.max(1, Math.min(10, Math.round(p.duration ?? 1)));
 
     return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
@@ -649,7 +653,7 @@ export function generateMatchesDiffersXml(p: MatchesDiffersBotParams): string {
         <field name="DURATIONTYPE_LIST">t</field>
         <value name="DURATION">
           <shadow type="math_number_positive" id="md_dur_shadow">
-            <field name="NUM">1</field>
+            <field name="NUM">${ticks}</field>
           </shadow>
         </value>
         <value name="AMOUNT">
