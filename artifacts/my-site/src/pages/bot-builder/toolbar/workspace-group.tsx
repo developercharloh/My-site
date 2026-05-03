@@ -6,7 +6,6 @@ import {
     LabelPairedArrowRotateRightMdRegularIcon,
     LabelPairedArrowsRotateMdRegularIcon,
     LabelPairedChartLineMdRegularIcon,
-    LabelPairedChartTradingviewMdRegularIcon,
     LabelPairedFloppyDiskMdRegularIcon,
     LabelPairedFolderOpenMdRegularIcon,
     LabelPairedMagnifyingGlassMinusMdRegularIcon,
@@ -20,7 +19,7 @@ import ToolbarIcon from './toolbar-icon';
 
 const WorkspaceGroup = observer(() => {
     const { dashboard, toolbar, load_modal, save_modal } = useStore();
-    const { setPreviewOnPopup, setChartModalVisibility, setTradingViewModalVisibility } = dashboard;
+    const { setPreviewOnPopup, setChartModalVisibility } = dashboard;
     const { has_redo_stack, has_undo_stack, onResetClick, onSortClick, onUndoClick, onZoomInOutClick } = toolbar;
     const { toggleSaveModal } = save_modal;
     const { toggleLoadModal } = load_modal;
@@ -102,18 +101,6 @@ const WorkspaceGroup = observer(() => {
                                     onClick={() => setChartModalVisibility()}
                                 >
                                     <LabelPairedChartLineMdRegularIcon />
-                                </span>
-                            }
-                        />
-                        <ToolbarIcon
-                            popover_message={localize('TradingView Chart')}
-                            icon={
-                                <span
-                                    className='toolbar__icon'
-                                    id='db-toolbar__tradingview-button'
-                                    onClick={() => setTradingViewModalVisibility()}
-                                >
-                                    <LabelPairedChartTradingviewMdRegularIcon />
                                 </span>
                             }
                         />
