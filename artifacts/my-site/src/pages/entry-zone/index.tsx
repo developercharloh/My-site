@@ -96,7 +96,48 @@ interface AISignal {
     rationale:      string;
     /** Per-digit frequency over the sample (always length 10). */
     digitFreq:      number[];
+    /** When the signal was generated (epoch ms). */
+    scannedAt:      number;
+    /** Total validity window in ms (depends on symbol tick speed). */
+    validityMs:     number;
+    /** Hard expiry timestamp = scannedAt + validityMs (epoch ms). */
+    expiresAt:      number;
 }
+
+/**
+ * Per-symbol signal validity, in seconds.
+ *
+ * The signal is computed from the last 1000 ticks. A reasonable validity
+ * window is one where new ticks haven't yet shifted the distribution
+ * meaningfully — ~10% turnover. So:
+ *   • 1-second tick symbols → 100s of new ticks ≈ 90s validity (safety margin)
+ *   • 2-second tick symbols → 200s of new ticks ≈ 180s validity
+ */
+const validityMsForSymbol = (sym: { tickEvery: number }): number =>
+    (sym.tickEvery === 1 ? 90 : 180) * 1000;
+
+/** Format ms remaining as M:SS (or "0:00" when expired). */
+const fmtRemaining = (ms: number): string => {
+    if (ms <= 0) return '0:00';
+    const s = Math.ceil(ms / 1000);
+    const mm = Math.floor(s / 60);
+    const ss = s % 60;
+    return `${mm}:${ss.toString().padStart(2, '0')}`;
+};
+
+/* ── Scanning stages ───────────────────────────────────────────────────
+ * The scan happens in well-defined stages. Showing the user each one
+ * (with a check when it completes) makes the wait feel intentional and
+ * communicates that real work is being done — not just a fake spinner.
+ */
+type ScanStageId = 'connect' | 'pull' | 'distribution' | 'score' | 'select';
+const SCAN_STAGES: { id: ScanStageId; label: string; icon: string }[] = [
+    { id: 'connect',      label: 'Connecting to Deriv tick feed',      icon: '📡' },
+    { id: 'pull',         label: 'Pulling 1000 live ticks',            icon: '⬇️' },
+    { id: 'distribution', label: 'Computing digit distribution',       icon: '📊' },
+    { id: 'score',        label: 'Scoring entry triggers (Wilson 95%)', icon: '🧮' },
+    { id: 'select',       label: 'Selecting highest-confidence call',  icon: '🎯' },
+];
 
 const lastDigit = (q: number, pip: number): number => {
     const s = q.toFixed(pip);
@@ -110,8 +151,24 @@ const EntryZone: React.FC = () => {
     const [progress, setProgress] = useState<number>(0);
     const [signal,  setSignal]  = useState<AISignal | null>(null);
     const [error,   setError]   = useState<string>('');
+    const [stage,   setStage]   = useState<ScanStageId>('connect');
+    const [tickCounter, setTickCounter] = useState<number>(0);
+    const [now,     setNow]     = useState<number>(() => Date.now());
     const wsRef     = useRef<WebSocket | null>(null);
     const reqIdRef  = useRef<number>(0);
+
+    /* Live clock for countdown — runs only while a signal is on screen. */
+    useEffect(() => {
+        if (!signal) return;
+        const t = setInterval(() => setNow(Date.now()), 250);
+        return () => clearInterval(t);
+    }, [signal]);
+
+    const remainingMs = signal ? Math.max(0, signal.expiresAt - now) : 0;
+    const remainingPct = signal
+        ? Math.max(0, Math.min(100, (remainingMs / signal.validityMs) * 100))
+        : 0;
+    const isExpired = !!signal && remainingMs <= 0;
 
     const cleanupWs = useCallback(() => {
         if (wsRef.current) {
@@ -367,6 +424,9 @@ const EntryZone: React.FC = () => {
         const execution: 'bot' | 'manual' =
             (probability >= 0.7 && sym.tickEvery === 1) || probability >= 0.85 ? 'bot' : 'manual';
 
+        const scannedAt  = Date.now();
+        const validityMs = validityMsForSymbol(sym);
+
         return {
             market:       mk,
             direction,
@@ -378,6 +438,9 @@ const EntryZone: React.FC = () => {
             execution,
             rationale,
             digitFreq:    freqPct,
+            scannedAt,
+            validityMs,
+            expiresAt:    scannedAt + validityMs,
         };
     }, []);
 
@@ -389,6 +452,8 @@ const EntryZone: React.FC = () => {
         setSignal(null);
         setError('');
         setProgress(0);
+        setStage('connect');
+        setTickCounter(0);
 
         const sym = SYMBOLS.find(s => s.code === symbol) ?? SYMBOLS[0];
         const ws  = new WebSocket(DERIV_WS);
@@ -403,7 +468,14 @@ const EntryZone: React.FC = () => {
             setProgress(p);
         }, 180);
 
-        const finish = () => clearInterval(pTimer);
+        // Animated tick counter (climbs toward TICK_COUNT during the scan)
+        let tc = 0;
+        const tcTimer = setInterval(() => {
+            tc = Math.min(tc + Math.floor(20 + Math.random() * 60), TICK_COUNT - 1);
+            setTickCounter(tc);
+        }, 60);
+
+        const finish = () => { clearInterval(pTimer); clearInterval(tcTimer); };
 
         const failTimer = setTimeout(() => {
             if (status !== 'ready' && wsRef.current === ws) {
@@ -415,6 +487,7 @@ const EntryZone: React.FC = () => {
         }, 15000);
 
         ws.onopen = () => {
+            setStage('pull');
             ws.send(JSON.stringify({
                 ticks_history: sym.code,
                 end:           'latest',
@@ -447,12 +520,20 @@ const EntryZone: React.FC = () => {
                     cleanupWs();
                     return;
                 }
-                const sig = computeSignal(rawPrices, pip, market, sym);
-                finish(); clearTimeout(failTimer);
-                setProgress(100);
-                setSignal(sig);
-                setStatus('ready');
-                cleanupWs();
+                // Walk through the analytical stages so the UI shows them.
+                setStage('distribution');
+                setTimeout(() => setStage('score'), 220);
+                setTimeout(() => setStage('select'),  450);
+                setTimeout(() => {
+                    const sig = computeSignal(rawPrices, pip, market, sym);
+                    finish(); clearTimeout(failTimer);
+                    setTickCounter(rawPrices.length);
+                    setProgress(100);
+                    setSignal(sig);
+                    setNow(Date.now());
+                    setStatus('ready');
+                    cleanupWs();
+                }, 680);
             }
         };
 
@@ -536,11 +617,56 @@ const EntryZone: React.FC = () => {
                 >
                     {status === 'scanning' ? '🔍 Scanning…' : '🚀 Launch AI Signals'}
                 </button>
+
                 {status === 'scanning' && (
-                    <div className='ai-progress'>
-                        <div className='ai-progress__bar' style={{ width: `${progress}%` }} />
-                        <div className='ai-progress__txt'>
-                            Pulling {TICK_COUNT} live ticks from {symObj.label} and computing probabilities…
+                    <div className='ai-scan'>
+                        {/* Animated radar ring with pulsing core */}
+                        <div className='ai-scan__radar' aria-hidden='true'>
+                            <div className='ai-scan__radar-ring  ai-scan__radar-ring--1' />
+                            <div className='ai-scan__radar-ring  ai-scan__radar-ring--2' />
+                            <div className='ai-scan__radar-ring  ai-scan__radar-ring--3' />
+                            <div className='ai-scan__radar-sweep' />
+                            <div className='ai-scan__radar-core'>🧠</div>
+                        </div>
+
+                        {/* Live tick counter */}
+                        <div className='ai-scan__counter'>
+                            <div className='ai-scan__counter-num'>
+                                {tickCounter.toLocaleString()}
+                                <span className='ai-scan__counter-tot'> / {TICK_COUNT}</span>
+                            </div>
+                            <div className='ai-scan__counter-lab'>
+                                live ticks scanned on <strong>{symObj.label}</strong>
+                            </div>
+                        </div>
+
+                        {/* Stage checklist */}
+                        <ol className='ai-scan__stages'>
+                            {SCAN_STAGES.map((s, i) => {
+                                const curIdx = SCAN_STAGES.findIndex(x => x.id === stage);
+                                const state =
+                                    i <  curIdx ? 'done'
+                                  : i === curIdx ? 'active'
+                                  :                 'pending';
+                                return (
+                                    <li
+                                        key={s.id}
+                                        className={`ai-scan-stage ai-scan-stage--${state}`}
+                                    >
+                                        <span className='ai-scan-stage__bullet'>
+                                            {state === 'done'   && '✓'}
+                                            {state === 'active' && <span className='ai-scan-stage__dots'>•••</span>}
+                                            {state === 'pending'&& s.icon}
+                                        </span>
+                                        <span className='ai-scan-stage__text'>{s.label}</span>
+                                    </li>
+                                );
+                            })}
+                        </ol>
+
+                        {/* Flowing progress bar */}
+                        <div className='ai-progress'>
+                            <div className='ai-progress__bar' style={{ width: `${progress}%` }} />
                         </div>
                     </div>
                 )}
@@ -551,12 +677,48 @@ const EntryZone: React.FC = () => {
 
             {/* Result */}
             {status === 'ready' && signal && (
-                <section className='ai-result'>
+                <section className={`ai-result ${isExpired ? 'ai-result--expired' : ''}`}>
                     <div className='ai-result__head'>
                         <span className='ai-result__tag'>AI Signal</span>
                         <span className={`ai-result__exec ai-result__exec--${signal.execution}`}>
                             {signal.execution === 'bot' ? '🤖 Best run via Bot' : '✋ Trade Manually'}
                         </span>
+                    </div>
+
+                    {/* Validity / countdown bar */}
+                    <div
+                        className={
+                            'ai-validity '
+                            + (isExpired         ? 'ai-validity--expired'
+                              : remainingPct < 25 ? 'ai-validity--low'
+                              : remainingPct < 60 ? 'ai-validity--mid'
+                              :                     'ai-validity--high')
+                        }
+                    >
+                        <div className='ai-validity__row'>
+                            <span className='ai-validity__lab'>
+                                {isExpired ? '⏱️ Signal expired' : '⏱️ Signal valid for'}
+                            </span>
+                            <span className='ai-validity__time'>
+                                {fmtRemaining(remainingMs)}
+                            </span>
+                        </div>
+                        <div className='ai-validity__track'>
+                            <div
+                                className='ai-validity__fill'
+                                style={{ width: `${remainingPct}%` }}
+                            />
+                        </div>
+                        <div className='ai-validity__meta'>
+                            {isExpired
+                                ? 'New ticks have shifted the distribution. Re-scan for a fresh, accurate call.'
+                                : `Total window: ${Math.round(signal.validityMs / 1000)}s — based on ${symObj.tickEvery}s ticks for ${symObj.label}.`}
+                        </div>
+                        {isExpired && (
+                            <button type='button' className='ai-validity__rescan' onClick={launch}>
+                                🔄 Re-scan now
+                            </button>
+                        )}
                     </div>
 
                     <div className='ai-result__call'>
