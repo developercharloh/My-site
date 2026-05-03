@@ -575,53 +575,70 @@
 }
 
 // ── Mobile compression ────────────────────────────────────────────────
-// Tighten the result card so the trade call, win-prob bar and entry
-// digits all fit in one or two thumb-flicks instead of four. Spacing
-// and font sizes are reduced proportionally; nothing is hidden.
+// Aggressive squeeze so the trade call, win-prob and BOTH entry digit
+// cards (with their explanations) fit on a phone in one short scroll.
+// We shrink the top header / dropdowns / launch button hard so the
+// scrollable result section can claim more vertical room.
 @media (max-width: 720px) {
-    .ai-tool__head        { margin-bottom: 10px; }
-    .ai-tool__brand-emoji { font-size: 2rem; }
-    .ai-tool__title       { font-size: 1.25rem; }
-    .ai-tool__sub         { font-size: 0.82rem; line-height: 1.35; }
+    // Shrink page-top chrome so the result card starts higher
+    .ai-tool__head        { margin-bottom: 6px; }
+    .ai-tool__brand       { gap: 8px; }
+    .ai-tool__brand-emoji { font-size: 1.6rem; }
+    .ai-tool__title       { font-size: 1.1rem; line-height: 1.15; }
+    .ai-tool__sub         { font-size: 0.74rem; line-height: 1.3; margin-top: 2px; }
 
-    .ai-select            { margin-bottom: 10px; }
-    .ai-select__field     { padding: 0.7rem 0.9rem; font-size: 0.9rem; }
+    .ai-tool__step        { margin-bottom: 8px; }
+    .ai-tool__step-title  { font-size: 0.66rem; margin-bottom: 4px; }
 
-    .ai-launch            { padding: 12px 18px; font-size: 0.95rem; margin: 8px 0 4px; }
+    .ai-select            { margin-bottom: 6px; }
+    .ai-select__field     { padding: 0.55rem 0.75rem; font-size: 0.85rem; }
 
-    .ai-validity          { padding: 9px 11px; margin: 4px 0 10px; }
+    .ai-launch            { padding: 10px 16px; font-size: 0.9rem; margin: 6px 0 2px; border-radius: 10px; }
 
-    .ai-result            { padding: 14px 12px; margin-top: 12px; }
-    .ai-result__head      { margin-bottom: 10px; }
-    .ai-result__call      { padding: 12px 14px; margin-bottom: 12px; }
-    .ai-result__call-label{ font-size: 0.65rem; }
-    .ai-result__call-value{ font-size: 1.85rem; margin: 4px 0; }
-    .ai-result__call-meta { font-size: 0.78rem; }
+    // Result card — tight
+    .ai-validity          { padding: 7px 10px; margin: 2px 0 8px; }
+    .ai-validity__label,
+    .ai-validity__count   { font-size: 0.78rem; }
+    .ai-validity__sub     { font-size: 0.66rem; }
 
-    .ai-result__prob      { margin-bottom: 12px; }
-    .ai-result__prob-bar  { height: 11px; }
-    .ai-result__prob-row  { font-size: 0.82rem; }
+    .ai-result            { padding: 10px 10px; margin-top: 8px; border-radius: 12px; }
+    .ai-result__head      { margin-bottom: 6px; gap: 6px; }
+    .ai-result__tag,
+    .ai-result__exec      { padding: 4px 8px; font-size: 0.66rem; }
 
-    .ai-result__entry         { padding: 12px 10px; margin-bottom: 12px; }
-    .ai-result__entry-title   { font-size: 0.78rem; margin-bottom: 8px; }
-    .ai-result__entry-card    { padding: 10px 8px; }
-    .ai-result__num           { font-size: 2rem; }
+    .ai-result__call      { padding: 8px 12px; margin-bottom: 8px; border-radius: 10px; }
+    .ai-result__call-label{ font-size: 0.6rem; }
+    .ai-result__call-value{ font-size: 1.55rem; margin: 2px 0; }
+    .ai-result__call-meta { font-size: 0.72rem; }
+
+    .ai-result__prob      { margin-bottom: 8px; }
+    .ai-result__prob-bar  { height: 9px; }
+    .ai-result__prob-row  { font-size: 0.76rem; }
+
+    .ai-result__entry         { padding: 8px 8px; margin-bottom: 8px; border-radius: 10px; }
+    .ai-result__entry-title   { font-size: 0.72rem; margin-bottom: 6px; }
+    .ai-result__entry-grid    { gap: 8px; }
+    .ai-result__entry-card    { padding: 8px 6px; border-radius: 9px; }
+    .ai-result__num           { font-size: 1.7rem; }
     .ai-result__entry-pct,
-    .ai-result__entry-cond    { font-size: 0.72rem; }
+    .ai-result__entry-cond    { font-size: 0.66rem; }
+    .ai-result__entry-badge   { font-size: 0.58rem; padding: 2px 5px; }
 
-    .ai-result__ticks         { padding: 10px 12px; margin-bottom: 12px; }
-    .ai-result__ticks-value   { font-size: 1.5rem; }
+    .ai-result__ticks         { padding: 8px 10px; margin-bottom: 8px; border-radius: 10px; }
+    .ai-result__ticks-label   { font-size: 0.66rem; }
+    .ai-result__ticks-value   { font-size: 1.25rem; }
+    .ai-result__ticks-unit    { font-size: 0.74rem; }
     .ai-result__ticks-rationale,
-    .ai-result__ticks-sub     { font-size: 0.76rem; }
+    .ai-result__ticks-sub     { font-size: 0.7rem; line-height: 1.35; }
 
-    .ai-result__why           { padding: 10px 12px; }
-    .ai-result__why-title     { font-size: 0.72rem; }
-    .ai-result__why-text      { font-size: 0.8rem; line-height: 1.45; }
+    .ai-result__why           { padding: 8px 10px; border-radius: 10px; }
+    .ai-result__why-title     { font-size: 0.66rem; margin-bottom: 4px; }
+    .ai-result__why-text      { font-size: 0.74rem; line-height: 1.4; }
 
-    .ai-result__freq          { margin-top: 10px; padding: 10px; }
-    .ai-result__freq-title    { font-size: 0.72rem; margin-bottom: 6px; }
+    .ai-result__freq          { margin-top: 8px; padding: 8px; border-radius: 10px; }
+    .ai-result__freq-title    { font-size: 0.66rem; margin-bottom: 4px; }
 
-    .ai-scan                  { padding: 16px 10px; }
+    .ai-scan                  { padding: 14px 8px; }
 }
 
 // ── Dark mode ─────────────────────────────────────────────────────────
