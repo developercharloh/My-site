@@ -12,7 +12,6 @@ import DesktopWrapper from '@/components/shared_ui/desktop-wrapper';
 import Dialog from '@/components/shared_ui/dialog';
 import MobileWrapper from '@/components/shared_ui/mobile-wrapper';
 import Tabs from '@/components/shared_ui/tabs/tabs';
-import TradingViewModal from '@/components/trading-view-chart/trading-view-modal';
 import { DBOT_TABS, TAB_IDS } from '@/constants/bot-contents';
 import { api_base, updateWorkspaceName } from '@/external/bot-skeleton';
 import { CONNECTION_STATUS } from '@/external/bot-skeleton/services/api/observables/connection-status-stream';
@@ -52,7 +51,6 @@ const AppWrapper = observer(() => {
         active_tab,
         active_tour,
         is_chart_modal_visible,
-        is_trading_view_modal_visible,
         setActiveTab,
         setWebSocketState,
         setActiveTour,
@@ -342,14 +340,10 @@ const AppWrapper = observer(() => {
                                 label={
                                     <>
                                         <span className='tab-emoji' role='img' aria-hidden='true'>📊</span>
-                                        <Localize i18n_default_text='Charts / TradingView' />
+                                        <Localize i18n_default_text='Charts' />
                                     </>
                                 }
-                                id={
-                                    is_chart_modal_visible || is_trading_view_modal_visible
-                                        ? 'id-charts--disabled'
-                                        : 'id-charts'
-                                }
+                                id={is_chart_modal_visible ? 'id-charts--disabled' : 'id-charts'}
                             >
                                 <Suspense
                                     fallback={<TabSkeleton variant='chart' label={localize('Please wait, loading chart...')} />}
@@ -474,7 +468,6 @@ const AppWrapper = observer(() => {
                     </div>
                 )}
                 <ChartModal />
-                <TradingViewModal />
             </DesktopWrapper>
             <MobileWrapper>
                 {!is_open && active_tab !== DBOT_TABS.SPEED_BOTS && active_tab !== DBOT_TABS.ANALYSIS_TOOL && active_tab !== DBOT_TABS.ENTRY_ZONE && active_tab !== DBOT_TABS.V2_PANEL && active_tab !== DBOT_TABS.DTRADER && <RunPanel />}
