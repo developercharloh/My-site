@@ -4,6 +4,7 @@
 //   • Live tick subscription for spot + last digit
 //   • Live proposal subscription (auto-updates payout as inputs change)
 //   • Manual buy (one click → one contract)
+//   • Manual sell (close open Accumulators / Multipliers at market)
 //   • Open-contract tracking → live P&L → settlement record
 //
 // Supported contract families:
@@ -13,9 +14,8 @@
 //   Matches / Differs    (DIGITMATCH / DIGITDIFF, prediction digit 0-9)
 //   Over / Under         (DIGITOVER  / DIGITUNDER, prediction digit 0-9)
 //   Even / Odd           (DIGITEVEN  / DIGITODD,  no barrier / prediction)
-//
-// Multipliers and Accumulators are intentionally not in this build — they
-// require a different proposal shape and live margin tracking.
+//   Accumulators         (ACCU, growth-rate based, no fixed duration)
+//   Multipliers          (MULTUP / MULTDOWN, leverage-based, optional SL/TP)
 
 import { api_base } from '@/external/bot-skeleton/services/api/api-base';
 
@@ -26,7 +26,9 @@ export type DTContractType =
     | 'ONETOUCH' | 'NOTOUCH'
     | 'DIGITMATCH' | 'DIGITDIFF'
     | 'DIGITOVER'  | 'DIGITUNDER'
-    | 'DIGITEVEN'  | 'DIGITODD';
+    | 'DIGITEVEN'  | 'DIGITODD'
+    | 'ACCU'
+    | 'MULTUP' | 'MULTDOWN';
 
 export type DTDurationUnit = 't' | 's' | 'm' | 'h';
 
@@ -72,11 +74,20 @@ export interface DTPosition {
 export interface DTConfig {
     symbol:        string;
     contractType:  DTContractType;
+    /** Binary contracts use duration; ACCU/MULT do not. */
     durationValue: number;
     durationUnit:  DTDurationUnit;
     stake:         number;
-    barrier:       string | null;   // '+0.001' / '-0.001' for H/L + Touch, '5' for digits
+    /** '+0.001' / '-0.001' for H/L + Touch, '5' for digits, null otherwise. */
+    barrier:       string | null;
     currency:      string;
+    // Accumulators
+    growthRate?:   number;   // 0.01 .. 0.05 (1%..5%)
+    // Multipliers
+    multiplier?:   number;   // e.g. 50, 100, 200, 300, 400, 500
+    // Optional limit orders (ACCU / MULT)
+    takeProfit?:   number | null;
+    stopLoss?:     number | null;
 }
 
 // ─── Engine ───────────────────────────────────────────────────────────────────
@@ -172,6 +183,19 @@ export class DTraderEngine {
     // ── Buy ───────────────────────────────────────────────────────────────────
 
     /**
+     * Sell an open contract back to Deriv at market price. Used for
+     * Accumulators / Multipliers where the user decides when to close.
+     */
+    sellContract(contractId: string): void {
+        if (!api_base.is_authorized) {
+            this.emitBuyError('Not logged in to Deriv — log in first to sell positions');
+            return;
+        }
+        this.log(`◀︎ Selling #${contractId} at market`, 'info');
+        this.send({ sell: contractId, price: 0 });
+    }
+
+    /**
      * Place a buy using the latest proposal pushed by the server (engine-owned,
      * never stale). Returns nothing — feedback is delivered via onBuyFeedback
      * and onLog so the UI can surface it prominently.
@@ -222,19 +246,37 @@ export class DTraderEngine {
         this.currentProposal = null;
         this.onProposal(null); // clear UI while loading
 
+        const ct = this.cfg.contractType;
+        const isAccu = ct === 'ACCU';
+        const isMult = ct === 'MULTUP' || ct === 'MULTDOWN';
+
         const payload: Record<string, unknown> = {
             proposal:      1,
             subscribe:     1,
             amount:        this.cfg.stake,
             basis:         'stake',
-            contract_type: this.cfg.contractType,
+            contract_type: ct,
             currency:      this.cfg.currency,
-            duration:      this.cfg.durationValue,
-            duration_unit: this.cfg.durationUnit,
             symbol:        this.cfg.symbol,
         };
-        if (this.cfg.barrier !== null && this.cfg.barrier !== '') {
-            payload.barrier = this.cfg.barrier;
+
+        if (isAccu) {
+            payload.growth_rate = this.cfg.growthRate ?? 0.03;
+            const tp = this.cfg.takeProfit;
+            if (tp != null && tp > 0) payload.limit_order = { take_profit: tp };
+        } else if (isMult) {
+            payload.multiplier = this.cfg.multiplier ?? 100;
+            const limit: Record<string, number> = {};
+            if (this.cfg.takeProfit != null && this.cfg.takeProfit > 0) limit.take_profit = this.cfg.takeProfit;
+            if (this.cfg.stopLoss   != null && this.cfg.stopLoss   > 0) limit.stop_loss   = this.cfg.stopLoss;
+            if (Object.keys(limit).length) payload.limit_order = limit;
+        } else {
+            // Binary contracts — fixed duration + optional barrier
+            payload.duration      = this.cfg.durationValue;
+            payload.duration_unit = this.cfg.durationUnit;
+            if (this.cfg.barrier !== null && this.cfg.barrier !== '') {
+                payload.barrier = this.cfg.barrier;
+            }
         }
         this.send(payload);
     }
@@ -268,6 +310,7 @@ export class DTraderEngine {
                 // tap has a fresh price ready.
                 if (/proposal|invalid|expired/i.test(m)) this.refreshProposal();
             }
+            if (msg.msg_type === 'sell') this.emitBuyError(`Sell failed: ${m}`);
             return;
         }
 
@@ -282,6 +325,9 @@ export class DTraderEngine {
                 break;
             case 'buy':
                 this.handleBuyAck(msg.buy);
+                break;
+            case 'sell':
+                this.handleSellAck(msg.sell);
                 break;
             case 'proposal_open_contract':
                 this.handlePOC(msg.proposal_open_contract, subId);
@@ -315,6 +361,16 @@ export class DTraderEngine {
         // latest id, never one that React state hasn't caught up to.
         this.currentProposal = proposal;
         this.onProposal(proposal);
+    }
+
+    private handleSellAck(sell: any): void {
+        if (!sell?.contract_id) return;
+        const profit = parseFloat(sell.sold_for ?? '0') - parseFloat(sell.balance_after ?? '0') * 0; // sold_for is the realized
+        const sold   = parseFloat(sell.sold_for ?? '0');
+        this.emitBuySuccess(`Sold #${sell.contract_id} for $${sold.toFixed(2)}`);
+        // The proposal_open_contract subscription will deliver the final
+        // settlement record (profit, exit spot) shortly.
+        void profit;
     }
 
     private handleBuyAck(buy: any): void {

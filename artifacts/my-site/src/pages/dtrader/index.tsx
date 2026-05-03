@@ -14,78 +14,152 @@ import {
 } from '@/utils/dtrader-engine';
 import './dtrader.scss';
 
-// ─── Symbols (same set as Signal Engine) ─────────────────────────────────────
-const SYMBOLS: Array<{ value: string; label: string }> = [
-    { value: '1HZ10V',  label: 'Volatility 10 (1s)'  },
-    { value: '1HZ25V',  label: 'Volatility 25 (1s)'  },
-    { value: '1HZ50V',  label: 'Volatility 50 (1s)'  },
-    { value: '1HZ75V',  label: 'Volatility 75 (1s)'  },
-    { value: '1HZ100V', label: 'Volatility 100 (1s)' },
-    { value: 'R_10',    label: 'Volatility 10'  },
-    { value: 'R_25',    label: 'Volatility 25'  },
-    { value: 'R_50',    label: 'Volatility 50'  },
-    { value: 'R_75',    label: 'Volatility 75'  },
-    { value: 'R_100',   label: 'Volatility 100' },
+// ─── Symbol categories — full Deriv manual-trading universe ──────────────────
+//
+// Synthetic indices work for ALL contract types incl. digits/ACCU/MULT.
+// Forex / Stock indices / Cryptos / Commodities work for binary contracts
+// (Rise/Fall, Higher/Lower, Touch/No-Touch) — the API will reject if you try
+// digits/ACCU/MULT on them, and our error toast will surface that.
+type SymbolEntry = { value: string; label: string; group: string };
+
+const FALLBACK_SYMBOLS: SymbolEntry[] = [
+    // Continuous (1-second) volatility indices — best for digits / ACCU
+    { value: '1HZ10V',  label: 'Volatility 10 (1s)',  group: 'Volatility (1s)' },
+    { value: '1HZ25V',  label: 'Volatility 25 (1s)',  group: 'Volatility (1s)' },
+    { value: '1HZ50V',  label: 'Volatility 50 (1s)',  group: 'Volatility (1s)' },
+    { value: '1HZ75V',  label: 'Volatility 75 (1s)',  group: 'Volatility (1s)' },
+    { value: '1HZ100V', label: 'Volatility 100 (1s)', group: 'Volatility (1s)' },
+    // Standard volatility
+    { value: 'R_10',    label: 'Volatility 10',  group: 'Volatility' },
+    { value: 'R_25',    label: 'Volatility 25',  group: 'Volatility' },
+    { value: 'R_50',    label: 'Volatility 50',  group: 'Volatility' },
+    { value: 'R_75',    label: 'Volatility 75',  group: 'Volatility' },
+    { value: 'R_100',   label: 'Volatility 100', group: 'Volatility' },
+    // Boom/Crash
+    { value: 'BOOM300N', label: 'Boom 300',  group: 'Boom & Crash' },
+    { value: 'BOOM500',  label: 'Boom 500',  group: 'Boom & Crash' },
+    { value: 'BOOM1000', label: 'Boom 1000', group: 'Boom & Crash' },
+    { value: 'CRASH300N',label: 'Crash 300', group: 'Boom & Crash' },
+    { value: 'CRASH500', label: 'Crash 500', group: 'Boom & Crash' },
+    { value: 'CRASH1000',label: 'Crash 1000',group: 'Boom & Crash' },
+    // Jump indices
+    { value: 'JD10',  label: 'Jump 10',  group: 'Jump' },
+    { value: 'JD25',  label: 'Jump 25',  group: 'Jump' },
+    { value: 'JD50',  label: 'Jump 50',  group: 'Jump' },
+    { value: 'JD75',  label: 'Jump 75',  group: 'Jump' },
+    { value: 'JD100', label: 'Jump 100', group: 'Jump' },
+    // Step
+    { value: 'stpRNG', label: 'Step Index', group: 'Step' },
+    // Forex majors (binary only)
+    { value: 'frxAUDJPY', label: 'AUD/JPY', group: 'Forex' },
+    { value: 'frxAUDUSD', label: 'AUD/USD', group: 'Forex' },
+    { value: 'frxEURGBP', label: 'EUR/GBP', group: 'Forex' },
+    { value: 'frxEURJPY', label: 'EUR/JPY', group: 'Forex' },
+    { value: 'frxEURUSD', label: 'EUR/USD', group: 'Forex' },
+    { value: 'frxGBPJPY', label: 'GBP/JPY', group: 'Forex' },
+    { value: 'frxGBPUSD', label: 'GBP/USD', group: 'Forex' },
+    { value: 'frxUSDCAD', label: 'USD/CAD', group: 'Forex' },
+    { value: 'frxUSDCHF', label: 'USD/CHF', group: 'Forex' },
+    { value: 'frxUSDJPY', label: 'USD/JPY', group: 'Forex' },
+    // Cryptos (binary only)
+    { value: 'cryBTCUSD', label: 'BTC/USD', group: 'Cryptocurrencies' },
+    { value: 'cryETHUSD', label: 'ETH/USD', group: 'Cryptocurrencies' },
+    // Commodities
+    { value: 'frxXAUUSD', label: 'Gold/USD',   group: 'Commodities' },
+    { value: 'frxXAGUSD', label: 'Silver/USD', group: 'Commodities' },
 ];
 
 // ─── Contract category model ─────────────────────────────────────────────────
-type CategoryKey = 'rise_fall' | 'higher_lower' | 'touch' | 'matches_diff' | 'over_under' | 'even_odd';
+type CategoryKey =
+    | 'rise_fall' | 'higher_lower' | 'touch' | 'matches_diff' | 'over_under' | 'even_odd'
+    | 'accumulators' | 'multipliers';
 
 interface CategoryDef {
     key:        CategoryKey;
     label:      string;
     emoji:      string;
-    /** Pair of (label → contract type). Used for the direction toggle. */
+    /** Pair of (label → contract type). Used for the direction toggle.
+     *  ACCU has only one option (no direction). */
     options:    Array<{ label: string; type: DTContractType }>;
-    needsBarrier:    boolean; // relative barrier '+0.001'
-    needsPrediction: boolean; // single digit
+    needsBarrier:     boolean;        // relative barrier '+0.001'
+    needsPrediction:  boolean;        // single digit
+    needsDuration:    boolean;        // false for ACCU/MULT
+    needsGrowthRate:  boolean;        // ACCU
+    needsMultiplier:  boolean;        // MULT
+    canSell:          boolean;        // user can close early (ACCU/MULT)
     barrierDefault?: string;
-    units:      DTDurationUnit[]; // allowed duration units
-    minDuration: Partial<Record<DTDurationUnit, number>>;
-    maxDuration: Partial<Record<DTDurationUnit, number>>;
+    units:           DTDurationUnit[];
+    minDuration:     Partial<Record<DTDurationUnit, number>>;
+    maxDuration:     Partial<Record<DTDurationUnit, number>>;
 }
+
+// Convenience: every binary category shares the same baseline flags
+const BIN = {
+    needsDuration:   true,
+    needsGrowthRate: false,
+    needsMultiplier: false,
+    canSell:         false,
+} as const;
 
 const CATEGORIES: CategoryDef[] = [
     {
         key: 'rise_fall',  label: 'Rise / Fall', emoji: '📈',
         options: [{ label: 'Rise', type: 'CALL' }, { label: 'Fall', type: 'PUT' }],
-        needsBarrier: false, needsPrediction: false,
+        needsBarrier: false, needsPrediction: false, ...BIN,
         units: ['t', 's', 'm'],
         minDuration: { t: 1, s: 15, m: 1 }, maxDuration: { t: 10, s: 3600, m: 60 },
     },
     {
         key: 'higher_lower', label: 'Higher / Lower', emoji: '↕️',
         options: [{ label: 'Higher', type: 'CALL' }, { label: 'Lower', type: 'PUT' }],
-        needsBarrier: true, needsPrediction: false, barrierDefault: '+0.001',
+        needsBarrier: true, needsPrediction: false, barrierDefault: '+0.001', ...BIN,
         units: ['s', 'm'],
         minDuration: { s: 15, m: 1 }, maxDuration: { s: 3600, m: 60 },
     },
     {
         key: 'touch', label: 'Touch / No Touch', emoji: '🎯',
         options: [{ label: 'Touch', type: 'ONETOUCH' }, { label: 'No Touch', type: 'NOTOUCH' }],
-        needsBarrier: true, needsPrediction: false, barrierDefault: '+0.001',
+        needsBarrier: true, needsPrediction: false, barrierDefault: '+0.001', ...BIN,
         units: ['s', 'm'],
         minDuration: { s: 15, m: 1 }, maxDuration: { s: 3600, m: 60 },
     },
     {
         key: 'matches_diff', label: 'Matches / Differs', emoji: '🎲',
         options: [{ label: 'Matches', type: 'DIGITMATCH' }, { label: 'Differs', type: 'DIGITDIFF' }],
-        needsBarrier: false, needsPrediction: true,
+        needsBarrier: false, needsPrediction: true, ...BIN,
         units: ['t'], minDuration: { t: 1 }, maxDuration: { t: 10 },
     },
     {
         key: 'over_under', label: 'Over / Under', emoji: '⚖️',
         options: [{ label: 'Over', type: 'DIGITOVER' }, { label: 'Under', type: 'DIGITUNDER' }],
-        needsBarrier: false, needsPrediction: true,
+        needsBarrier: false, needsPrediction: true, ...BIN,
         units: ['t'], minDuration: { t: 1 }, maxDuration: { t: 10 },
     },
     {
         key: 'even_odd', label: 'Even / Odd', emoji: '🔢',
         options: [{ label: 'Even', type: 'DIGITEVEN' }, { label: 'Odd', type: 'DIGITODD' }],
-        needsBarrier: false, needsPrediction: false,
+        needsBarrier: false, needsPrediction: false, ...BIN,
         units: ['t'], minDuration: { t: 1 }, maxDuration: { t: 10 },
     },
+    {
+        key: 'accumulators', label: 'Accumulators', emoji: '📊',
+        options: [{ label: 'Accumulator', type: 'ACCU' }],
+        needsBarrier: false, needsPrediction: false,
+        needsDuration: false, needsGrowthRate: true, needsMultiplier: false, canSell: true,
+        units: [], minDuration: {}, maxDuration: {},
+    },
+    {
+        key: 'multipliers', label: 'Multipliers', emoji: '🚀',
+        options: [{ label: 'Up', type: 'MULTUP' }, { label: 'Down', type: 'MULTDOWN' }],
+        needsBarrier: false, needsPrediction: false,
+        needsDuration: false, needsGrowthRate: false, needsMultiplier: true, canSell: true,
+        units: [], minDuration: {}, maxDuration: {},
+    },
 ];
+
+// ACCU/MULT preset choices
+const GROWTH_RATES = [0.01, 0.02, 0.03, 0.04, 0.05];
+const MULTIPLIERS  = [50, 100, 200, 300, 400, 500];
 
 const UNIT_LABEL: Record<DTDurationUnit, string> = { t: 'ticks', s: 'seconds', m: 'minutes', h: 'hours' };
 
@@ -106,6 +180,34 @@ const DTraderPage = observer(() => {
     const [stake,         setStake]         = useState<number>(1);
     const [barrierOffset, setBarrierOffset] = useState<string>('+0.001');
     const [prediction,    setPrediction]    = useState<number>(5);
+    const [growthRate,    setGrowthRate]    = useState<number>(0.03);
+    const [multiplier,    setMultiplier]    = useState<number>(100);
+    const [takeProfit,    setTakeProfit]    = useState<string>('');   // empty = none
+    const [stopLoss,      setStopLoss]      = useState<string>('');
+
+    // Symbol list: prefer live api_base.active_symbols (filtered to tradeable),
+    // fall back to hand-curated list below.
+    const symbols = useMemo<SymbolEntry[]>(() => {
+        const live = (api_base as any)?.active_symbols as Array<any> | undefined;
+        if (live && Array.isArray(live) && live.length > 0) {
+            const mapped = live
+                .filter(s => s && !s.is_trading_suspended && s.exchange_is_open !== 0)
+                .map(s => ({
+                    value: String(s.symbol),
+                    label: String(s.display_name || s.symbol),
+                    group: String(s.market_display_name || s.submarket_display_name || 'Other'),
+                }));
+            if (mapped.length) return mapped;
+        }
+        return FALLBACK_SYMBOLS;
+    }, []);
+
+    // Group symbols for the optgroup dropdown
+    const groupedSymbols = useMemo(() => {
+        const groups: Record<string, SymbolEntry[]> = {};
+        for (const s of symbols) (groups[s.group] = groups[s.group] || []).push(s);
+        return groups;
+    }, [symbols]);
 
     // ── Live data ────────────────────────────────────────────────────────────
     const [status,    setStatus]    = useState<DTStatus>('idle');
@@ -154,6 +256,8 @@ const DTraderPage = observer(() => {
             : category.needsPrediction
                 ? String(prediction)
                 : null;
+        const tpNum = takeProfit.trim() ? parseFloat(takeProfit) : null;
+        const slNum = stopLoss.trim()   ? parseFloat(stopLoss)   : null;
         return {
             symbol,
             contractType,
@@ -162,8 +266,13 @@ const DTraderPage = observer(() => {
             stake,
             barrier,
             currency,
+            growthRate: category.needsGrowthRate ? growthRate : undefined,
+            multiplier: category.needsMultiplier ? multiplier : undefined,
+            takeProfit: (category.needsGrowthRate || category.needsMultiplier) ? tpNum : null,
+            stopLoss:   category.needsMultiplier ? slNum : null,
         };
-    }, [symbol, contractType, durationValue, durationUnit, stake, barrierOffset, prediction, category, currency]);
+    }, [symbol, contractType, durationValue, durationUnit, stake, barrierOffset, prediction,
+        growthRate, multiplier, takeProfit, stopLoss, category, currency]);
 
     // Start engine when logged in
     useEffect(() => {
@@ -185,16 +294,36 @@ const DTraderPage = observer(() => {
         const def = CATEGORIES.find(c => c.key === key)!;
         setCategoryKey(key);
         setContractType(def.options[0].type);
-        // Reset duration unit/value to category defaults
-        const unit = def.units[0];
-        setDurationUnit(unit);
-        setDurationValue(def.minDuration[unit] ?? 1);
+        // Reset SL/TP between contract types — leftover values are usually wrong
+        setTakeProfit('');
+        setStopLoss('');
+        if (def.needsDuration) {
+            const unit = def.units[0];
+            setDurationUnit(unit);
+            setDurationValue(def.minDuration[unit] ?? 1);
+        }
         if (def.needsBarrier && def.barrierDefault) setBarrierOffset(def.barrierDefault);
     };
 
-    const handleBuy = () => engine.buy();
-
+    const handleBuy   = () => engine.buy();
+    const handleSell  = (contractId: string) => engine.sellContract(contractId);
     const handleClear = () => { setLogs([]); setPositions(prev => prev.filter(p => p.isOpen)); };
+
+    // ── Totals ───────────────────────────────────────────────────────────────
+    const totals = useMemo(() => {
+        let realised = 0, openPnl = 0, wins = 0, losses = 0, openCount = 0;
+        for (const p of positions) {
+            if (p.isOpen) {
+                openCount += 1;
+                openPnl   += p.profit ?? 0;
+            } else {
+                realised += p.profit ?? 0;
+                if (p.isWin === true)  wins   += 1;
+                if (p.isWin === false) losses += 1;
+            }
+        }
+        return { realised, openPnl, wins, losses, openCount, total: realised + openPnl };
+    }, [positions]);
 
     // ── Rendering helpers ────────────────────────────────────────────────────
 
@@ -226,8 +355,12 @@ const DTraderPage = observer(() => {
                         value={symbol}
                         onChange={e => setSymbol(e.target.value)}
                     >
-                        {SYMBOLS.map(s => (
-                            <option key={s.value} value={s.value}>{s.label}</option>
+                        {Object.entries(groupedSymbols).map(([group, items]) => (
+                            <optgroup key={group} label={group}>
+                                {items.map(s => (
+                                    <option key={s.value} value={s.value}>{s.label}</option>
+                                ))}
+                            </optgroup>
                         ))}
                     </select>
                 </div>
@@ -243,68 +376,80 @@ const DTraderPage = observer(() => {
             {/* ── Body: form on left, ticket on right (stacks on mobile) ──── */}
             <div className='dtp__body'>
                 <div className='dtp__form'>
-                    {/* Category tabs */}
-                    <div className='dtp__cat-row'>
-                        {CATEGORIES.map(c => (
-                            <button
-                                key={c.key}
-                                className={`dtp__cat ${c.key === categoryKey ? 'dtp__cat--active' : ''}`}
-                                onClick={() => handleCategoryChange(c.key)}
-                            >
-                                <span className='dtp__cat-emoji'>{c.emoji}</span>
-                                <span className='dtp__cat-label'>{c.label}</span>
-                            </button>
-                        ))}
+                    {/* Category dropdown — replaces the old grid */}
+                    <div className='dtp__field'>
+                        <label className='dtp__lbl'>Trade type</label>
+                        <select
+                            className='dtp__cat-select'
+                            value={categoryKey}
+                            onChange={e => handleCategoryChange(e.target.value as CategoryKey)}
+                        >
+                            {CATEGORIES.map(c => (
+                                <option key={c.key} value={c.key}>
+                                    {c.emoji}  {c.label}
+                                </option>
+                            ))}
+                        </select>
                     </div>
 
-                    {/* Direction toggle */}
-                    <div className='dtp__dir-row'>
-                        {category.options.map(opt => (
-                            <button
-                                key={opt.type}
-                                className={`dtp__dir dtp__dir--${opt.type === 'CALL' || opt.type === 'ONETOUCH' || opt.type === 'DIGITMATCH' || opt.type === 'DIGITOVER' || opt.type === 'DIGITEVEN' ? 'up' : 'down'} ${contractType === opt.type ? 'dtp__dir--active' : ''}`}
-                                onClick={() => setContractType(opt.type)}
-                            >
-                                {opt.label}
-                            </button>
-                        ))}
-                    </div>
+                    {/* Direction toggle (single-option for ACCU is rendered as a static badge) */}
+                    {category.options.length > 1 ? (
+                        <div className='dtp__dir-row'>
+                            {category.options.map(opt => (
+                                <button
+                                    key={opt.type}
+                                    className={`dtp__dir dtp__dir--${isUpType(opt.type) ? 'up' : 'down'} ${contractType === opt.type ? 'dtp__dir--active' : ''}`}
+                                    onClick={() => setContractType(opt.type)}
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className='dtp__dir-row'>
+                            <div className='dtp__dir dtp__dir--up dtp__dir--active' style={{ cursor: 'default' }}>
+                                {category.options[0].label}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Inputs grid */}
                     <div className='dtp__inputs'>
-                        {/* Duration */}
-                        <div className='dtp__field'>
-                            <label className='dtp__lbl'>Duration</label>
-                            <div className='dtp__field-row'>
-                                <input
-                                    type='number'
-                                    className='dtp__input'
-                                    value={durationValue}
-                                    min={minDur}
-                                    max={maxDur}
-                                    onChange={e => {
-                                        const v = parseInt(e.target.value, 10);
-                                        if (!isNaN(v)) setDurationValue(Math.min(maxDur, Math.max(minDur, v)));
-                                    }}
-                                />
-                                <select
-                                    className='dtp__unit-select'
-                                    value={durationUnit}
-                                    onChange={e => {
-                                        const u = e.target.value as DTDurationUnit;
-                                        setDurationUnit(u);
-                                        const lo = category.minDuration[u] ?? 1;
-                                        const hi = category.maxDuration[u] ?? 10;
-                                        setDurationValue(v => Math.min(hi, Math.max(lo, v)));
-                                    }}
-                                >
-                                    {category.units.map(u => (
-                                        <option key={u} value={u}>{UNIT_LABEL[u]}</option>
-                                    ))}
-                                </select>
+                        {/* Duration (binary only) */}
+                        {category.needsDuration && (
+                            <div className='dtp__field'>
+                                <label className='dtp__lbl'>Duration</label>
+                                <div className='dtp__field-row'>
+                                    <input
+                                        type='number'
+                                        className='dtp__input'
+                                        value={durationValue}
+                                        min={minDur}
+                                        max={maxDur}
+                                        onChange={e => {
+                                            const v = parseInt(e.target.value, 10);
+                                            if (!isNaN(v)) setDurationValue(Math.min(maxDur, Math.max(minDur, v)));
+                                        }}
+                                    />
+                                    <select
+                                        className='dtp__unit-select'
+                                        value={durationUnit}
+                                        onChange={e => {
+                                            const u = e.target.value as DTDurationUnit;
+                                            setDurationUnit(u);
+                                            const lo = category.minDuration[u] ?? 1;
+                                            const hi = category.maxDuration[u] ?? 10;
+                                            setDurationValue(v => Math.min(hi, Math.max(lo, v)));
+                                        }}
+                                    >
+                                        {category.units.map(u => (
+                                            <option key={u} value={u}>{UNIT_LABEL[u]}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className='dtp__hint'>{minDur}–{maxDur} {UNIT_LABEL[durationUnit]}</div>
                             </div>
-                            <div className='dtp__hint'>{minDur}–{maxDur} {UNIT_LABEL[durationUnit]}</div>
-                        </div>
+                        )}
 
                         {/* Stake */}
                         <div className='dtp__field'>
@@ -334,6 +479,72 @@ const DTraderPage = observer(() => {
                                     onChange={e => setBarrierOffset(e.target.value)}
                                 />
                                 <div className='dtp__hint'>e.g. +0.001 above spot, -0.001 below</div>
+                            </div>
+                        )}
+
+                        {/* Growth rate (Accumulators) */}
+                        {category.needsGrowthRate && (
+                            <div className='dtp__field'>
+                                <label className='dtp__lbl'>Growth rate</label>
+                                <select
+                                    className='dtp__input'
+                                    value={growthRate}
+                                    onChange={e => setGrowthRate(parseFloat(e.target.value))}
+                                >
+                                    {GROWTH_RATES.map(g => (
+                                        <option key={g} value={g}>{(g * 100).toFixed(0)}%</option>
+                                    ))}
+                                </select>
+                                <div className='dtp__hint'>Stake compounds every tick within range</div>
+                            </div>
+                        )}
+
+                        {/* Multiplier (Multipliers) */}
+                        {category.needsMultiplier && (
+                            <div className='dtp__field'>
+                                <label className='dtp__lbl'>Multiplier</label>
+                                <select
+                                    className='dtp__input'
+                                    value={multiplier}
+                                    onChange={e => setMultiplier(parseInt(e.target.value, 10))}
+                                >
+                                    {MULTIPLIERS.map(m => (
+                                        <option key={m} value={m}>x{m}</option>
+                                    ))}
+                                </select>
+                                <div className='dtp__hint'>Higher = more leverage, more risk</div>
+                            </div>
+                        )}
+
+                        {/* Take profit (ACCU + MULT) */}
+                        {(category.needsGrowthRate || category.needsMultiplier) && (
+                            <div className='dtp__field'>
+                                <label className='dtp__lbl'>Take profit ({currency}) — optional</label>
+                                <input
+                                    type='number'
+                                    className='dtp__input'
+                                    step='0.01'
+                                    min={0}
+                                    placeholder='leave empty for none'
+                                    value={takeProfit}
+                                    onChange={e => setTakeProfit(e.target.value)}
+                                />
+                            </div>
+                        )}
+
+                        {/* Stop loss (MULT only) */}
+                        {category.needsMultiplier && (
+                            <div className='dtp__field'>
+                                <label className='dtp__lbl'>Stop loss ({currency}) — optional</label>
+                                <input
+                                    type='number'
+                                    className='dtp__input'
+                                    step='0.01'
+                                    min={0}
+                                    placeholder='leave empty for none'
+                                    value={stopLoss}
+                                    onChange={e => setStopLoss(e.target.value)}
+                                />
                             </div>
                         )}
 
@@ -414,6 +625,45 @@ const DTraderPage = observer(() => {
                 </div>
             </div>
 
+            {/* ── Totals row ────────────────────────────────────────────── */}
+            <div className='dtp__totals'>
+                <div className='dtp__totals-cell'>
+                    <span className='dtp__totals-key'>Total P/L</span>
+                    <span
+                        className='dtp__totals-val dtp__totals-val--big'
+                        style={{ color: totals.total >= 0 ? '#10b981' : '#ef4444' }}
+                    >
+                        {totals.total >= 0 ? '+' : ''}${totals.total.toFixed(2)}
+                    </span>
+                </div>
+                <div className='dtp__totals-cell'>
+                    <span className='dtp__totals-key'>Realised</span>
+                    <span
+                        className='dtp__totals-val'
+                        style={{ color: totals.realised >= 0 ? '#10b981' : '#ef4444' }}
+                    >
+                        {totals.realised >= 0 ? '+' : ''}${totals.realised.toFixed(2)}
+                    </span>
+                </div>
+                <div className='dtp__totals-cell'>
+                    <span className='dtp__totals-key'>Open ({totals.openCount})</span>
+                    <span
+                        className='dtp__totals-val'
+                        style={{ color: totals.openPnl >= 0 ? '#10b981' : '#ef4444' }}
+                    >
+                        {totals.openPnl >= 0 ? '+' : ''}${totals.openPnl.toFixed(2)}
+                    </span>
+                </div>
+                <div className='dtp__totals-cell'>
+                    <span className='dtp__totals-key'>W / L</span>
+                    <span className='dtp__totals-val'>
+                        <span style={{ color: '#10b981' }}>{totals.wins}</span>
+                        {' / '}
+                        <span style={{ color: '#ef4444' }}>{totals.losses}</span>
+                    </span>
+                </div>
+            </div>
+
             {/* ── Positions + log ────────────────────────────────────────── */}
             <div className='dtp__lower'>
                 <div className='dtp__positions'>
@@ -457,7 +707,14 @@ const DTraderPage = observer(() => {
                                         <div className='dtp__pos-row3'>
                                             <span className='dtp__pos-time'>{p.purchaseTime}</span>
                                             <span className='dtp__pos-status'>
-                                                {p.isOpen ? 'open' : (p.isWin ? '✅ won' : '❌ lost')}
+                                                {p.isOpen
+                                                    ? (canSellType(p.contractType)
+                                                        ? <button
+                                                            className='dtp__sell-btn'
+                                                            onClick={() => handleSell(p.contractId)}
+                                                          >Sell</button>
+                                                        : 'open')
+                                                    : (p.isWin ? '✅ won' : '❌ lost')}
                                             </span>
                                         </div>
                                     </div>
@@ -499,8 +756,22 @@ function shortLabel(t: DTContractType): string {
         case 'DIGITUNDER': return 'UNDER';
         case 'DIGITEVEN':  return 'EVEN';
         case 'DIGITODD':   return 'ODD';
+        case 'ACCU':       return 'ACCUMULATOR';
+        case 'MULTUP':     return 'MULTIPLIER UP';
+        case 'MULTDOWN':   return 'MULTIPLIER DOWN';
         default:           return t;
     }
+}
+
+// "Up" direction (green) vs "Down" (red) for the direction toggle styling
+function isUpType(t: DTContractType): boolean {
+    return t === 'CALL' || t === 'ONETOUCH' || t === 'DIGITMATCH'
+        || t === 'DIGITOVER' || t === 'DIGITEVEN' || t === 'ACCU' || t === 'MULTUP';
+}
+
+// Contracts the user can close early (everything else settles automatically)
+function canSellType(t: DTContractType): boolean {
+    return t === 'ACCU' || t === 'MULTUP' || t === 'MULTDOWN';
 }
 
 DTraderPage.displayName = 'DTraderPage';
