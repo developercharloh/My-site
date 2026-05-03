@@ -43,6 +43,7 @@ const SignalEngine = lazy(() => import('../signal-engine'));
 const EntryZone = lazy(() => import('../entry-zone'));
 const SpeedBots = lazy(() => import('../speed-bots/speed-bots'));
 const V2PanelTab = lazy(() => import('../v2-panel'));
+const DTrader = lazy(() => import('../dtrader'));
 
 const AppWrapper = observer(() => {
     const { connectionStatus } = useApiBase();
@@ -74,7 +75,7 @@ const AppWrapper = observer(() => {
     const { clear } = summary_card;
     const { DASHBOARD, BOT_BUILDER } = DBOT_TABS;
     const init_render = React.useRef(true);
-    const hash = ['dashboard', 'bot_builder', 'chart', 'tutorial', 'free_bots', 'analysis_tool', 'entry_zone', 'v2_panel'];
+    const hash = ['dashboard', 'bot_builder', 'chart', 'dtrader', 'tutorial', 'free_bots', 'analysis_tool', 'entry_zone', 'v2_panel'];
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();
@@ -359,6 +360,21 @@ const AppWrapper = observer(() => {
                             <div
                                 label={
                                     <>
+                                        <span className='tab-emoji' role='img' aria-hidden='true'>💹</span>
+                                        <Localize i18n_default_text='DTrader' />
+                                    </>
+                                }
+                                id='id-dtrader'
+                            >
+                                <Suspense
+                                    fallback={<TabSkeleton variant='panel' label={localize('Loading DTrader...')} />}
+                                >
+                                    <DTrader />
+                                </Suspense>
+                            </div>
+                            <div
+                                label={
+                                    <>
                                         <span className='tab-emoji' role='img' aria-hidden='true'>⚡</span>
                                         <Localize i18n_default_text='Speed Bots' />
                                     </>
@@ -459,7 +475,7 @@ const AppWrapper = observer(() => {
                 <TradingViewModal />
             </DesktopWrapper>
             <MobileWrapper>
-                {!is_open && active_tab !== DBOT_TABS.SPEED_BOTS && active_tab !== DBOT_TABS.ANALYSIS_TOOL && active_tab !== DBOT_TABS.V2_PANEL && <RunPanel />}
+                {!is_open && active_tab !== DBOT_TABS.SPEED_BOTS && active_tab !== DBOT_TABS.ANALYSIS_TOOL && active_tab !== DBOT_TABS.V2_PANEL && active_tab !== DBOT_TABS.DTRADER && <RunPanel />}
             </MobileWrapper>
             <Dialog
                 cancel_button_text={cancel_button_text || localize('Cancel')}
