@@ -96,7 +96,7 @@ const OnboardingTourMobile = observer(() => {
                     lineHeight='s'
                     size='xs'
                 >
-                    {localize(header)}
+                    {header}
                 </Text>
             )}
             {media && (
