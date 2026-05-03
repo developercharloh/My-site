@@ -447,7 +447,7 @@ const EntryZone: React.FC = () => {
                     </div>
 
                     <div className='ai-result__entry'>
-                        <div className='ai-result__entry-title'>Entry tick — wait for one of these last digits:</div>
+                        <div className='ai-result__entry-title'>Use one of these digits as your entry point — the recommended one and the runner-up:</div>
                         <div className='ai-result__entry-digits'>
                             {signal.entryDigits.map(e => (
                                 <div
