@@ -4,6 +4,7 @@ import { observer } from 'mobx-react-lite';
 import { runInAction } from 'mobx';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ChunkLoader from '@/components/loader/chunk-loader';
+import TabSkeleton from '@/components/loader/tab-skeleton';
 import { v2EngineStore } from '@/utils/v2-engine-store';
 import { initCustomBotV2Bridge } from '@/utils/custom-bot-v2-bridge';
 import { generateOAuthURL } from '@/components/shared';
@@ -323,7 +324,7 @@ const AppWrapper = observer(() => {
                                 }
                                 id='id-dbot-dashboard'
                             >
-                                <Suspense fallback={<ChunkLoader message={localize('Loading dashboard…')} />}>
+                                <Suspense fallback={<TabSkeleton variant='dashboard' label={localize('Loading dashboard…')} />}>
                                     <Dashboard handleTabChange={handleTabChange} />
                                 </Suspense>
                             </div>
@@ -350,7 +351,7 @@ const AppWrapper = observer(() => {
                                 }
                             >
                                 <Suspense
-                                    fallback={<ChunkLoader message={localize('Please wait, loading chart...')} />}
+                                    fallback={<TabSkeleton variant='chart' label={localize('Please wait, loading chart...')} />}
                                 >
                                     <ChartWrapper show_digits_stats={false} />
                                 </Suspense>
@@ -365,7 +366,7 @@ const AppWrapper = observer(() => {
                                 id='id-tutorials'
                             >
                                 <Suspense
-                                    fallback={<ChunkLoader message={localize('Loading Speed Bot...')} />}
+                                    fallback={<TabSkeleton variant='cards' label={localize('Loading Speed Bot...')} />}
                                 >
                                     <SpeedBots />
                                 </Suspense>
@@ -382,7 +383,7 @@ const AppWrapper = observer(() => {
                                 <div className='free-bots-wrapper'>
                                     <Suspense
                                         fallback={
-                                            <ChunkLoader message={localize('Please wait, loading free bots...')} />
+                                            <TabSkeleton variant='cards' label={localize('Please wait, loading free bots...')} />
                                         }
                                     >
                                         <FreeBots />
@@ -401,7 +402,7 @@ const AppWrapper = observer(() => {
                                 <div className='analysis-tool-wrapper'>
                                     <Suspense
                                         fallback={
-                                            <ChunkLoader message={localize('Please wait, loading Signal Engine...')} />
+                                            <TabSkeleton variant='chart' label={localize('Please wait, loading Signal Engine...')} />
                                         }
                                     >
                                         <SignalEngine />
@@ -420,7 +421,7 @@ const AppWrapper = observer(() => {
                                 <div className='entry-zone-wrapper'>
                                     <Suspense
                                         fallback={
-                                            <ChunkLoader message={localize('Please wait, loading Entry Zone...')} />
+                                            <TabSkeleton variant='list' label={localize('Please wait, loading Entry Zone...')} />
                                         }
                                     >
                                         <EntryZone />
@@ -438,7 +439,7 @@ const AppWrapper = observer(() => {
                             >
                                 <Suspense
                                     fallback={
-                                        <ChunkLoader message={localize('Loading V2 Panel...')} />
+                                        <TabSkeleton variant='panel' label={localize('Loading V2 Panel...')} />
                                     }
                                 >
                                     <V2PanelTab />

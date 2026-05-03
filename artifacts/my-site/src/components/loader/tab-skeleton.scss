@@ -1,0 +1,141 @@
+@keyframes tabSkelShimmer {
+    0%   { background-position: -480px 0; }
+    100% { background-position:  480px 0; }
+}
+
+.tab-skel {
+    --skel-base:  rgba(148, 163, 184, 0.18);
+    --skel-hi:    rgba(148, 163, 184, 0.32);
+
+    width: 100%;
+    height: 100%;
+    min-height: 280px;
+    padding: 1rem 1.1rem;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow: hidden;
+    position: relative;
+
+    &__bar, &__card, &__chart, &__avatar, &__panel, &__list-row {
+        background: linear-gradient(
+            90deg,
+            var(--skel-base) 0%,
+            var(--skel-hi) 50%,
+            var(--skel-base) 100%
+        );
+        background-size: 960px 100%;
+        animation: tabSkelShimmer 1.4s linear infinite;
+    }
+
+    &__bar { display: block; }
+
+    &__row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+
+        &--center { justify-content: space-around; }
+    }
+
+    &__grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 14px;
+        flex: 1 1 auto;
+
+        &--tight { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+    }
+
+    &__card {
+        background: var(--skel-base);
+        animation: none;
+        padding: 14px;
+        border-radius: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        position: relative;
+        overflow: hidden;
+
+        &::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(
+                90deg,
+                transparent 0%,
+                var(--skel-hi) 50%,
+                transparent 100%
+            );
+            background-size: 480px 100%;
+            animation: tabSkelShimmer 1.6s linear infinite;
+            pointer-events: none;
+        }
+
+        .tab-skel__bar { background: rgba(100, 116, 139, 0.28); animation: none; }
+    }
+
+    &__chart {
+        flex: 1 1 auto;
+        min-height: 200px;
+        border-radius: 12px;
+    }
+
+    &__panel {
+        max-width: 380px;
+        margin: 0 auto;
+        width: 100%;
+        padding: 18px;
+        background: rgba(148, 163, 184, 0.08);
+        border-radius: 14px;
+        animation: none;
+    }
+
+    &__list { display: flex; flex-direction: column; gap: 10px; }
+
+    &__list-row {
+        background: rgba(148, 163, 184, 0.10);
+        animation: none;
+        padding: 12px 14px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    &__avatar {
+        width: 36px; height: 36px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    &__list-text { flex: 1 1 auto; min-width: 0; }
+
+    &__label {
+        position: absolute;
+        bottom: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 0.78rem;
+        color: var(--text-less-prominent, #94a3b8);
+        letter-spacing: 0.02em;
+        pointer-events: none;
+    }
+}
+
+.theme--dark .tab-skel {
+    --skel-base: rgba(255, 255, 255, 0.06);
+    --skel-hi:   rgba(255, 255, 255, 0.13);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tab-skel {
+        &__bar, &__card, &__chart, &__avatar, &__panel, &__list-row {
+            animation: none;
+            background: var(--skel-base);
+        }
+        &__card::after { animation: none; background: transparent; }
+    }
+}
