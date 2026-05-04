@@ -1,10 +1,16 @@
-import { Loader } from '@deriv-com/ui';
+import React from 'react';
+import './chunk-loader.scss';
 
 export default function ChunkLoader({ message }: { message: string }) {
     return (
-        <div className='app-root'>
-            <Loader />
-            <div className='load-message'>{message}</div>
+        <div className='chl'>
+            <div className='chl__ring'>
+                <div />
+                <div />
+                <div />
+                <div />
+            </div>
+            {message && <p className='chl__msg'>{message}</p>}
         </div>
     );
 }
