@@ -1,12 +1,51 @@
 .bot {
     &__loading {
         position: fixed;
-        z-index: 99999;
-        top: 0;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        background-color: var(--overlay-outside-dialog);
+        inset: 0;
+        z-index: 9000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        background: rgba(5, 10, 13, 0.92);
         pointer-events: none;
     }
+}
+
+.bl-ring {
+    display: inline-block;
+    position: relative;
+    width: 56px;
+    height: 56px;
+
+    div {
+        box-sizing: border-box;
+        display: block;
+        position: absolute;
+        width: 44px;
+        height: 44px;
+        margin: 6px;
+        border: 4px solid transparent;
+        border-radius: 50%;
+        animation: blSpin 1.1s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+
+        &:nth-child(1) { border-top-color: #d4af37; animation-delay: -0.45s; }
+        &:nth-child(2) { border-top-color: #4ade80; animation-delay: -0.3s; }
+        &:nth-child(3) { border-top-color: #d4af37; animation-delay: -0.15s; }
+        &:nth-child(4) { border-top-color: #4ade80; }
+    }
+}
+
+@keyframes blSpin {
+    0%   { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.bl-text {
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    font-size: 0.85rem;
+    color: #64748b;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
 }
