@@ -69,11 +69,20 @@ const AppContent = observer(() => {
     const token = V2GetActiveToken() ?? null;
     useIntercom(token);
 
+    // Hard cap: show app after 5 s regardless of WebSocket state
+    useEffect(() => {
+        const t = setTimeout(() => {
+            setIsApiInitialized(true);
+            setIsLoading(false);
+        }, 5000);
+        return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     useEffect(() => {
         if (connectionStatus === CONNECTION_STATUS.OPENED) {
             setIsApiInitialized(true);
             common.setSocketOpened(true);
-            // Clear offline timeout if connection is restored
             if (offline_timeout) {
                 clearTimeout(offline_timeout);
                 setOfflineTimeout(null);

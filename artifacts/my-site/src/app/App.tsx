@@ -64,9 +64,13 @@ function App() {
     const [phase, setPhase] = React.useState<Phase>('splash');
 
     React.useEffect(() => {
-        // Use the invalid token handler hook to automatically retrigger OIDC authentication
-        // when an invalid token is detected and the cookie logged state is true
+        // Always enforce our page title — override any runtime library that resets it
+        document.title = 'Mr CharlohFX | Trader CharlohFX';
+        const favicon = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
+        if (favicon) favicon.href = '/logo.png';
+    }, []);
 
+    React.useEffect(() => {
         initSurvicate();
         window?.dataLayer?.push({ event: 'page_load' });
         return () => {
