@@ -552,10 +552,18 @@ const BotCard: React.FC<{ bot: BotConfig; engineMode: EngineMode }> = observer((
             setStatus('loaded');
             dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
 
-            // Auto-run: start the bot immediately after loading into the workspace
+            // Wait 2.5 s before running: after clearWorkspaceAndLoadFromXml, Blockly
+            // fires async contracts_for API calls to populate dynamic dropdowns (Market,
+            // Duration, Purchase). If onRunButtonClick fires before those settle,
+            // shouldRunBot() → checkForErroredBlocks() returns false and
+            // unregisterBotListeners() wipes the workspace — leaving dropdowns blank
+            // and making the bot impossible to stop. 2.5 s gives the API time to
+            // respond and all dropdown validators to pass cleanly.
             setTimeout(() => {
-                if (!store.run_panel.is_running) store.run_panel.onRunButtonClick();
-            }, 600);
+                if (!store.run_panel.is_running) {
+                    try { store.run_panel.onRunButtonClick(); } catch { /* ignore */ }
+                }
+            }, 2500);
         } catch (err: any) {
             setStatus('error');
             setErrorMsg(err?.message || 'Failed to load bot.');
