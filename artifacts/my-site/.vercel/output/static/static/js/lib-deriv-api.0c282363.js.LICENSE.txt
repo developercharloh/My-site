@@ -1,0 +1,29 @@
+/*! ../original-repo/interpreter */
+
+/*! ./original-repo/acorn.js */
+
+/*! For license information please see DerivAPIBasic.js.LICENSE.txt */
+
+/*! vm */
+
+/*!*******************************!*\
+  !*** ./src/js-interpreter.js ***!
+  \*******************************/
+
+/*!********************************!*\
+  !*** ./original-repo/acorn.js ***!
+  \********************************/
+
+/*!**************************************!*\
+  !*** ./original-repo/interpreter.js ***!
+  \**************************************/
+
+/*!*********************************************!*\
+  !*** ./node_modules/vm-browserify/index.js ***!
+  \*********************************************/
+
+/**
+ * @license
+ * Copyright 2013 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */

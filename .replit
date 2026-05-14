@@ -30,3 +30,9 @@ externalPort = 80
 [[ports]]
 localPort = 19578
 externalPort = 3000
+
+[userenv]
+
+[userenv.shared]
+VERCEL_PROJECT_ID = "prj_izx5edgFVCKrjq3ZqpxiexnHrFrB"
+VERCEL_ORG_ID = "team_BQWnsBcAsW4szAjxsE8X2my1"

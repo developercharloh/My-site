@@ -1,0 +1,5 @@
+//! COPYRIGHT (c) 2023 ALL RIGHTS RESERVED
+
+//! See License at https://trackjs.com/terms/
+
+//! TrackJS JavaScript error monitoring agent.

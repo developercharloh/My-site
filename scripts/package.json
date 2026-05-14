@@ -5,10 +5,13 @@
   "type": "module",
   "scripts": {
     "hello": "tsx ./src/hello.ts",
+    "deploy:vercel": "tsx ./src/deploy-vercel.ts",
+    "deploy:vercel:prod": "tsx ./src/deploy-vercel.ts --prod",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
     "@types/node": "catalog:",
-    "tsx": "catalog:"
+    "tsx": "catalog:",
+    "vercel": "^53.4.0"
   }
 }

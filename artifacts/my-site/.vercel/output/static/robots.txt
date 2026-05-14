@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://mrcharlohfx.site/sitemap.xml
+
+# Block bots from API callback routes
+Disallow: /callback
+Disallow: /endpoint
