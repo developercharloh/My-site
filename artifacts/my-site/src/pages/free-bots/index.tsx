@@ -551,6 +551,11 @@ const BotCard: React.FC<{ bot: BotConfig; engineMode: EngineMode }> = observer((
 
             setStatus('loaded');
             dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
+
+            // Auto-run: start the bot immediately after loading into the workspace
+            setTimeout(() => {
+                if (!store.run_panel.is_running) store.run_panel.onRunButtonClick();
+            }, 600);
         } catch (err: any) {
             setStatus('error');
             setErrorMsg(err?.message || 'Failed to load bot.');
