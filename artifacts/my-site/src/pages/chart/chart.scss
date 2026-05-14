@@ -1,0 +1,330 @@
+@use 'components/shared/styles/mixins' as *;
+
+.bot {
+    &__chart-container {
+        position: relative;
+        top: 0;
+
+        &-wrapper {
+            position: absolute;
+            top: 0;
+            width: 100vw;
+            background-color: var(--general-main-1);
+        }
+    }
+
+    .ciq-chart {
+        .cq-top-ui-widgets,
+        & .info-box {
+            transition: transform 0.25s ease;
+
+            .cq-symbols-display {
+                z-index: 1;
+
+                &.ciq-disabled {
+                    display: none;
+                }
+
+                @include mobile-screen {
+                    width: auto;
+                    padding: 10px;
+
+                    .cq-menu-btn {
+                        padding: 0.2rem;
+                    }
+
+                    .cq-symbol-select-btn {
+                        margin: 0.2rem;
+
+                        .cq-symbol-dropdown {
+                            transform: scale(1);
+                            margin-left: auto;
+                        }
+
+                        .cq-symbol {
+                            font-size: 1.4rem;
+                        }
+                    }
+                }
+            }
+        }
+
+        .cq-top-ui-widgets {
+            align-items: center;
+            display: flex;
+            flex-wrap: wrap;
+            position: absolute;
+            top: 0;
+            width: 100%;
+        }
+
+        .sc-toolbar-widget {
+            transition: transform 0.25s ease;
+
+            @include mobile-screen {
+                background: transparent;
+                border-width: 0;
+                bottom: calc(12rem + env(safe-area-inset-bottom, 0));
+
+                /* Default bottom position for all browsers */
+
+                .sc-chart-mode,
+                .sc-studies {
+                    background: var(--general-section-1);
+                    padding: 0.4rem 0.2rem;
+                    width: 4rem;
+                    height: 4rem;
+                    border-radius: 50%;
+                    margin: 0.8rem;
+                    opacity: 0.75;
+
+                    @include flex-center;
+
+                    &__menu {
+                        &__timeperiod {
+                            top: 0.8rem;
+                            left: 0.8rem;
+                        }
+
+                        & > .ic-icon {
+                            top: 0.6rem;
+                        }
+                    }
+                }
+            }
+
+            .app-contents .ciq-menu {
+                margin: 0;
+            }
+        }
+    }
+
+    .smartcharts-mobile {
+        .cq-context {
+            z-index: 99;
+
+            .sc-mcd__category:last-child {
+                margin-bottom: 3rem !important;
+            }
+        }
+
+        & .cq-chart-title .cq-menu-dropdown {
+            position: fixed !important;
+            height: 100% !important;
+            width: 100% !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            z-index: 99999 !important;
+            transform: translateZ(0) !important;
+            backface-visibility: hidden !important;
+            will-change: transform !important;
+
+            .sc-dialog {
+                height: 100% !important;
+
+                &__body {
+                    height: inherit !important;
+
+                    .sc-mcd {
+                        height: inherit !important;
+                        min-width: auto !important;
+                    }
+
+                    .title-text {
+                        font-size: 1.6rem;
+                    }
+                }
+            }
+        }
+
+        .sc-mcd__item {
+            padding-left: 10px !important;
+        }
+
+        .sc-mcd__category__content .subcategory {
+            padding-left: 10px !important;
+        }
+    }
+}
+
+// Safari-specific fixes
+.dashboard__chart-wrapper--safari {
+    .smartcharts-mobile {
+        .cq-context {
+            .sc-mcd__category:last-child {
+                padding-bottom: 200px !important;
+            }
+        }
+
+        & .cq-chart-title .cq-menu-dropdown {
+            position: absolute !important;
+            height: 100vh !important;
+            width: 100vw !important;
+            left: -10px !important;
+            padding-bottom: 200px;
+        }
+    }
+}
+
+.cq-modal-dropdown.stxMenuActive {
+    left: 0;
+    top: 0;
+}
+
+/* ── Chart wrapper: SmartCharts / Candlestick toggle ── */
+.chart-wrapper {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    // Use the same height var that dashboard__chart-wrapper uses, so the
+    // wrapper itself is constrained and flex children can expand properly.
+    height: var(--tab-content-height);
+    min-height: 0;
+
+    @media (max-width: 1024px) {
+        height: var(--tab-content-height-mobile);
+    }
+
+    &__toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 0.75rem;
+        background: rgba(15, 23, 42, 0.04);
+        border-bottom: 1px solid rgba(100, 116, 139, 0.18);
+        flex-shrink: 0;
+    }
+
+    &__toggle-btn {
+        appearance: none;
+        background: transparent;
+        border: 1px solid transparent;
+        color: var(--text-less-prominent, #64748b);
+        font-size: 0.85rem;
+        font-weight: 700;
+        padding: 0.4rem 0.85rem;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        transition: background 0.18s, color 0.18s, border-color 0.18s;
+
+        &:hover {
+            background: rgba(99, 102, 241, 0.08);
+            color: #6366f1;
+        }
+
+        &--active {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: #fff;
+            border-color: transparent;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
+        }
+    }
+
+    &__toggle-sep {
+        color: var(--text-less-prominent, #94a3b8);
+        font-weight: 700;
+        font-size: 1rem;
+        user-select: none;
+    }
+
+    // Candlestick chart pane — fills all remaining height after the toggle bar
+    &__candle {
+        flex: 1;
+        min-height: 0;
+        width: 100%;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    &__candle-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: #64748b;
+        font-size: 0.9rem;
+    }
+}
+
+/* ── Price Action Bar ──────────────────────────────────────────────────────── */
+
+.pa-bar {
+    display:         flex;
+    align-items:     center;
+    gap:             10px;
+    padding:         7px 12px;
+    border-radius:   8px;
+    margin:          6px 8px 2px;
+    font-size:       13px;
+    font-weight:     500;
+    background:      var(--general-section-1, #f2f3f4);
+    border-left:     4px solid #94a3b8;
+    transition:      border-color 0.3s, background 0.3s;
+    flex-wrap:       wrap;
+    flex-shrink:     0;
+
+    &--up   { border-left-color: #10b981; background: rgba(16, 185, 129, 0.07); }
+    &--down { border-left-color: #ef4444; background: rgba(239, 68,  68,  0.07); }
+    &--flat { border-left-color: #94a3b8; }
+
+    &__label {
+        font-weight: 600;
+        color:       var(--text-general, #333);
+        flex:        1 1 auto;
+        white-space: nowrap;
+        overflow:    hidden;
+        text-overflow: ellipsis;
+        max-width:   200px;
+    }
+
+    &__price {
+        display:     flex;
+        align-items: center;
+        gap:         4px;
+        font-size:   15px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        color:       var(--text-general, #333);
+    }
+
+    &__arrow {
+        font-size: 13px;
+        &--up   { color: #10b981; }
+        &--down { color: #ef4444; }
+        &--flat { color: #94a3b8; }
+    }
+
+    &__change {
+        font-size:  12px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        &--pos { color: #10b981; }
+        &--neg { color: #ef4444; }
+    }
+
+    &__trend {
+        font-size:    12px;
+        padding:      2px 8px;
+        border-radius: 12px;
+        white-space:  nowrap;
+        &--bull { background: rgba(16, 185, 129, 0.15); color: #059669; }
+        &--bear { background: rgba(239, 68,  68,  0.15); color: #dc2626; }
+        &--flat { background: rgba(148, 163, 184, 0.15); color: #64748b; }
+    }
+
+    &__digit {
+        font-size:   12px;
+        color:       var(--text-less-prominent, #888);
+        white-space: nowrap;
+    }
+}
+
+.theme--dark .pa-bar,
+[data-theme='dark'] .pa-bar {
+    background: rgba(255, 255, 255, 0.04);
+    &--up   { background: rgba(16, 185, 129, 0.1); }
+    &--down { background: rgba(239, 68,  68,  0.1); }
+}

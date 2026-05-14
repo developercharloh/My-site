@@ -1,10 +1,11 @@
-# [Project name]
+# Mr CharlohFX
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Automated Deriv trading bot platform — build, run, and optimise trading bots on Volatility indices without coding.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/my-site run dev` — run the frontend (port 19578, rsbuild)
+- `pnpm --filter @workspace/api-server run dev` — run the API server (port 8080)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
@@ -14,31 +15,54 @@ _Replace the heading above with the project's name, and this line with one sente
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
+- Frontend: React 18, rsbuild, MobX, Tailwind CSS, SCSS
+- Bot engine: Blockly (no-code visual builder), Deriv API WebSocket
+- Charts: @deriv/deriv-charts
 - API: Express 5
 - DB: PostgreSQL + Drizzle ORM
 - Validation: Zod (`zod/v4`), `drizzle-zod`
 - API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- Build: esbuild (CJS bundle for API)
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/my-site/` — main frontend app (React + rsbuild)
+- `artifacts/my-site/src/external/bot-skeleton/` — Blockly bot engine
+- `artifacts/my-site/src/stores/` — MobX stores
+- `artifacts/my-site/src/pages/` — page components (dashboard, bot-builder, tutorials, etc.)
+- `artifacts/my-site/src/components/` — shared UI components
+- `artifacts/my-site/src/utils/` — utility helpers
+- `artifacts/my-site/public/` — static assets (logo, manifest, service worker)
+- `lib/api-spec/openapi.yaml` — OpenAPI source of truth
+- `lib/db/src/schema/` — Drizzle DB schema
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Uses rsbuild (not Vite) for faster builds with Rspack bundler
+- `@/utils/tmp/dummy` provides a stub `Icon` component for legacy @deriv/components icons that were removed from the main package
+- Bot strategies defined in XML files under `src/xml/` and `src/external/bot-skeleton/examples/`
+- MobX for global state management (stores pattern)
+- PWA-enabled with service worker for offline support
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- No-code bot builder using Blockly visual programming
+- Speed bots for Volatility indices
+- Real-time Deriv charts and market data via WebSocket
+- Quick strategy templates (Martingale, D'Alembert, etc.)
+- Live trade monitoring, journal, and transaction history
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Imported from GitHub: https://github.com/developercharloh/My-site
+- Preserve original project structure and branding
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- `@/utils/tmp/dummy` is a stub for legacy @deriv/components Icon — it must stay
+- rsbuild config reads `process.env.PORT` (defaults to 5000); artifact.toml sets PORT=19578
+- Some rsbuild aliases: `@/external`, `@/components`, `@/hooks`, `@/utils`, `@/constants`, `@/stores`, `@/mocks`
+- `@deriv/quill-icons/Illustration` is aliased to `src/mocks/quill-icons-illustration.tsx`
 
 ## Pointers
 
