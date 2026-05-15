@@ -505,6 +505,66 @@ const SignalBadge: React.FC<{ signal: LiveSignal; onClick: () => void }> = ({ si
     );
 };
 
+// ─── Post-load field re-application ──────────────────────────────────────────
+// ROOT CAUSE: DURATIONTYPE_LIST and PURCHASE_LIST in DBot Blockly both start
+// with options:[['','']] (empty). They are populated ASYNCHRONOUSLY by the
+// Deriv API. When XML loads and calls setFieldValue('t') or setFieldValue('CALL'),
+// Blockly rejects these values (not in the empty options list). The API cascade
+// later sets its own defaults (often wrong). This function waits for the API to
+// populate the options, then force-applies the correct XML values.
+async function postLoadReapplyFields(botId: string, ws: any): Promise<void> {
+    if (botId !== 'rise-fall-master') return;
+
+    const delay = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
+
+    const getDurBlock = (): any =>
+        ws.getAllBlocks(true).find((b: any) => b.type === 'trade_definition_tradeoptions');
+
+    const durOptionsReady = (): boolean => {
+        const opts: any[][] = getDurBlock()?.getField('DURATIONTYPE_LIST')?.menuGenerator_ ?? [];
+        return opts.length > 0 && opts[0][1] !== '';
+    };
+
+    // Helper: apply all the critical field values
+    const applyFields = () => {
+        // Duration = Ticks ('t')
+        getDurBlock()?.setFieldValue('t', 'DURATIONTYPE_LIST');
+
+        // Purchase = Rise (CALL) and Fall (PUT)
+        // Re-trigger populatePurchaseList first so the dropdown options are built
+        // from the current trade type (callput → Rise/Fall options), then set values.
+        (ws.getAllBlocks(true) as any[])
+            .filter((b: any) => b.type === 'purchase')
+            .forEach((pb: any) => pb.populatePurchaseList?.({ group: 'reapply' }));
+
+        // Small tick to let populatePurchaseList resolve synchronously
+        ws.getBlockById('bp_call')?.setFieldValue('CALL', 'PURCHASE_LIST');
+        ws.getBlockById('bp_put')?.setFieldValue('PUT',  'PURCHASE_LIST');
+    };
+
+    // Phase 1 — wait for Deriv API to populate DURATIONTYPE_LIST (up to 15 s).
+    // Nudge updateDurationInput on each poll in case the API is ready but hasn't
+    // been triggered yet (e.g. the initial load event bailed out because
+    // ApiHelpers.instance was null at that moment).
+    const POLL_MS = 300;
+    let ready = false;
+    for (let i = 0; i < 50; i++) {
+        if (durOptionsReady()) { ready = true; break; }
+        getDurBlock()?.updateDurationInput?.(false, false);
+        await delay(POLL_MS);
+    }
+    if (!ready) return;
+
+    // Apply immediately once the API cascade has populated options
+    applyFields();
+
+    // Phase 2 — apply again after 3 s to override any async getDurations()
+    // re-sets that were triggered by the SYMBOL_LIST or TRADETYPE_LIST cascade
+    // firing after our initial applyFields() call.
+    await delay(3000);
+    if (durOptionsReady()) applyFields();
+}
+
 // ─── Bot Card ─────────────────────────────────────────────────────────────────
 
 const BotCard: React.FC<{ bot: BotConfig; engineMode: EngineMode }> = observer(({ bot, engineMode }) => {
@@ -539,10 +599,7 @@ const BotCard: React.FC<{ bot: BotConfig; engineMode: EngineMode }> = observer((
             }
 
             // V1 path — navigate to Bot Builder FIRST so the workspace mounts and
-            // the Deriv API connects before we load the XML. This ensures the dynamic
-            // dropdowns (Market, Trade Type, Duration, Purchase) have their option
-            // lists populated by the time clearWorkspaceAndLoadFromXml runs, so they
-            // display correctly and no blank-dropdown race condition occurs.
+            // the Deriv API connects before we load the XML.
             dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
 
             // Poll for Blockly.derivWorkspace (workspace mounts asynchronously)
@@ -565,6 +622,17 @@ const BotCard: React.FC<{ bot: BotConfig; engineMode: EngineMode }> = observer((
             Blockly.derivWorkspace.clearUndo();
 
             setStatus('loaded');
+
+            // ROOT CAUSE FIX — blank duration/purchase dropdowns:
+            // DURATIONTYPE_LIST and PURCHASE_LIST both start with options:[['','']] and
+            // are filled ASYNC by Deriv API. When XML loads and setFieldValue('t') or
+            // setFieldValue('CALL') runs, Blockly rejects those values because 't'/'CALL'
+            // are NOT in [['','']] yet. The API later sets its own defaults, which may
+            // differ from the XML values. Fix: poll until API has populated the options,
+            // then forcibly re-apply the correct values. Apply twice (immediate + 3 s delay)
+            // to catch any async getDurations() re-sets triggered by the cascade.
+            void postLoadReapplyFields(bot.id, Blockly.derivWorkspace);
+
             // User clicks Run manually — no auto-start
         } catch (err: any) {
             setStatus('error');
