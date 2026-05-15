@@ -400,7 +400,16 @@ export async function fetchAndPatchBot(
 ): Promise<Document> {
     const rawXml  = await loadRawXml(botId);
     const patches = getBotPatches(botId, signal, stake, takeProfit, stopLoss, martingale);
-    const doc     = patchBotXml(rawXml, signal.symbol, patches, duration, signal.contractType, signal.recoveryContractType);
+
+    // Safety-net: for over_under signals that were saved without recoveryContractType
+    // (e.g. from signal-engine before the fix), auto-derive the opposite direction.
+    const effectiveCt    = signal.contractType;
+    const effectiveRecCt = signal.recoveryContractType
+        ?? (effectiveCt === 'DIGITUNDER' ? 'DIGITOVER'
+          : effectiveCt === 'DIGITOVER'  ? 'DIGITUNDER'
+          : undefined);
+
+    const doc = patchBotXml(rawXml, signal.symbol, patches, duration, effectiveCt, effectiveRecCt);
 
     if (doc.querySelector('parsererror')) throw new Error('Bot XML parse error — check the bot file.');
     return doc;

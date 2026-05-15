@@ -922,7 +922,7 @@ const SignalEngine = () => {
 
         const push = (key: string, sig: Signal | undefined) => {
             if (!sig) return;
-            localStorage.setItem(key, JSON.stringify({
+            const payload: Record<string, unknown> = {
                 symbol:      sig.symbol,
                 symbolLabel: sig.symbolLabel,
                 direction:   sig.direction,
@@ -930,7 +930,17 @@ const SignalEngine = () => {
                 confidence:  sig.confidence,
                 market:      sig.market,
                 savedAt:     now,
-            }));
+            };
+            // Over/Under: derive and save contractType + recoveryContractType so
+            // the Over Under AI Signals Bot patches the correct PURCHASE_LIST direction
+            // on both the primary and recovery purchase blocks.
+            if (sig.market === 'over_under') {
+                const side = sig.direction.trim().toUpperCase().split(/\s+/)[0];
+                const ct   = side === 'UNDER' ? 'DIGITUNDER' : 'DIGITOVER';
+                payload.contractType         = ct;
+                payload.recoveryContractType = ct === 'DIGITUNDER' ? 'DIGITOVER' : 'DIGITUNDER';
+            }
+            localStorage.setItem(key, JSON.stringify(payload));
         };
         push('fb_signal_matches',    topMatch);
         push('fb_signal_differs',    topDiffer);

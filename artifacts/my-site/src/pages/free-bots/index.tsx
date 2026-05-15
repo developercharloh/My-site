@@ -538,10 +538,25 @@ const BotCard: React.FC<{ bot: BotConfig; engineMode: EngineMode }> = observer((
                 return;
             }
 
-            // V1 path — load into Blockly workspace
-            const Blockly = (window as any).Blockly;
-            if (!Blockly?.utils?.xml?.textToDom || !Blockly?.derivWorkspace) {
-                throw new Error('Blockly workspace not ready — switch to Bot Builder tab first, then try again.');
+            // V1 path — navigate to Bot Builder FIRST so the workspace mounts and
+            // the Deriv API connects before we load the XML. This ensures the dynamic
+            // dropdowns (Market, Trade Type, Duration, Purchase) have their option
+            // lists populated by the time clearWorkspaceAndLoadFromXml runs, so they
+            // display correctly and no blank-dropdown race condition occurs.
+            dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
+
+            // Poll for Blockly.derivWorkspace (workspace mounts asynchronously)
+            const waitForWs = async (): Promise<any> => {
+                for (let i = 0; i < 50; i++) {
+                    const B = (window as any).Blockly;
+                    if (B?.derivWorkspace) return B;
+                    await new Promise(r => setTimeout(r, 100));
+                }
+                return null;
+            };
+            const Blockly = await waitForWs();
+            if (!Blockly?.derivWorkspace) {
+                throw new Error('Bot Builder workspace not ready — please open the Bot Builder tab once, then try again.');
             }
 
             const dom = Blockly.utils.xml.textToDom(xmlText);
@@ -550,20 +565,7 @@ const BotCard: React.FC<{ bot: BotConfig; engineMode: EngineMode }> = observer((
             Blockly.derivWorkspace.clearUndo();
 
             setStatus('loaded');
-            dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
-
-            // Wait 2.5 s before running: after clearWorkspaceAndLoadFromXml, Blockly
-            // fires async contracts_for API calls to populate dynamic dropdowns (Market,
-            // Duration, Purchase). If onRunButtonClick fires before those settle,
-            // shouldRunBot() → checkForErroredBlocks() returns false and
-            // unregisterBotListeners() wipes the workspace — leaving dropdowns blank
-            // and making the bot impossible to stop. 2.5 s gives the API time to
-            // respond and all dropdown validators to pass cleanly.
-            setTimeout(() => {
-                if (!store.run_panel.is_running) {
-                    try { store.run_panel.onRunButtonClick(); } catch { /* ignore */ }
-                }
-            }, 2500);
+            // User clicks Run manually — no auto-start
         } catch (err: any) {
             setStatus('error');
             setErrorMsg(err?.message || 'Failed to load bot.');
