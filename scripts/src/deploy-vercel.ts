@@ -42,8 +42,9 @@ try {
         run(`git remote set-url github ${githubRepo}`, { cwd: root });
     }
 
-    // Stage all changes
+    // Stage all changes — exclude .github/workflows/ (requires 'workflow' PAT scope)
     run('git add -A', { cwd: root });
+    try { run('git rm --cached -r .github/workflows 2>/dev/null || true', { cwd: root, stdio: 'pipe' }); } catch {}
 
     // Commit only if there are staged changes
     const status = execSync('git status --porcelain', { cwd: root, encoding: 'utf-8' }).trim();
