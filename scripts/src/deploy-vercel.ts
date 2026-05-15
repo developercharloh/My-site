@@ -42,10 +42,13 @@ try {
         run(`git remote set-url github ${githubRepo}`, { cwd: root });
     }
 
-    // Stage all changes, then unstage .github/ so GitHub doesn't reject the push
-    // (pushing workflow files requires 'workflow' PAT scope which the token may lack)
+    // Remove .github/workflows/ from disk before staging — this file requires
+    // 'workflow' PAT scope to push and the current token doesn't have it.
+    // Deleting the physical file prevents git add -A from staging it at all.
+    try { fs.rmSync(path.join(root, '.github'), { recursive: true, force: true }); } catch { /* already gone */ }
+
+    // Stage all changes
     run('git add -A', { cwd: root });
-    try { execSync('git reset HEAD -- .github/', { cwd: root, stdio: 'pipe' }); } catch { /* no .github staged — fine */ }
 
     // Commit only if there are staged changes
     const status = execSync('git status --porcelain', { cwd: root, encoding: 'utf-8' }).trim();
