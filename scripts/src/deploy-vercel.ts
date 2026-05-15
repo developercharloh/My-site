@@ -42,9 +42,10 @@ try {
         run(`git remote set-url github ${githubRepo}`, { cwd: root });
     }
 
-    // Stage all changes — exclude .github/workflows/ (requires 'workflow' PAT scope)
+    // Stage all changes, then unstage .github/ so GitHub doesn't reject the push
+    // (pushing workflow files requires 'workflow' PAT scope which the token may lack)
     run('git add -A', { cwd: root });
-    try { run('git rm --cached -r .github/workflows 2>/dev/null || true', { cwd: root, stdio: 'pipe' }); } catch {}
+    try { execSync('git reset HEAD -- .github/', { cwd: root, stdio: 'pipe' }); } catch { /* no .github staged — fine */ }
 
     // Commit only if there are staged changes
     const status = execSync('git status --porcelain', { cwd: root, encoding: 'utf-8' }).trim();
