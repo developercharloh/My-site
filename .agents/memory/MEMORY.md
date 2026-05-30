@@ -1,0 +1,1 @@
+- [Deriv auth-client login flow](deriv-auth-login.md) — use requestOidcAuthentication + Callback from auth-client; custom PKCE bypasses the legacy token bridge and breaks WebSocket authorize.
