@@ -5,7 +5,7 @@ import PWAInstallButton from '@/components/pwa-install-button';
 import { generateOAuthURL, standalone_routes } from '@/components/shared';
 import { isThirdPartyAppDomain } from '@/components/shared/utils/config/config';
 import Button from '@/components/shared_ui/button';
-import { buildLegacyAuthUrl } from '@/utils/pkce';
+import { buildNewAuthUrl } from '@/utils/pkce';
 import useActiveAccount from '@/hooks/api/account/useActiveAccount';
 import { useOauth2 } from '@/hooks/auth/useOauth2';
 import { useFirebaseCountriesConfig } from '@/hooks/firebase/useFirebaseCountriesConfig';
@@ -212,13 +212,14 @@ const AppHeader = observer(({ isAuthenticating }: TAppHeaderProps) => {
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <Button
                         secondary
-                        onClick={() => {
-                            // Legacy OAuth flow: oauth.deriv.com returns tokens directly
-                            // in the redirect URL (?acct1=&token1=&cur1=...) — these are
-                            // WebSocket-compatible Deriv tokens that authorize() accepts.
-                            // PKCE (auth.deriv.com) returns an OAuth access_token which
-                            // the WebSocket API cannot use, so login never completes.
-                            window.location.href = buildLegacyAuthUrl();
+                        onClick={async () => {
+                            // PKCE flow: auth.deriv.com/oauth2/auth with client_id 33bvUt0Jjt7sNGHm4kSqv.
+                            // This is the ONLY flow with mrcharlohfx.site/callback registered as
+                            // redirect_uri — legacy oauth.deriv.com redirects to home.deriv.com instead.
+                            // After callback, /api/legacy-tokens proxy converts access_token → token1
+                            // so the WebSocket authorize() succeeds and the header shows the account.
+                            const url = await buildNewAuthUrl();
+                            window.location.href = url;
                         }}
                     >
                         <Localize i18n_default_text='Log in' />

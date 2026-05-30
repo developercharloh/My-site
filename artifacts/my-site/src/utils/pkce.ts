@@ -201,7 +201,33 @@ export const exchangePkceCode = async (
     return proxyData;
 };
 
+/**
+ * Convert a PKCE access_token into legacy Deriv tokens (token1, acct1, cur1, ...).
+ * These legacy tokens are what the WebSocket authorize() call accepts.
+ *
+ * Strategy:
+ *  1. Same-origin /api/legacy-tokens proxy (server-side, no CORS issue) — preferred.
+ *  2. Direct browser call to oauth.deriv.com / ws.derivws.com — fallback if proxy down.
+ */
 export const fetchLegacyTokens = async (accessToken: string): Promise<Record<string, string> | null> => {
+    // ── Attempt 1: server-side proxy (avoids CORS) ──────────────────────────
+    try {
+        const proxyRes = await fetch('/api/legacy-tokens', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+            },
+        });
+        if (proxyRes.ok) {
+            const data = await proxyRes.json();
+            if (data?.token1) return data as Record<string, string>;
+        }
+    } catch {
+        // proxy unavailable — fall through to direct calls
+    }
+
+    // ── Attempt 2: direct browser calls (may be CORS-blocked) ───────────────
     const servers = ['oauth.deriv.com', 'ws.derivws.com'];
     for (const server of servers) {
         try {
