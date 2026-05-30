@@ -4,16 +4,7 @@ import { crypto_currencies_display_order, fiat_currencies_display_order } from '
 import { generateDerivApiInstance } from '@/external/bot-skeleton/services/api/appId';
 import { observer as globalObserver } from '@/external/bot-skeleton/utils/observer';
 import { clearAuthData } from '@/utils/auth-utils';
-import {
-    exchangePkceCode,
-    fetchLegacyTokens,
-    fetchNewApiAccounts,
-    ensureNewApiAccount,
-    buildNewAuthUrl,
-    LS_PKCE,
-    NEW_AUTH,
-} from '@/utils/pkce';
-import { Callback } from '@deriv-com/auth-client';
+import { Callback, requestOidcAuthentication } from '@deriv-com/auth-client';
 import { Button } from '@deriv-com/ui';
 import '@/components/login-gate/login-gate.scss';
 
@@ -244,28 +235,16 @@ const CallbackPage: React.FC = () => {
     const hasCode = params.has('code');
     const hasError = params.has('error');
 
-    // Check BOTH sessionStorage and localStorage — on mobile, same-tab navigation
-    // preserves sessionStorage, but some Android browsers clear it on redirect.
-    const pkceVerifier = useMemo(() => {
-        try { const v = sessionStorage.getItem(LS_PKCE.VERIFIER); if (v) return v; } catch { /* ignore */ }
-        return localStorage.getItem(LS_PKCE.VERIFIER);
-    }, []);
-    // Use our custom PKCE exchange (with proxy fallback) when a ?code= arrives.
-    // This bypasses the @deriv-com/auth-client <Callback> which would try to
-    // exchange at oauth.deriv.com — wrong endpoint for auth.deriv.com codes.
-    // Legacy tokens (?token1=) take priority and skip this path entirely.
-    void pkceVerifier;
-    const isPkceFlow = hasCode && !legacyTokens;
+    // auth-client handles the full PKCE exchange + legacy token fetch.
+    // isPkceFlow is always false — the Callback component runs for all ?code= callbacks.
+    const isPkceFlow = false;
 
     const handleRetry = async () => {
-        // Clear any leftover PKCE state before retrying
-        try { sessionStorage.removeItem(LS_PKCE.VERIFIER); sessionStorage.removeItem(LS_PKCE.STATE); } catch { /* ignore */ }
-        localStorage.removeItem(LS_PKCE.VERIFIER);
-        localStorage.removeItem(LS_PKCE.STATE);
-        // Retry via the PKCE flow (auth.deriv.com) — correct endpoint for
-        // the alphanumeric client_id 33bvUt0Jjt7sNGHm4kSqv.
-        const url = await buildNewAuthUrl();
-        window.location.href = url;
+        // Restart the OIDC flow — auth-client stores its own PKCE verifier.
+        await requestOidcAuthentication({
+            redirectCallbackUri: `${window.location.origin}/callback`,
+            postLogoutRedirectUri: window.location.origin,
+        });
     };
 
     // ── Legacy tokens handler ─────────────��───────────────────────────────────
@@ -278,135 +257,6 @@ const CallbackPage: React.FC = () => {
                 step: 'legacy_error',
                 detail: err?.stack || String(err),
             }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    // ── PKCE flow handler ─────────────────────────────────────────────────────
-    useEffect(() => {
-        if (!isPkceFlow) return;
-        // Legacy tokens take priority — never run the (Cloudflare-blocked) PKCE
-        // exchange if account tokens already arrived in the redirect URL.
-        if (legacyTokens) return;
-
-        const code = params.get('code')!;
-        const stateParam = params.get('state');
-        const savedState =
-            (() => { try { return sessionStorage.getItem(LS_PKCE.STATE); } catch { return null; } })() ||
-            localStorage.getItem(LS_PKCE.STATE);
-
-        if (stateParam && savedState && stateParam !== savedState) {
-            setPkceError({
-                message: 'Security check failed — state mismatch. Please try logging in again.',
-                step: 'token_exchange',
-                code: 'state_mismatch',
-                detail: `Expected: ${savedState}\nReceived: ${stateParam}`,
-            });
-            return;
-        }
-
-        // ── CRITICAL FIX: capture verifier BEFORE clearing storage ──
-        // On Android Chrome, sessionStorage can be cleared during the OAuth
-        // redirect to auth.deriv.com and back. By reading it NOW (before removal)
-        // and passing it directly to exchangePkceCode, we avoid the race where
-        // storage is empty when the exchange function tries to read it.
-        const capturedVerifier =
-            (() => { try { return sessionStorage.getItem(LS_PKCE.VERIFIER); } catch { return null; } })() ||
-            localStorage.getItem(LS_PKCE.VERIFIER) ||
-            pkceVerifier; // already resolved from useMemo above
-
-        // Clear PKCE state from all storage (one-time use)
-        try { sessionStorage.removeItem(LS_PKCE.VERIFIER); sessionStorage.removeItem(LS_PKCE.STATE); } catch { /* ignore */ }
-        localStorage.removeItem(LS_PKCE.VERIFIER);
-        localStorage.removeItem(LS_PKCE.STATE);
-
-        (async () => {
-            try {
-                // Step 1: Exchange code for access token
-                // Pass capturedVerifier directly so storage-clearing above doesn't matter
-                let tokenResp: Awaited<ReturnType<typeof exchangePkceCode>>;
-                try {
-                    tokenResp = await exchangePkceCode(code, capturedVerifier || undefined);
-                } catch (fetchErr: any) {
-                    throw {
-                        message: `Token exchange failed: ${fetchErr?.message || 'network error'}`,
-                        step: 'token_exchange' as const,
-                        code: 'fetch_error',
-                        detail: fetchErr?.stack || String(fetchErr),
-                    };
-                }
-
-                if (tokenResp.error || !tokenResp.access_token) {
-                    throw {
-                        message: tokenResp.error_description || tokenResp.error || 'Token exchange failed — no access token returned',
-                        step: 'token_exchange' as const,
-                        code: tokenResp.error || 'no_access_token',
-                        detail: JSON.stringify(tokenResp, null, 2),
-                    };
-                }
-
-                const accessToken = tokenResp.access_token;
-
-                // Step 2: Try legacy token bridge
-                let tradingTokens: Record<string, string> | null = null;
-                try {
-                    tradingTokens = await fetchLegacyTokens(accessToken);
-                } catch {
-                    // non-fatal — fall through to new API
-                }
-
-                if (tradingTokens && tradingTokens.token1) {
-                    const currency = await storeTokens(tradingTokens, null);
-                    finishSession(currency);
-                    return;
-                }
-
-                // Step 3: New REST API
-                console.warn('[PKCE] Legacy bridge unavailable, falling back to new REST API'); // eslint-disable-line no-console
-
-                localStorage.setItem('deriv_access_token', accessToken);
-                localStorage.setItem(LS.AUTH_TOKEN, accessToken);
-
-                let accounts = await fetchNewApiAccounts(accessToken);
-                if (!accounts || accounts.length === 0) {
-                    const created = await ensureNewApiAccount(accessToken, 'demo');
-                    if (created) accounts = [created];
-                }
-
-                if (accounts && accounts.length > 0) {
-                    const primaryAccount = accounts.find(a => a.account_type === 'real') ?? accounts[0];
-                    localStorage.setItem(LS.ACTIVE_LOGINID, primaryAccount.account_id);
-
-                    const accountsList: Record<string, string> = {};
-                    const clientAccounts: Record<string, { loginid: string; token: string; currency: string }> = {};
-                    for (const acc of accounts) {
-                        accountsList[acc.account_id] = accessToken;
-                        clientAccounts[acc.account_id] = {
-                            loginid: acc.account_id,
-                            token: accessToken,
-                            currency: acc.currency,
-                        };
-                    }
-                    localStorage.setItem(LS.ACCOUNTS_LIST, JSON.stringify(accountsList));
-                    localStorage.setItem(LS.CLIENT_ACCOUNTS, JSON.stringify(clientAccounts));
-
-                    const currency = primaryAccount.account_type === 'demo' ? 'demo' : primaryAccount.currency;
-                    finishSession(currency);
-                } else {
-                    finishSession('USD');
-                }
-            } catch (err: any) {
-                console.error('[PKCE callback error]', err); // eslint-disable-line no-console
-                if (err && typeof err === 'object' && 'step' in err) {
-                    setPkceError(err as AuthError);
-                } else {
-                    setPkceError({
-                        message: err?.message || 'Sign-in failed. Please try again.',
-                        step: 'unknown',
-                        detail: err?.stack || String(err),
-                    });
-                }
-            }
-        })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 

@@ -5,7 +5,7 @@ import PWAInstallButton from '@/components/pwa-install-button';
 import { generateOAuthURL, standalone_routes } from '@/components/shared';
 import { isThirdPartyAppDomain } from '@/components/shared/utils/config/config';
 import Button from '@/components/shared_ui/button';
-import { buildNewAuthUrl } from '@/utils/pkce';
+import { requestOidcAuthentication } from '@deriv-com/auth-client';
 import useActiveAccount from '@/hooks/api/account/useActiveAccount';
 import { useOauth2 } from '@/hooks/auth/useOauth2';
 import { useFirebaseCountriesConfig } from '@/hooks/firebase/useFirebaseCountriesConfig';
@@ -213,13 +213,14 @@ const AppHeader = observer(({ isAuthenticating }: TAppHeaderProps) => {
                     <Button
                         secondary
                         onClick={async () => {
-                            // PKCE flow: auth.deriv.com/oauth2/auth with client_id 33bvUt0Jjt7sNGHm4kSqv.
-                            // This is the ONLY flow with mrcharlohfx.site/callback registered as
-                            // redirect_uri — legacy oauth.deriv.com redirects to home.deriv.com instead.
-                            // After callback, /api/legacy-tokens proxy converts access_token → token1
-                            // so the WebSocket authorize() succeeds and the header shows the account.
-                            const url = await buildNewAuthUrl();
-                            window.location.href = url;
+                            // Use auth-client's OIDC flow — it stores the PKCE verifier in its
+                            // own storage, then the Callback component exchanges the code AND
+                            // fetches legacy tokens (token1, acct1, cur1) from oauth.deriv.com
+                            // so WebSocket authorize() succeeds and the header shows the account.
+                            await requestOidcAuthentication({
+                                redirectCallbackUri: `${window.location.origin}/callback`,
+                                postLogoutRedirectUri: window.location.origin,
+                            });
                         }}
                     >
                         <Localize i18n_default_text='Log in' />
