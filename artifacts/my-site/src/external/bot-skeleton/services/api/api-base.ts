@@ -172,7 +172,11 @@ class APIBase {
                     if (Cookies.get('logged_state') === 'true' && !is_tmb_enabled) {
                         globalObserver.emit('InvalidToken', { error });
                     } else {
-                        clearAuthData();
+                        // Use is_reload=false to avoid an auto-reload loop on mrcharlohfx.site
+                        // where logged_state cookie is never set by Deriv's own platform.
+                        // The token wipe is enough — the header will drop back to "Log in"
+                        // without triggering a reload that would re-run authorizeAndSubscribe.
+                        clearAuthData(false);
                     }
                 } else {
                     console.error('Authorization error:', error);

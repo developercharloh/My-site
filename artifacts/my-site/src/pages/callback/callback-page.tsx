@@ -113,6 +113,21 @@ const storeTokens = async (
         localStorage.setItem(LS.AUTH_TOKEN, tokens.token1);
         localStorage.setItem(LS.ACTIVE_LOGINID, tokens.acct1);
     }
+
+    // Mark the session as logged-in so api_base.authorizeAndSubscribe doesn't
+    // call clearAuthData() (which would wipe tokens and loop back to "Log in")
+    // when it encounters a temporary InvalidToken on mrcharlohfx.site where
+    // Deriv's own platform never sets this cookie.
+    try {
+        const cookieDomain = window.location.hostname.split('.').slice(-2).join('.');
+        Cookies.set('logged_state', 'true', {
+            domain: cookieDomain,
+            expires: 30,
+            path: '/',
+            secure: window.location.protocol === 'https:',
+        });
+    } catch { /* ignore cookie errors */ }
+
     return getSelectedCurrency(tokens, clientAccounts, state);
 };
 

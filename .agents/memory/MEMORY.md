@@ -1,1 +1,2 @@
 - [Deriv auth-client login flow](deriv-auth-login.md) — use requestOidcAuthentication + Callback from auth-client; custom PKCE bypasses the legacy token bridge and breaks WebSocket authorize.
+- [logged_state cookie + clearAuthData](logged-state-cookie.md) — after OIDC callback on mrcharlohfx.site, must set logged_state='true' cookie or api_base wipes tokens and loops to "Log in".

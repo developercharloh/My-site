@@ -20,6 +20,14 @@ if (typeof window !== 'undefined') {
     } else if (!is_official_deriv) {
         window.localStorage.setItem('config.app_id', String(APP_IDS.MY_SITE));
     }
+    // Seed config.server_url for third-party domains so @deriv-com/auth-client's
+    // getServerInfo() calls the correct legacy-tokens endpoint:
+    //   https://ws.derivws.com/oauth2/legacy/tokens
+    // Without this it defaults to oauth.deriv.com which may reject OIDC access tokens.
+    const is_third_party = !is_official_deriv && !host.includes('localhost');
+    if (is_third_party && !window.localStorage.getItem('config.server_url')) {
+        window.localStorage.setItem('config.server_url', 'ws.derivws.com');
+    }
 }
 
 AnalyticsInitializer();
