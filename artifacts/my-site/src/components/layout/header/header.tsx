@@ -5,6 +5,7 @@ import PWAInstallButton from '@/components/pwa-install-button';
 import { generateOAuthURL, standalone_routes } from '@/components/shared';
 import { isThirdPartyAppDomain } from '@/components/shared/utils/config/config';
 import Button from '@/components/shared_ui/button';
+import { buildNewAuthUrl } from '@/utils/pkce';
 import useActiveAccount from '@/hooks/api/account/useActiveAccount';
 import { useOauth2 } from '@/hooks/auth/useOauth2';
 import { useFirebaseCountriesConfig } from '@/hooks/firebase/useFirebaseCountriesConfig';
@@ -13,7 +14,6 @@ import { useStore } from '@/hooks/useStore';
 import useTMB from '@/hooks/useTMB';
 import { clearAuthData, handleOidcAuthFailure } from '@/utils/auth-utils';
 import { StandaloneCircleUserRegularIcon } from '@deriv/quill-icons/Standalone';
-import { requestOidcAuthentication } from '@deriv-com/auth-client';
 import { Localize, useTranslations } from '@deriv-com/translations';
 import { Header, useDevice, Wrapper } from '@deriv-com/ui';
 import { Tooltip } from '@deriv-com/ui';
@@ -24,6 +24,7 @@ import HeaderPriceActionBar from './header-price-action-bar';
 import MenuItems from './menu-items';
 import MobileMenu from './mobile-menu';
 import PlatformSwitcher from './platform-switcher';
+import NewApiAccountPanel from './new-api-account-panel';
 import './header.scss';
 
 // ─── Engine selector ──────────────────────────────────────────────────────────
@@ -166,6 +167,7 @@ const AppHeader = observer(({ isAuthenticating }: TAppHeaderProps) => {
                             </Button>
                         ))}
 
+                    <NewApiAccountPanel />
                     <AccountSwitcher activeAccount={activeAccount} />
 
                     {isDesktop &&
@@ -204,70 +206,18 @@ const AppHeader = observer(({ isAuthenticating }: TAppHeaderProps) => {
                 </>
             );
         } else {
-            // For our custom domain use standard Deriv OAuth — no OIDC.
-            // OIDC returns 400 for all third-party app IDs; the Hub (home.deriv.com)
-            // handles login and redirects back to /callback on success.
-            if (isThirdPartyAppDomain()) {
-                return (
-                    <div className='auth-actions'>
-                        <Button
-                            tertiary
-                            onClick={() => {
-                                clearAuthData(false);
-                                localStorage.setItem('login_gate', 'legacy');
-                                window.location.replace(generateOAuthURL());
-                            }}
-                        >
-                            <Localize i18n_default_text='Log in' />
-                        </Button>
-                        <Button
-                            primary
-                            onClick={() => {
-                                window.open(standalone_routes.signup);
-                            }}
-                        >
-                            <Localize i18n_default_text='Sign up' />
-                        </Button>
-                    </div>
-                );
-            }
-
+            // Not logged in → show Log in / Sign up in the nav bar.
+            // Log in starts Deriv's official OIDC flow (oauth.deriv.com); never a popup gate.
             return (
-                <div className='auth-actions'>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <Button
-                        tertiary
+                        secondary
                         onClick={async () => {
-                            clearAuthData(false);
-                            const getQueryParams = new URLSearchParams(window.location.search);
-                            const currency = getQueryParams.get('account') ?? '';
-                            const query_param_currency =
-                                currency || sessionStorage.getItem('query_param_currency') || 'USD';
-
-                            try {
-                                const tmbEnabled = await isTmbEnabled();
-                                if (tmbEnabled) {
-                                    await onRenderTMBCheck(true);
-                                } else {
-                                    try {
-                                        await requestOidcAuthentication({
-                                            redirectCallbackUri: `${window.location.origin}/callback`,
-                                            ...(query_param_currency
-                                                ? {
-                                                      state: {
-                                                          account: query_param_currency,
-                                                      },
-                                                  }
-                                                : {}),
-                                        });
-                                    } catch (err) {
-                                        handleOidcAuthFailure(err);
-                                        window.location.replace(generateOAuthURL());
-                                    }
-                                }
-                            } catch (error) {
-                                // eslint-disable-next-line no-console
-                                console.error(error);
-                            }
+                            // PKCE flow: auth.deriv.com/oauth2/auth with client_id 33bvUt0Jjt7sNGHm4kSqv
+                            // Stores verifier in storage, then redirects. After login Deriv
+                            // redirects back to /callback?code=... for token exchange.
+                            const url = await buildNewAuthUrl();
+                            window.location.href = url;
                         }}
                     >
                         <Localize i18n_default_text='Log in' />
@@ -275,7 +225,10 @@ const AppHeader = observer(({ isAuthenticating }: TAppHeaderProps) => {
                     <Button
                         primary
                         onClick={() => {
-                            window.open(standalone_routes.signup);
+                            window.open(
+                                'https://track.deriv.com/_ZpTaWpj8mZlZl7VyVw174GNd7ZgqdRLk/1',
+                                '_blank'
+                            );
                         }}
                     >
                         <Localize i18n_default_text='Sign up' />
@@ -314,27 +267,36 @@ const AppHeader = observer(({ isAuthenticating }: TAppHeaderProps) => {
                 {isDesktop && <MenuItems />}
             </Wrapper>
             <Wrapper variant='right'>
-                <button
-                    onClick={() => window.location.reload()}
-                    title='Refresh'
-                    style={{
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        padding: '6px 8px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        color: 'var(--text-general)',
-                        fontSize: '18px',
-                        lineHeight: 1,
-                    }}
-                    aria-label='Refresh page'
-                >
-                    ↺
-                </button>
-                <HeaderPriceActionBar />
-                {!isDesktop && <PWAInstallButton variant='primary' size='medium' />}
-                {renderAccountSection()}
+                {activeLoginid ? (
+                    <>
+                        <button
+                            onClick={() => window.location.reload()}
+                            title='Refresh'
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: '6px 8px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                color: 'var(--text-general)',
+                                fontSize: '18px',
+                                lineHeight: 1,
+                            }}
+                            aria-label='Refresh page'
+                        >
+                            ↺
+                        </button>
+                        {/* Price action bar removed on mobile to free up nav-bar space */}
+                        {isDesktop && <HeaderPriceActionBar />}
+                        {!isDesktop && <PWAInstallButton variant='primary' size='medium' />}
+                        {renderAccountSection()}
+                    </>
+                ) : (
+                    // Not logged in → show ONLY Log in / Sign up (no refresh, price bar,
+                    // PWA install, deposit or account panel clutter)
+                    renderAccountSection()
+                )}
             </Wrapper>
             {/* <PWAInstallModalTest /> */}
         </Header>

@@ -94,7 +94,7 @@
         font-weight: 500;
     }
 
-    // Two gates row
+    // Gates row
     &__gates {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -104,6 +104,20 @@
         @media (max-width: 560px) {
             grid-template-columns: 1fr;
             max-width: 36rem;
+        }
+
+        // Single centered gate
+        &--single {
+            grid-template-columns: 1fr;
+            max-width: 40rem;
+            margin: 0 auto;
+        }
+    }
+
+    &__gate {
+        &--center {
+            max-width: 40rem;
+            width: 100%;
         }
     }
 

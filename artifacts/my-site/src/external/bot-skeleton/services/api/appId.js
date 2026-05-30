@@ -4,9 +4,21 @@ import DerivAPIBasic from '@deriv/deriv-api/dist/DerivAPIBasic';
 import { getInitialLanguage } from '@deriv-com/translations';
 import APIMiddleware from './api-middleware';
 
+// ws.derivws.com requires a NUMERIC app_id in the WebSocket URL.
+// The OAuth app_id (33bvUt0Jjt7sNGHm4kSqv) is alphanumeric and used only
+// for login redirects. For the WebSocket connection we fall back to the
+// Deriv production DBot numeric app_id (65555) when the configured app_id
+// is not a plain integer string.
+const getNumericAppId = () => {
+    const raw = getAppId();
+    const str = String(raw ?? '');
+    if (/^\d+$/.test(str)) return str;
+    return '65555'; // Deriv production numeric fallback for WebSocket
+};
+
 export const generateDerivApiInstance = () => {
     const cleanedServer = getSocketURL().replace(/[^a-zA-Z0-9.]/g, '');
-    const cleanedAppId = getAppId()?.replace?.(/[^a-zA-Z0-9]/g, '') ?? getAppId();
+    const cleanedAppId = getNumericAppId();
     const socket_url = `wss://${cleanedServer}/websockets/v3?app_id=${cleanedAppId}&l=${getInitialLanguage()}&brand=${website_name.toLowerCase()}`;
     const deriv_socket = new WebSocket(socket_url);
     const deriv_api = new DerivAPIBasic({

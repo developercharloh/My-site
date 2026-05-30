@@ -10,15 +10,15 @@ export const APP_IDS = {
     PRODUCTION: 65555,
     PRODUCTION_BE: 65556,
     PRODUCTION_ME: 65557,
-    MY_SITE: 128695,
-    // New Deriv developer app — required for accounts created after Deriv's API migration
-    NEW_DERIV: '33bvUt0Jjt7sNGHm4kSqv',
-};
+    MY_SITE: '33bvUt0Jjt7sNGHm4kSqv',
+} as const;
+
+export type AppId = (typeof APP_IDS)[keyof typeof APP_IDS];
 
 export const livechat_license_id = 12049137;
 export const livechat_client_id = '66aa088aad5a414484c1fd1fa8a5ace7';
 
-export const domain_app_ids = {
+export const domain_app_ids: Record<string, AppId> = {
     'master.bot-standalone.pages.dev': APP_IDS.TMP_STAGING,
     'staging-dbot.deriv.com': APP_IDS.STAGING,
     'staging-dbot.deriv.be': APP_IDS.STAGING_BE,
@@ -27,12 +27,9 @@ export const domain_app_ids = {
     'dbot.deriv.be': APP_IDS.PRODUCTION_BE,
     'dbot.deriv.me': APP_IDS.PRODUCTION_ME,
     'my-site-7h3g.onrender.com': APP_IDS.MY_SITE,
-    // Custom domain — primary production deployment
     'mrcharlohfx.site': APP_IDS.MY_SITE,
     'www.mrcharlohfx.site': APP_IDS.MY_SITE,
-    // Vercel deployment
     'my-deriv-bot.vercel.app': APP_IDS.MY_SITE,
-    // Replit previews
     'charloz.replit.app': APP_IDS.MY_SITE,
     'my-site--primedeveloperc.replit.app': APP_IDS.MY_SITE,
     'my-site--mywebapp824.replit.app': APP_IDS.MY_SITE,
@@ -107,13 +104,13 @@ export const getDefaultAppIdAndUrl = () => {
     }
 
     const current_domain = getCurrentProductionDomain() ?? '';
-    const app_id = domain_app_ids[current_domain as keyof typeof domain_app_ids] ?? APP_IDS.PRODUCTION;
+    const app_id = domain_app_ids[current_domain] ?? APP_IDS.PRODUCTION;
 
     return { app_id, server_url };
 };
 
 export const getAppId = () => {
-    let app_id = null;
+    let app_id: AppId | string | null = null;
     const config_app_id = window.localStorage.getItem('config.app_id');
     const current_domain = getCurrentProductionDomain() ?? '';
 
@@ -124,9 +121,9 @@ export const getAppId = () => {
     } else if (isTestLink()) {
         app_id = APP_IDS.LOCALHOST;
     } else if (isThirdPartyAppDomain()) {
-        app_id = domain_app_ids[current_domain as keyof typeof domain_app_ids] ?? APP_IDS.MY_SITE;
+        app_id = domain_app_ids[current_domain] ?? APP_IDS.MY_SITE;
     } else {
-        app_id = domain_app_ids[current_domain as keyof typeof domain_app_ids] ?? APP_IDS.PRODUCTION;
+        app_id = domain_app_ids[current_domain] ?? APP_IDS.PRODUCTION;
     }
 
     return app_id;
@@ -179,40 +176,35 @@ export const getDebugServiceWorker = () => {
 };
 
 /**
- * Build a direct OAuth authorize URL for the given login gate.
- * gate='legacy' → uses MY_SITE app_id (128695) — for existing Deriv accounts.
- * gate='new'    → uses NEW_DERIV app_id — for accounts created after Deriv's API migration.
- * Both redirect to https://mrcharlohfx.site/callback which already handles both flows.
+ * Build the Deriv OAuth URL (synchronous fallback).
+ * For mrcharlohfx.site: uses the new auth.deriv.com PKCE endpoint.
+ * Prefer buildNewAuthUrl() from pkce.ts for the full PKCE flow.
  */
-export const generateOAuthURLForGate = (gate: 'legacy' | 'new'): string => {
-    const appId = gate === 'new' ? APP_IDS.NEW_DERIV : APP_IDS.MY_SITE;
-    const lang = localStorage.getItem('i18n_language') || 'en';
-    const hostname = window.location.hostname;
-    const redirectUri =
-        hostname === 'mrcharlohfx.site' || hostname === 'www.mrcharlohfx.site'
-            ? 'https://mrcharlohfx.site/callback'
-            : `${window.location.origin}/callback`;
-    return `https://oauth.deriv.com/oauth2/authorize?app_id=${appId}&l=${lang}&brand=deriv&redirect_uri=${encodeURIComponent(redirectUri)}`;
-};
-
 export const generateOAuthURL = () => {
+    const hostname = window.location.hostname;
+
+    // For mrcharlohfx.site and all third-party domains, use new auth.deriv.com + PKCE client_id.
+    if (
+        hostname === 'mrcharlohfx.site' ||
+        hostname === 'www.mrcharlohfx.site' ||
+        isThirdPartyAppDomain()
+    ) {
+        const redirectUri =
+            hostname === 'mrcharlohfx.site' || hostname === 'www.mrcharlohfx.site'
+                ? 'https://mrcharlohfx.site/callback'
+                : `${window.location.origin}/callback`;
+        // Sync fallback URL — full PKCE challenge is added by buildNewAuthUrl() in pkce.ts.
+        // This URL is used only as a last-resort fallback (login gate uses buildNewAuthUrl directly).
+        return `https://auth.deriv.com/oauth2/auth?client_id=${APP_IDS.MY_SITE}&response_type=code&scope=trade+account_manage&redirect_uri=${encodeURIComponent(redirectUri)}&prompt=login`;
+    }
+
+    // For Deriv's own domains, use the library helper and patch as needed.
     const { getOauthURL } = URLUtils;
     const oauth_url = getOauthURL();
     const original_url = new URL(oauth_url);
-    const hostname = window.location.hostname;
 
-    // Always use our own app_id from config (the @deriv-com/utils getOauthURL only
-    // knows Deriv-first-party domains and would fall back to app_id 36300 for
-    // third-party hosts like charloz.replit.app or *.onrender.com).
     original_url.searchParams.set('app_id', String(getAppId()));
 
-    // For the primary custom domain, force the callback to go to /callback
-    // so the dedicated callback page processes the tokens instead of the root.
-    if (hostname === 'mrcharlohfx.site' || hostname === 'www.mrcharlohfx.site') {
-        original_url.searchParams.set('redirect_uri', 'https://mrcharlohfx.site/callback');
-    }
-
-    // First priority: Check for configured server URLs (for QA/testing environments)
     const configured_server_url = (LocalStorageUtils.getValue(LocalStorageConstants.configServerURL) ||
         localStorage.getItem('config.server_url')) as string;
 
@@ -226,15 +218,11 @@ export const generateOAuthURL = () => {
     ) {
         original_url.hostname = configured_server_url;
     } else if (original_url.hostname.includes('oauth.deriv.')) {
-        // Second priority: Domain-based OAuth URL setting for .me and .be domains
         if (hostname.includes('.deriv.me')) {
             original_url.hostname = 'oauth.deriv.me';
         } else if (hostname.includes('.deriv.be')) {
             original_url.hostname = 'oauth.deriv.be';
         } else {
-            // Fallback to original logic for other domains — only rewrite when the
-            // current domain is itself a Deriv-owned domain. For third-party hosts
-            // (e.g. *.onrender.com) we keep the default `oauth.deriv.com` host.
             const current_domain = getCurrentProductionDomain();
             if (current_domain) {
                 const domain_suffix = current_domain.replace(/^[^.]+\./, '');

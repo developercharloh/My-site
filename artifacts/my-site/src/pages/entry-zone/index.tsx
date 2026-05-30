@@ -14,7 +14,7 @@ import { DERIV_VOLATILITIES, type DerivVolatility } from '../../utils/deriv-vola
      6. If none reach 3 votes: "No signal — wait"
    ───────────────────────────────────────────────────────────────────────── */
 
-const DERIV_WS   = 'wss://ws.binaryws.com/websockets/v3?app_id=1';
+const DERIV_WS   = 'wss://ws.derivws.com/websockets/v3?app_id=1';
 const TICK_COUNT = 4000;   // 4× more data → strong statistical reliability
 const ALL_SYMS   = DERIV_VOLATILITIES;
 
@@ -58,7 +58,7 @@ interface ConsensusResult {
     expiresAt:  number;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────���────────────
 const lastDigitOf = (q: number, pip: number): number => {
     const s = q.toFixed(pip);
     return parseInt(s[s.length - 1], 10);
@@ -282,7 +282,7 @@ function runModels(
     return { sym, direction, contractType, barrier, winProb, sampleSize: N, votes, entryDigits, digitFreq: freqPct };
 }
 
-// ─── Scan stages ──────────────────────────────────────────────────────────────
+// ─── Scan stages ───���──────────────────────────────────────────────────────────
 type StageId = 'connect' | 'fetch' | 'analyse' | 'select';
 const STAGES: { id: StageId; label: string; icon: string }[] = [
     { id: 'connect', label: 'Connecting to live data feed',          icon: '📡' },
@@ -473,7 +473,7 @@ const EntryZone: React.FC = () => {
         };
     }, [cleanupWs, tradeType]);
 
-    // ── Render ────────────────────────────────────────────────────────────
+    // ── Render ─────────────��──────────────────────────────────────────────
     const voteColor = (n: number) =>
         n >= 4 ? '#16a34a' : n === 3 ? '#d97706' : '#dc2626';
     const voteLabel = (n: number) =>

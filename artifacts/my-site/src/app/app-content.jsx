@@ -281,6 +281,10 @@ const AppContent = observer(() => {
 
     if (common?.error) return null;
 
+    // App is fully usable WITHOUT login. No gate — unauthenticated users can use
+    // Dashboard, Bot Builder, Charts, analysis, bots and signals. Login is optional
+    // via the Log in / Sign up buttons in the nav bar.
+
     // Show loading message based on online/offline state
     const getLoadingMessage = () => {
         if (is_eu_error_loading) return '';
@@ -290,9 +294,8 @@ const AppContent = observer(() => {
 
     // Skip loading entirely when offline - show dashboard directly
     if (!isOnline) {
-        console.log('[Offline] Bypassing loader, showing dashboard directly');
         return (
-            <LoginGate>
+            <>
                 <AuthLoadingWrapper>
                     <ThemeProvider theme={is_dark_mode_on ? 'dark' : 'light'}>
                         <BlocklyLoading />
@@ -308,14 +311,14 @@ const AppContent = observer(() => {
                         </div>
                     </ThemeProvider>
                 </AuthLoadingWrapper>
-            </LoginGate>
+            </>
         );
     }
 
     return is_loading ? (
         <ChunkLoader message={getLoadingMessage()} />
     ) : (
-        <LoginGate>
+        <>
             <AuthLoadingWrapper>
                 <ThemeProvider theme={is_dark_mode_on ? 'dark' : 'light'}>
                     <BlocklyLoading />
@@ -331,7 +334,7 @@ const AppContent = observer(() => {
                     </div>
                 </ThemeProvider>
             </AuthLoadingWrapper>
-        </LoginGate>
+        </>
     );
 });
 

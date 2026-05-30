@@ -1,0 +1,145 @@
+.nap {
+    position: relative;
+    display: flex;
+    align-items: center;
+
+    &__trigger {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.06);
+        cursor: pointer;
+        color: var(--text-general, #fff);
+        font-size: 1.2rem;
+        transition: background 0.2s;
+
+        &:hover {
+            background: rgba(255, 255, 255, 0.12);
+        }
+    }
+
+    &__dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+
+        &--demo { background: #4caf50; }
+        &--real { background: #2196f3; }
+    }
+
+    &__label {
+        font-weight: 600;
+        font-size: 1.1rem;
+        opacity: 0.85;
+    }
+
+    &__balance {
+        font-weight: 700;
+        font-size: 1.2rem;
+        color: #d4af37;
+    }
+
+    &__arrow {
+        font-size: 0.9rem;
+        opacity: 0.6;
+    }
+
+    &__dropdown {
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        min-width: 260px;
+        background: #1a1a2e;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 10px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        z-index: 1000;
+        overflow: hidden;
+    }
+
+    &__dropdown-header {
+        padding: 10px 14px;
+        font-size: 1rem;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.5);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    &__item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 10px 14px;
+        border: none;
+        background: none;
+        cursor: pointer;
+        color: var(--text-general, #fff);
+        text-align: left;
+        transition: background 0.15s;
+
+        &:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        &--active {
+            background: rgba(212, 175, 55, 0.1);
+        }
+    }
+
+    &__item-info {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        gap: 2px;
+    }
+
+    &__item-type {
+        font-size: 1.1rem;
+        font-weight: 600;
+        opacity: 0.9;
+    }
+
+    &__item-bal {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #d4af37;
+    }
+
+    &__check {
+        color: #4caf50;
+        font-weight: 700;
+        font-size: 1.2rem;
+    }
+
+    &__reset,
+    &__refresh {
+        display: block;
+        width: 100%;
+        padding: 9px 14px;
+        border: none;
+        background: none;
+        cursor: pointer;
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 1.1rem;
+        text-align: left;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        transition: color 0.15s, background 0.15s;
+
+        &:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.04);
+        }
+    }
+
+    &__reset {
+        color: rgba(76, 175, 80, 0.8);
+        &:hover { color: #4caf50; }
+    }
+}

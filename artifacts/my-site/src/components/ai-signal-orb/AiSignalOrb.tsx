@@ -14,7 +14,7 @@ import './ai-signal-orb.scss';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const DERIV_WS     = 'wss://ws.binaryws.com/websockets/v3?app_id=1';
+const DERIV_WS     = 'wss://ws.derivws.com/websockets/v3?app_id=1';
 const TICK_COUNT   = 4000;
 const ENGINE_KEY   = 'free_bots_engine_mode';
 const V2_CFG_KEY   = 'free_bots_v2_config';
@@ -248,7 +248,7 @@ const voteColor = (v: number): string =>
 const voteLabel = (v: number): string =>
     v >= 5 ? 'STRONG' : v >= 4 ? 'GOOD' : v >= 3 ? 'FAIR' : 'WEAK';
 
-// ─── Bot settings ─────────────────────────────────────────────────────────────
+// ─── Bot settings ───────────────────────────────────────────��─────────────────
 
 interface BotCfg { stake: string; takeProfit: string; stopLoss: string; martingale: string; }
 

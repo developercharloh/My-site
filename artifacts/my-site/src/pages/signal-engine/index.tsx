@@ -29,7 +29,7 @@ type Sym = string;
 const SYM_SHORT = DERIV_VOL_SHORT;
 const SYM_LONG  = DERIV_VOL_LONG;
 
-const DERIV_WS = 'wss://ws.binaryws.com/websockets/v3?app_id=1';
+const DERIV_WS = 'wss://ws.derivws.com/websockets/v3?app_id=1';
 const BUF_SIZE = 300;
 
 const DISPLAY_MARKETS = [
@@ -97,7 +97,7 @@ function buildDist(digits: number[]): number[] {
     return counts.map(c => Math.round((c / n) * 1000) / 10);
 }
 
-// ─── Per-symbol buffer ────────────────────────────────────────────────────────
+// ─── Per-symbol buffer ───────────────────────���────────────────────────────────
 
 interface SymBuf {
     digits:       number[];
@@ -131,7 +131,7 @@ const INIT_SNAP: DisplaySnap = {
     prevPrice:null, pipSize:2, tickCount:0, status:'connecting',
 };
 
-// ─── Multi-market hook ────────────────────────────────────────────────────────
+// ─── Multi-market hook ────────────────────────────────────��───────────────────
 
 interface TickEvent { sym: string; tc: number; }
 interface MultiMarketHook {
