@@ -75,14 +75,35 @@ export const AccountSwitcherWalletMobile = observer(
         const switchAccount = async (w: (typeof allWallets)[number]) => {
             if (isActive(w)) { closeDialog(); return; }
 
-            const dtrade_id = w.dtrade_loginid ?? '';
+            const wallet_id  = w.loginid ?? '';          // CRW... / VRTCW...  (OAuth key)
+            const dtrade_id  = w.dtrade_loginid ?? '';   // CR...  / VRTCR...  (token-login key)
+
             const account_list = JSON.parse(localStorage.getItem('accountsList') ?? '{}');
-            const token = account_list[dtrade_id] ?? localStorage.getItem('authToken');
+
+            // OAuth wallet login stores tokens keyed by WALLET loginid (CRW...).
+            // Token-login (TokenLoginModal) stores tokens keyed by DTRADE loginid (CR...).
+            // Try wallet loginid first, then dtrade loginid, then fall back to current token.
+            let token: string | null = null;
+            let active_id = dtrade_id;
+
+            if (wallet_id && account_list[wallet_id]) {
+                token     = account_list[wallet_id];
+                active_id = wallet_id;          // use wallet loginid as the active id
+            } else if (dtrade_id && account_list[dtrade_id]) {
+                token     = account_list[dtrade_id];
+                active_id = dtrade_id;
+            } else {
+                // Same token for all accounts — still update active_loginid so UI knows which account
+                token     = localStorage.getItem('authToken');
+                active_id = wallet_id || dtrade_id;
+            }
+
             if (!token) { closeDialog(); return; }
 
             localStorage.setItem('authToken', token);
-            localStorage.setItem('active_loginid', dtrade_id);
-            Analytics.setAttributes({ account_type: dtrade_id.match(/[a-zA-Z]+/g)?.join('') ?? '' });
+            localStorage.setItem('active_loginid', active_id);
+            Analytics.setAttributes({ account_type: active_id.match(/[a-zA-Z]+/g)?.join('') ?? '' });
+
             await api_base?.init(true);
             closeDialog();
 
