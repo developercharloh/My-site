@@ -102,7 +102,13 @@ export const buildNewAuthUrl = async (): Promise<string> => {
  * callback-page.tsx reads the returned tokens via collectLegacyTokensFromQuery().
  */
 export const buildLegacyAuthUrl = (): string => {
-    return `https://oauth.deriv.com/oauth2/authorize?app_id=${NEW_AUTH.CLIENT_ID}&l=EN`;
+    // Pass redirect_uri explicitly so Deriv Hub carries it through to the login
+    // page and redirects back to mrcharlohfx.site/callback with legacy tokens
+    // (?token1=...&acct1=...&cur1=...) after the user logs in — no exchange step.
+    const redirectUri = typeof window !== 'undefined'
+        ? `${window.location.protocol}//${window.location.hostname.replace(/^www\./, '')}/callback`
+        : 'https://mrcharlohfx.site/callback';
+    return `https://oauth.deriv.com/oauth2/authorize?app_id=${NEW_AUTH.CLIENT_ID}&l=EN&redirect_uri=${encodeURIComponent(redirectUri)}`;
 };
 
 export interface PkceTokenResponse {
