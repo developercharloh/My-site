@@ -177,13 +177,14 @@ export const getDebugServiceWorker = () => {
 
 /**
  * Build the Deriv OAuth URL (synchronous fallback).
- * For mrcharlohfx.site: uses the new auth.deriv.com PKCE endpoint.
- * Prefer buildNewAuthUrl() from pkce.ts for the full PKCE flow.
+ * For mrcharlohfx.site: uses the legacy oauth.deriv.com flow (app 128695 is
+ * registered there with redirect URL https://mrcharlohfx.site/callback).
  */
 export const generateOAuthURL = () => {
     const hostname = window.location.hostname;
 
-    // For mrcharlohfx.site and all third-party domains, use new auth.deriv.com + PKCE client_id.
+    // For mrcharlohfx.site use the legacy OAuth flow — app 128695 has the
+    // correct redirect URL registered at oauth.deriv.com.
     if (
         hostname === 'mrcharlohfx.site' ||
         hostname === 'www.mrcharlohfx.site' ||
@@ -193,9 +194,7 @@ export const generateOAuthURL = () => {
             hostname === 'mrcharlohfx.site' || hostname === 'www.mrcharlohfx.site'
                 ? 'https://mrcharlohfx.site/callback'
                 : `${window.location.origin}/callback`;
-        // Sync fallback URL — full PKCE challenge is added by buildNewAuthUrl() in pkce.ts.
-        // This URL is used only as a last-resort fallback (login gate uses buildNewAuthUrl directly).
-        return `https://auth.deriv.com/oauth2/auth?client_id=${APP_IDS.MY_SITE}&response_type=code&scope=trade+account_manage&redirect_uri=${encodeURIComponent(redirectUri)}&prompt=login`;
+        return `https://oauth.deriv.com/oauth2/authorize?app_id=${APP_IDS.MY_SITE}&l=EN&redirect_uri=${encodeURIComponent(redirectUri)}`;
     }
 
     // For Deriv's own domains, use the library helper and patch as needed.
