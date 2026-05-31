@@ -92,11 +92,13 @@ const TokenLoginModal: React.FC<Props> = ({ onClose }) => {
             const accountsList: Record<string, string> = {};
             const clientAccounts: Record<string, { loginid: string; token: string; currency: string }> = {};
 
+            // Use per-account tokens from authorize response (each account has its own token)
             (authorize.account_list ?? []).forEach((acc: any) => {
-                accountsList[acc.loginid] = trimmed;
+                const acct_token = acc.token || trimmed;
+                accountsList[acc.loginid] = acct_token;
                 clientAccounts[acc.loginid] = {
                     loginid: acc.loginid,
-                    token: trimmed,
+                    token: acct_token,
                     currency: acc.currency ?? '',
                 };
             });

@@ -74,8 +74,13 @@
         justify-content: center;
         flex-shrink: 0;
 
-        &--real { background: #ec3f3f; }
-        &--demo { background: #0a0a82; }
+        &--real {
+            background: transparent;
+            font-size: 2.4rem;
+            width: 4rem;
+            height: 4rem;
+        }
+        &--demo { background: #0a0a82; font-size: 1.1rem; }
     }
 
     &__info {
