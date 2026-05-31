@@ -104,12 +104,9 @@ export const AccountSwitcherWalletMobile = observer(
             localStorage.setItem('active_loginid', active_id);
             Analytics.setAttributes({ account_type: active_id.match(/[a-zA-Z]+/g)?.join('') ?? '' });
 
-            await api_base?.init(true);
-            closeDialog();
-
-            const sp = new URLSearchParams(window.location.search);
-            sp.set('account', w.is_virtual ? 'demo' : (w.currency ?? 'USD'));
-            window.history.pushState({}, '', `${window.location.pathname}?${sp.toString()}`);
+            // Full page reload guarantees the new account is authorised from scratch.
+            const account_param = w.is_virtual ? 'demo' : (w.currency ?? 'USD');
+            window.location.href = `/?account=${account_param}`;
         };
 
         const handleManageFunds = () => {
