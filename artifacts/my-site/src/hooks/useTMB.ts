@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Cookies from 'js-cookie';
 import { generateOAuthURL } from '@/components/shared';
+import { buildNewAuthUrl } from '@/utils/pkce';
 import { removeCookies } from '@/components/shared/utils/storage/storage';
 import { api_base } from '@/external/bot-skeleton';
 import { setAuthData } from '@/external/bot-skeleton/services/api/observables/connection-status-stream';
@@ -383,7 +384,7 @@ const useTMB = (): UseTMBReturn => {
                         setIsAuthenticating(false);
                     }
                     try {
-                        window.location.replace(generateOAuthURL());
+                        window.location.replace(await buildNewAuthUrl());
                     } catch (error) {
                         console.error('Failed to redirect to OAuth:', error);
                         if (setIsAuthenticating) {

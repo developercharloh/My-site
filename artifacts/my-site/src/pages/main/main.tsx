@@ -8,6 +8,7 @@ import TabSkeleton from '@/components/loader/tab-skeleton';
 import { v2EngineStore } from '@/utils/v2-engine-store';
 import { initCustomBotV2Bridge } from '@/utils/custom-bot-v2-bridge';
 import { generateOAuthURL } from '@/components/shared';
+import { buildNewAuthUrl } from '@/utils/pkce';
 import DesktopWrapper from '@/components/shared_ui/desktop-wrapper';
 import Dialog from '@/components/shared_ui/dialog';
 import MobileWrapper from '@/components/shared_ui/mobile-wrapper';
@@ -274,7 +275,7 @@ const AppWrapper = observer(() => {
     const { isOAuth2Enabled } = useOauth2();
     const handleLoginGeneration = async () => {
         if (!isOAuth2Enabled) {
-            window.location.replace(generateOAuthURL());
+            window.location.replace(await buildNewAuthUrl());
         } else {
             const getQueryParams = new URLSearchParams(window.location.search);
             const currency = getQueryParams.get('account') ?? '';

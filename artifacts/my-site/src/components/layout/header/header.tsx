@@ -5,7 +5,7 @@ import PWAInstallButton from '@/components/pwa-install-button';
 import { generateOAuthURL, standalone_routes } from '@/components/shared';
 import { isThirdPartyAppDomain } from '@/components/shared/utils/config/config';
 import Button from '@/components/shared_ui/button';
-import { buildLegacyAuthUrl } from '@/utils/pkce';
+import { buildNewAuthUrl } from '@/utils/pkce';
 import useActiveAccount from '@/hooks/api/account/useActiveAccount';
 import { useOauth2 } from '@/hooks/auth/useOauth2';
 import { useFirebaseCountriesConfig } from '@/hooks/firebase/useFirebaseCountriesConfig';
@@ -212,13 +212,12 @@ const AppHeader = observer(({ isAuthenticating }: TAppHeaderProps) => {
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <Button
                         secondary
-                        onClick={() => {
-                            // Legacy OAuth flow: oauth.deriv.com/oauth2/authorize returns legacy
-                            // tokens (token1, acct1, cur1) DIRECTLY in the redirect URL — no
-                            // server-side token exchange needed, bypasses Cloudflare WAF entirely.
-                            // The alphanumeric app_id works with this endpoint.
-                            // callback-page.tsx handles the returned tokens via collectLegacyTokensFromQuery().
-                            window.location.assign(buildLegacyAuthUrl());
+                        onClick={async () => {
+                            // PKCE flow: auth.deriv.com handles ALL account types including
+                            // wallet accounts. Token exchange happens via /api/token (Vercel
+                            // serverless proxy) to bypass Cloudflare WAF on browser requests.
+                            const url = await buildNewAuthUrl();
+                            window.location.assign(url);
                         }}
                     >
                         <Localize i18n_default_text='Log in' />
