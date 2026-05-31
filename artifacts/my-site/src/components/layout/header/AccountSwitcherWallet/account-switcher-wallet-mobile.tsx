@@ -35,7 +35,6 @@ export const AccountSwitcherWalletMobile = observer(
 
         const isActive = (dtrade_loginid: string | undefined) => {
             if (!dtrade_loginid) return false;
-            // Match by dtrade loginid OR wallet loginid
             if (active_loginid === dtrade_loginid) return true;
             const wallet = (wallet_list ?? []).find(w => w.dtrade_loginid === dtrade_loginid);
             return wallet ? active_loginid === wallet.loginid : false;
@@ -44,7 +43,7 @@ export const AccountSwitcherWalletMobile = observer(
         const realIsActive = isActive(real_account?.dtrade_loginid);
         const demoIsActive = isActive(demo_account?.dtrade_loginid);
 
-        const getBalance = (dtrade_loginid: string | undefined, dtrade_balance: number | undefined, currency: string | undefined) => {
+        const getDisplayBalance = (dtrade_loginid: string | undefined, dtrade_balance: number | undefined, currency: string | undefined) => {
             if (!dtrade_loginid) return 0;
             if (isActive(dtrade_loginid)) return parseFloat(active_balance) || 0;
             return dtrade_balance ?? 0;
@@ -55,25 +54,19 @@ export const AccountSwitcherWalletMobile = observer(
                 closeDialog();
                 return;
             }
-
             const account_list = JSON.parse(localStorage.getItem('accountsList') ?? '{}');
-            // Try dtrade loginid first, then fall back to current token
             const token = account_list[dtrade_loginid] ?? localStorage.getItem('authToken');
-            if (!token) {
-                closeDialog();
-                return;
-            }
+            if (!token) { closeDialog(); return; }
 
             localStorage.setItem('authToken', token);
             localStorage.setItem('active_loginid', dtrade_loginid);
-            const account_type = dtrade_loginid.match(/[a-zA-Z]+/g)?.join('') ?? '';
-            Analytics.setAttributes({ account_type });
+            Analytics.setAttributes({ account_type: dtrade_loginid.match(/[a-zA-Z]+/g)?.join('') ?? '' });
             await api_base?.init(true);
             closeDialog();
 
-            const search_params = new URLSearchParams(window.location.search);
-            search_params.set('account', isVirtual ? 'demo' : currency);
-            window.history.pushState({}, '', `${window.location.pathname}?${search_params.toString()}`);
+            const sp = new URLSearchParams(window.location.search);
+            sp.set('account', isVirtual ? 'demo' : currency);
+            window.history.pushState({}, '', `${window.location.pathname}?${sp.toString()}`);
         };
 
         return (
@@ -84,39 +77,45 @@ export const AccountSwitcherWalletMobile = observer(
                 has_close_icon
                 title={<Localize i18n_default_text='Switch Account' />}
             >
-                <div className='simple-acct-switcher'>
+                <div className='wallet-switcher-list'>
                     {real_account && (
                         <div
-                            className={`simple-acct-option${realIsActive ? ' simple-acct-option--active' : ''}`}
+                            className={`wallet-card${realIsActive ? ' wallet-card--active' : ''}`}
                             onClick={() => switchAccount(real_account.dtrade_loginid ?? '', false, real_account.currency ?? 'USD')}
                             role='button'
                         >
-                            <span className='simple-acct-option__badge simple-acct-option__badge--real'>🇺🇸</span>
-                            <div className='simple-acct-option__info'>
-                                <span className='simple-acct-option__label'>Real Account</span>
-                                <span className='simple-acct-option__balance'>
-                                    {formatMoney(real_account.currency ?? 'USD', getBalance(real_account.dtrade_loginid, real_account.dtrade_balance, real_account.currency), true)}{' '}
+                            <div className='wallet-card__flag'>🇺🇸</div>
+                            <div className='wallet-card__info'>
+                                <div className='wallet-card__type'>Real Account</div>
+                                <div className='wallet-card__balance'>
+                                    {formatMoney(real_account.currency ?? 'USD', getDisplayBalance(real_account.dtrade_loginid, real_account.dtrade_balance, real_account.currency), true)}{' '}
                                     {getCurrencyDisplayCode(real_account.currency)}
-                                </span>
+                                </div>
                             </div>
-                            {realIsActive && <span className='simple-acct-option__check'>✓</span>}
+                            <div className='wallet-card__right'>
+                                {realIsActive && <span className='wallet-card__check'>✓</span>}
+                                <div className='wallet-card__currency-badge wallet-card__currency-badge--real'>USD</div>
+                            </div>
                         </div>
                     )}
                     {demo_account && (
                         <div
-                            className={`simple-acct-option simple-acct-option--demo-row${demoIsActive ? ' simple-acct-option--active' : ''}`}
+                            className={`wallet-card wallet-card--demo${demoIsActive ? ' wallet-card--active' : ''}`}
                             onClick={() => switchAccount(demo_account.dtrade_loginid ?? '', true, demo_account.currency ?? 'USD')}
                             role='button'
                         >
-                            <span className='simple-acct-option__badge simple-acct-option__badge--demo'>Demo</span>
-                            <div className='simple-acct-option__info'>
-                                <span className='simple-acct-option__label'>Demo Account</span>
-                                <span className='simple-acct-option__balance simple-acct-option__balance--demo'>
-                                    {formatMoney(demo_account.currency ?? 'USD', getBalance(demo_account.dtrade_loginid, demo_account.dtrade_balance, demo_account.currency), true)}{' '}
+                            <div className='wallet-card__flag wallet-card__flag--demo'>🔵</div>
+                            <div className='wallet-card__info'>
+                                <div className='wallet-card__type'>Demo Account</div>
+                                <div className='wallet-card__balance wallet-card__balance--demo'>
+                                    {formatMoney(demo_account.currency ?? 'USD', getDisplayBalance(demo_account.dtrade_loginid, demo_account.dtrade_balance, demo_account.currency), true)}{' '}
                                     {getCurrencyDisplayCode(demo_account.currency)}
-                                </span>
+                                </div>
                             </div>
-                            {demoIsActive && <span className='simple-acct-option__check'>✓</span>}
+                            <div className='wallet-card__right'>
+                                {demoIsActive && <span className='wallet-card__check'>✓</span>}
+                                <div className='wallet-card__currency-badge wallet-card__currency-badge--demo'>Demo</div>
+                            </div>
                         </div>
                     )}
                 </div>

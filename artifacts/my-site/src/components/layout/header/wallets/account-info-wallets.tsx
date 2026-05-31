@@ -51,8 +51,24 @@ const DropdownArrow = ({ is_disabled = false }: TDropdownArrow) =>
     );
 
 const BalanceLabel = ({ balance, currency, is_virtual, display_code }: Partial<TBalanceLabel>) => (
-    <div className='acc-info__wallets-account-type-and-balance' style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', pointerEvents: 'none', minWidth: 0 }}>
-        <span style={{ fontSize: '1rem', fontWeight: 600, color: is_virtual ? 'var(--text-profit-success, #4bb4b3)' : 'var(--brand-red-coral, #ec3f3f)', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
+    <div className='acc-info__wallets-account-type-and-balance'>
+        <span
+            className='acc-info__wallets-type-badge'
+            style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0 0.6rem',
+                height: '1.6rem',
+                borderRadius: '0.4rem',
+                fontSize: '1rem',
+                fontWeight: 700,
+                color: '#fff',
+                background: is_virtual ? 'var(--text-profit-success, #4bb4b3)' : 'var(--brand-red-coral, #ec3f3f)',
+                marginBottom: '0.2rem',
+                whiteSpace: 'nowrap',
+            }}
+        >
             {is_virtual ? 'Demo' : 'Real'}
         </span>
         <Text
@@ -61,7 +77,6 @@ const BalanceLabel = ({ balance, currency, is_virtual, display_code }: Partial<T
             className={classNames('acc-info__balance acc-info__wallets-balance', {
                 'acc-info__balance--no-currency': !currency && !is_virtual,
             })}
-            style={{ fontSize: '1.2rem', fontWeight: 700, lineHeight: 1.3, whiteSpace: 'nowrap', margin: 0 }}
         >
             {!currency ? (
                 <Localize i18n_default_text='No currency assigned' />
@@ -116,17 +131,25 @@ const DesktopInfoIcons = observer(({ gradients, icons, icon_type }: TInfoIcons) 
 
 const AccountInfoWallets = observer(({ is_dialog_on, toggleDialog }: TAccountInfoWallets) => {
     const { client, ui } = useStore();
-    const { loginid, accounts, all_accounts_balance, residence } = client;
+    const { loginid, accounts, all_accounts_balance, balance: clientBalance, currency: clientCurrency, residence } = client;
     const { account_switcher_disabled_message } = ui;
     const { data: wallet_list } = useStoreWalletAccountsList();
     const { isDesktop } = useDevice();
 
-    const balance = all_accounts_balance?.accounts?.[loginid ?? '']?.balance;
+    // Prefer all_accounts_balance lookup, fall back to client.balance which is always set after authorize
+    const balanceFromMap = all_accounts_balance?.accounts?.[loginid ?? '']?.balance;
+    const balance = balanceFromMap ?? (clientBalance ? parseFloat(clientBalance) : undefined);
+
     const active_account = accounts?.[loginid ?? ''];
+    // Use client.currency as fallback when active_account.currency is missing
+    const currency = active_account?.currency || clientCurrency;
+
     const linked_dtrade_trading_account_loginid = loginid;
 
     const linked_wallet = wallet_list?.find(wallet => wallet.dtrade_loginid === linked_dtrade_trading_account_loginid);
     const show_badge = linked_wallet?.is_virtual;
+
+    const is_virtual = Boolean(active_account?.is_virtual) || (loginid?.startsWith('VR') ?? false);
 
     return (
         <div className='acc-info__wrapper'>
@@ -153,9 +176,9 @@ const AccountInfoWallets = observer(({ is_dialog_on, toggleDialog }: TAccountInf
                     )}
                     <BalanceLabel
                         balance={balance}
-                        currency={active_account?.currency}
-                        is_virtual={Boolean(active_account?.is_virtual)}
-                        display_code={getCurrencyDisplayCode(active_account?.currency)}
+                        currency={currency}
+                        is_virtual={is_virtual}
+                        display_code={getCurrencyDisplayCode(currency)}
                     />
                     {show_badge && (
                         <WalletBadge
@@ -188,7 +211,7 @@ const AccountInfoWallets = observer(({ is_dialog_on, toggleDialog }: TAccountInf
                     loginid={loginid}
                     residence={residence}
                     is_virtual={active_account?.is_virtual}
-                    currency={active_account?.currency}
+                    currency={currency}
                 />
             )}
         </div>
