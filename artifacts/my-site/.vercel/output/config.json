@@ -9,6 +9,14 @@
       "continue": true
     },
     {
+      "src": "/api/token",
+      "dest": "/api/token"
+    },
+    {
+      "src": "/api/legacy-tokens",
+      "dest": "/api/legacy-tokens"
+    },
+    {
       "handle": "filesystem"
     },
     {
