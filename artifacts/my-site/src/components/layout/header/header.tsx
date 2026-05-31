@@ -5,7 +5,7 @@ import PWAInstallButton from '@/components/pwa-install-button';
 import { generateOAuthURL, standalone_routes } from '@/components/shared';
 import { isThirdPartyAppDomain } from '@/components/shared/utils/config/config';
 import Button from '@/components/shared_ui/button';
-import { buildNewAuthUrl } from '@/utils/pkce';
+import { buildLegacyAuthUrl } from '@/utils/pkce';
 import useActiveAccount from '@/hooks/api/account/useActiveAccount';
 import { useOauth2 } from '@/hooks/auth/useOauth2';
 import { useFirebaseCountriesConfig } from '@/hooks/firebase/useFirebaseCountriesConfig';
@@ -212,13 +212,13 @@ const AppHeader = observer(({ isAuthenticating }: TAppHeaderProps) => {
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <Button
                         secondary
-                        onClick={async () => {
-                            // Use auth.deriv.com PKCE flow — correct OAuth server for this app.
-                            // buildNewAuthUrl() generates verifier + challenge, stores verifier,
-                            // then redirects to auth.deriv.com/oauth2/auth. On return, /callback
-                            // exchanges the code via exchangePkceCode → fetchLegacyTokens.
-                            const url = await buildNewAuthUrl();
-                            window.location.assign(url);
+                        onClick={() => {
+                            // Legacy OAuth flow: oauth.deriv.com/oauth2/authorize returns legacy
+                            // tokens (token1, acct1, cur1) DIRECTLY in the redirect URL — no
+                            // server-side token exchange needed, bypasses Cloudflare WAF entirely.
+                            // The alphanumeric app_id works with this endpoint.
+                            // callback-page.tsx handles the returned tokens via collectLegacyTokensFromQuery().
+                            window.location.assign(buildLegacyAuthUrl());
                         }}
                     >
                         <Localize i18n_default_text='Log in' />
