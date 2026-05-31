@@ -1,2 +1,2 @@
-- [Deriv auth-client login flow](deriv-auth-login.md) — use requestOidcAuthentication + Callback from auth-client; custom PKCE bypasses the legacy token bridge and breaks WebSocket authorize.
-- [logged_state cookie + clearAuthData](logged-state-cookie.md) — after OIDC callback on mrcharlohfx.site, must set logged_state='true' cookie or api_base wipes tokens and loops to "Log in".
+- [Deriv login flow — legacy OAuth only](deriv-login-legacy-only.md) — ONLY the legacy OAuth flow works for this app; PKCE and auth-client both fail at token exchange.
+- [logged_state cookie + clearAuthData](logged-state-cookie.md) — after OAuth callback on mrcharlohfx.site, must set logged_state='true' cookie or api_base wipes tokens and loops to "Log in".
