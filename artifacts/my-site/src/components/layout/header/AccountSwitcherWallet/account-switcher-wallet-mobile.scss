@@ -34,79 +34,151 @@
     }
 }
 
-// Simple Real / Demo switcher
-.simple-acct-switcher {
-    padding: 1.6rem;
+// ─── Full wallet list (Deriv original style) ────────────────────────────────
+
+.wallet-acct-list {
     display: flex;
     flex-direction: column;
-    gap: 1.2rem;
+    overflow-y: auto;
+    flex: 1;
 }
 
-.simple-acct-option {
+.wallet-acct-row {
     display: flex;
     align-items: center;
     gap: 1.2rem;
-    padding: 1.4rem 1.6rem;
-    border: 1.5px solid var(--general-hover, #e8e8e8);
-    border-radius: 10px;
-    background: var(--general-main-2, #fff);
+    padding: 1.2rem 1.6rem;
     cursor: pointer;
-    transition: border-color 0.15s, background 0.15s;
+    background: transparent;
+    transition: background 0.12s;
+    border: none;
+    width: 100%;
+    text-align: left;
 
     &:hover {
-        border-color: var(--brand-red-coral, #ec3f3f);
+        background: var(--general-hover, #f2f3f4);
     }
 
     &--active {
-        border-color: var(--brand-red-coral, #ec3f3f);
-        background: rgba(236, 63, 63, 0.04);
+        background: var(--general-hover, #f2f3f4);
     }
 
-    &__badge {
-        width: 4rem;
+    &__icons {
+        display: flex;
+        align-items: center;
+        position: relative;
+        width: 4.8rem;
         height: 4rem;
-        border-radius: 50%;
-        font-size: 1rem;
-        font-weight: 700;
-        color: #fff;
+        flex-shrink: 0;
+    }
+
+    &__app-icon {
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 4px;
+        overflow: hidden;
+        background: #fff;
+        border: 1px solid var(--general-hover, #e8e8e8);
         display: flex;
         align-items: center;
         justify-content: center;
-        flex-shrink: 0;
+        font-size: 0.9rem;
+        z-index: 1;
+    }
 
-        &--real {
-            background: transparent;
-            font-size: 2.4rem;
-            width: 4rem;
-            height: 4rem;
-        }
-        &--demo { background: #0a0a82; font-size: 1.1rem; }
+    &__wallet-icon {
+        position: absolute;
+        right: 0;
+        top: 0;
+        width: 3.2rem;
+        height: 3.2rem;
+        border-radius: 8px;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    &__wallet-icon-img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
     }
 
     &__info {
+        flex: 1;
         display: flex;
         flex-direction: column;
-        gap: 0.2rem;
-        flex: 1;
+        min-width: 0;
     }
 
-    &__label {
-        font-size: 1.2rem;
+    &__platform {
+        font-size: 1.1rem;
+        color: var(--text-less-prominent, #999);
+        line-height: 1.3;
+    }
+
+    &__name {
+        font-size: 1.3rem;
+        font-weight: 600;
         color: var(--text-general, #333);
+        line-height: 1.4;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     &__balance {
         font-size: 1.4rem;
         font-weight: 700;
         color: var(--text-general, #333);
-
-        &--demo { color: var(--text-profit-success, #4bb4b3); }
+        line-height: 1.4;
     }
 
-    &__check {
-        font-size: 1.6rem;
-        color: var(--brand-red-coral, #ec3f3f);
+    &__badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.2rem 0.8rem;
+        border-radius: 0.4rem;
+        font-size: 1.1rem;
         font-weight: 700;
+        color: #fff;
+        background: #0a0a82;
         flex-shrink: 0;
+    }
+}
+
+.wallet-switcher-footer {
+    padding: 1.6rem;
+    border-top: 1px solid var(--general-hover, #e8e8e8);
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+
+    &__manage-btn {
+        width: 100%;
+        padding: 1.2rem;
+        border: none;
+        border-radius: 2.4rem;
+        background: var(--brand-red-coral, #ec3f3f);
+        color: #fff;
+        font-size: 1.4rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.15s;
+
+        &:hover {
+            background: #d13535;
+        }
+    }
+
+    &__cfd-link {
+        text-align: center;
+        font-size: 1.2rem;
+        color: var(--text-less-prominent, #999);
     }
 }
