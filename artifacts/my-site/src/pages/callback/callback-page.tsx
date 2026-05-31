@@ -4,7 +4,7 @@ import { crypto_currencies_display_order, fiat_currencies_display_order } from '
 import { generateDerivApiInstance } from '@/external/bot-skeleton/services/api/appId';
 import { observer as globalObserver } from '@/external/bot-skeleton/utils/observer';
 import { clearAuthData } from '@/utils/auth-utils';
-import { Callback, requestOidcAuthentication } from '@deriv-com/auth-client';
+import { buildNewAuthUrl, exchangePkceCode, fetchLegacyTokens, clearPkceState } from '@/utils/pkce';
 import { Button } from '@deriv-com/ui';
 import '@/components/login-gate/login-gate.scss';
 
@@ -17,12 +17,6 @@ const LS = {
     CLIENT_ACCOUNTS: 'clientAccounts',
     ACCOUNTS_LIST: 'accountsList',
 } as const;
-
-// The Deriv app registers exactly https://mrcharlohfx.site/callback. Strip any
-// leading `www.` so the apex + www origins both produce the registered URI, and
-// so the URI used to START the OIDC flow matches the one used at token exchange.
-const getRedirectCallbackUri = () =>
-    `${window.location.protocol}//${window.location.host.replace(/^www\./, '')}/callback`;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -250,16 +244,9 @@ const CallbackPage: React.FC = () => {
     const hasCode = params.has('code');
     const hasError = params.has('error');
 
-    // auth-client handles the full PKCE exchange + legacy token fetch.
-    // isPkceFlow is always false — the Callback component runs for all ?code= callbacks.
-    const isPkceFlow = false;
-
     const handleRetry = async () => {
-        // Restart the OIDC flow — auth-client stores its own PKCE verifier.
-        await requestOidcAuthentication({
-            redirectCallbackUri: `${window.location.origin}/callback`,
-            postLogoutRedirectUri: window.location.origin,
-        });
+        const url = await buildNewAuthUrl();
+        window.location.assign(url);
     };
 
     // ── Legacy tokens handler ─────────────��───────────────────────────────────
@@ -272,6 +259,36 @@ const CallbackPage: React.FC = () => {
                 step: 'legacy_error',
                 detail: err?.stack || String(err),
             }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // ── PKCE code exchange ────────────────────────────────────────────────────
+    useEffect(() => {
+        if (!hasCode) return;
+        const code = params.get('code')!;
+        const state = params.get('state');
+        (async () => {
+            try {
+                const tokenData = await exchangePkceCode(code);
+                if (tokenData.error || !tokenData.access_token) {
+                    throw new Error(tokenData.error_description || tokenData.error || 'Token exchange failed');
+                }
+                const legacyToks = await fetchLegacyTokens(tokenData.access_token);
+                if (!legacyToks?.token1) {
+                    throw new Error('Could not get trading tokens. Please try again.');
+                }
+                clearPkceState();
+                const currency = await storeTokens(legacyToks, state ? { account: state } : null);
+                finishSession(currency);
+            } catch (err: unknown) {
+                const e = err as Error | undefined;
+                setPkceError({
+                    message: e?.message || 'Sign-in failed',
+                    step: 'token_exchange',
+                    detail: String((e as any)?.stack || err),
+                });
+            }
+        })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -304,44 +321,9 @@ const CallbackPage: React.FC = () => {
         return <ErrorDisplay error={legacyError} onRetry={handleRetry} />;
     }
 
-    // ── Legacy tokens in progress ─────────────────────────────────────────────
-    if (legacyTokens) {
-        return <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#fff' }}><p>Signing you in…</p></div>;
-    }
-
-    // ── PKCE flow in progress ─────────────────────────────────────────────────
-    if (isPkceFlow) {
-        return (
-            <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#fff' }}>
-                <p>Completing sign-in…</p>
-            </div>
-        );
-    }
-
-    // ── auth-client OIDC flow ─────────────────────────────────────────────────
-    if (hasCode) {
-        const redirectCallbackUri = getRedirectCallbackUri();
-        return (
-            <Callback
-                redirectCallbackUri={redirectCallbackUri}
-                onSignInSuccess={async (tokens: Record<string, string>, rawState: unknown) => {
-                    try {
-                        const currency = await storeTokens(tokens, rawState);
-                        finishSession(currency);
-                    } catch {
-                        try { if (tokens?.token1) localStorage.setItem(LS.AUTH_TOKEN, tokens.token1); } catch { /* ignore */ }
-                        finishSession('USD');
-                    }
-                }}
-                onSignInError={() => window.location.replace('/')}
-                renderReturnButton={() => (
-                    <Button className='callback-return-button' onClick={() => (window.location.href = '/')}>Return to Bot</Button>
-                )}
-            />
-        );
-    }
-
-    return <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#fff' }}><p>Returning to Bot…</p></div>;
+    // ── In progress ───────────────────────────────────────────────────────────
+    const message = legacyTokens ? 'Signing you in…' : hasCode ? 'Completing sign-in…' : 'Returning to Bot…';
+    return <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#fff' }}><p>{message}</p></div>;
 };
 
 export default CallbackPage;

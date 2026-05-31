@@ -5,7 +5,7 @@ import PWAInstallButton from '@/components/pwa-install-button';
 import { generateOAuthURL, standalone_routes } from '@/components/shared';
 import { isThirdPartyAppDomain } from '@/components/shared/utils/config/config';
 import Button from '@/components/shared_ui/button';
-import { requestOidcAuthentication } from '@deriv-com/auth-client';
+import { buildNewAuthUrl } from '@/utils/pkce';
 import useActiveAccount from '@/hooks/api/account/useActiveAccount';
 import { useOauth2 } from '@/hooks/auth/useOauth2';
 import { useFirebaseCountriesConfig } from '@/hooks/firebase/useFirebaseCountriesConfig';
@@ -213,14 +213,12 @@ const AppHeader = observer(({ isAuthenticating }: TAppHeaderProps) => {
                     <Button
                         secondary
                         onClick={async () => {
-                            // Use auth-client's OIDC flow — it stores the PKCE verifier in its
-                            // own storage, then the Callback component exchanges the code AND
-                            // fetches legacy tokens (token1, acct1, cur1) from oauth.deriv.com
-                            // so WebSocket authorize() succeeds and the header shows the account.
-                            await requestOidcAuthentication({
-                                redirectCallbackUri: `${window.location.origin}/callback`,
-                                postLogoutRedirectUri: window.location.origin,
-                            });
+                            // Use auth.deriv.com PKCE flow — correct OAuth server for this app.
+                            // buildNewAuthUrl() generates verifier + challenge, stores verifier,
+                            // then redirects to auth.deriv.com/oauth2/auth. On return, /callback
+                            // exchanges the code via exchangePkceCode → fetchLegacyTokens.
+                            const url = await buildNewAuthUrl();
+                            window.location.assign(url);
                         }}
                     >
                         <Localize i18n_default_text='Log in' />
