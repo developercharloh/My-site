@@ -6,6 +6,7 @@ import { generateOAuthURL, standalone_routes } from '@/components/shared';
 import { isThirdPartyAppDomain } from '@/components/shared/utils/config/config';
 import Button from '@/components/shared_ui/button';
 import { buildLegacyAuthUrl } from '@/utils/pkce';
+import TokenLoginModal from './token-login-modal/TokenLoginModal';
 import useActiveAccount from '@/hooks/api/account/useActiveAccount';
 import { useOauth2 } from '@/hooks/auth/useOauth2';
 import { useFirebaseCountriesConfig } from '@/hooks/firebase/useFirebaseCountriesConfig';
@@ -104,6 +105,7 @@ const AppHeader = observer(({ isAuthenticating }: TAppHeaderProps) => {
     const { dashboard } = useStore() ?? {};
     const { isAuthorizing, activeLoginid } = useApiBase();
     const { client } = useStore() ?? {};
+    const [showTokenModal, setShowTokenModal] = useState(false);
 
     const { data: activeAccount } = useActiveAccount({ allBalanceData: client?.all_accounts_balance });
     const { accounts, getCurrency, is_virtual } = client ?? {};
@@ -206,8 +208,7 @@ const AppHeader = observer(({ isAuthenticating }: TAppHeaderProps) => {
                 </>
             );
         } else {
-            // Not logged in → show Log in / Sign up in the nav bar.
-            // Log in starts Deriv's official OIDC flow (oauth.deriv.com); never a popup gate.
+            // Not logged in → Log in | Token | Sign up
             return (
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <Button
@@ -218,6 +219,12 @@ const AppHeader = observer(({ isAuthenticating }: TAppHeaderProps) => {
                     >
                         <Localize i18n_default_text='Log in' />
                     </Button>
+                    <button
+                        className='hdr-token-btn'
+                        onClick={() => setShowTokenModal(true)}
+                    >
+                        Token
+                    </button>
                     <Button
                         primary
                         onClick={() => {
@@ -247,10 +254,13 @@ const AppHeader = observer(({ isAuthenticating }: TAppHeaderProps) => {
         is_virtual,
         onRenderTMBCheck,
         is_tmb_enabled,
+        showTokenModal,
     ]);
 
     if (client?.should_hide_header) return null;
     return (
+        <>
+        {showTokenModal && <TokenLoginModal onClose={() => setShowTokenModal(false)} />}
         <Header
             className={clsx('app-header', {
                 'app-header--desktop': isDesktop,
@@ -296,6 +306,7 @@ const AppHeader = observer(({ isAuthenticating }: TAppHeaderProps) => {
             </Wrapper>
             {/* <PWAInstallModalTest /> */}
         </Header>
+        </>
     );
 });
 
