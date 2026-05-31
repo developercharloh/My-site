@@ -28,4 +28,80 @@
         max-width: 60rem;
         margin: 0 auto;
     }
+
+    &__footer-text {
+        font-size: 1.2rem;
+    }
+}
+
+// Simple Real / Demo switcher
+.simple-acct-switcher {
+    padding: 1.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+}
+
+.simple-acct-option {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+    padding: 1.4rem 1.6rem;
+    border: 1.5px solid var(--general-hover, #e8e8e8);
+    border-radius: 10px;
+    background: var(--general-main-2, #fff);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+
+    &:hover {
+        border-color: var(--brand-red-coral, #ec3f3f);
+    }
+
+    &--active {
+        border-color: var(--brand-red-coral, #ec3f3f);
+        background: rgba(236, 63, 63, 0.04);
+    }
+
+    &__badge {
+        width: 4rem;
+        height: 4rem;
+        border-radius: 50%;
+        font-size: 1rem;
+        font-weight: 700;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+
+        &--real { background: #ec3f3f; }
+        &--demo { background: #0a0a82; }
+    }
+
+    &__info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+        flex: 1;
+    }
+
+    &__label {
+        font-size: 1.2rem;
+        color: var(--text-general, #333);
+    }
+
+    &__balance {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: var(--text-general, #333);
+
+        &--demo { color: var(--text-profit-success, #4bb4b3); }
+    }
+
+    &__check {
+        font-size: 1.6rem;
+        color: var(--brand-red-coral, #ec3f3f);
+        font-weight: 700;
+        flex-shrink: 0;
+    }
 }

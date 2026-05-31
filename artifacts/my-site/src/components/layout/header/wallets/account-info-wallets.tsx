@@ -141,14 +141,8 @@ const AccountInfoWallets = observer(({ is_dialog_on, toggleDialog }: TAccountInf
                     })}
                     onClick={active_account?.is_disabled ? undefined : () => toggleDialog()}
                 >
-                    {isDesktop ? (
+                    {isDesktop && (
                         <DesktopInfoIcons
-                            gradients={linked_wallet?.gradients}
-                            icons={linked_wallet?.icons}
-                            icon_type={linked_wallet?.icon_type}
-                        />
-                    ) : (
-                        <MobileInfoIcon
                             gradients={linked_wallet?.gradients}
                             icons={linked_wallet?.icons}
                             icon_type={linked_wallet?.icon_type}
