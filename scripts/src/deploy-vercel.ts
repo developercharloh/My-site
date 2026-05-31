@@ -68,6 +68,21 @@ try {
     process.exit(1);
 }
 
+// ─── STEP 1.5: Bump service worker cache version ────────────────────────────
+// Changing CACHE_NAME forces browsers to discard the old cached app and fetch
+// fresh files, so users never get stuck on a stale build after a deploy.
+(() => {
+    const swPath = path.join(siteDir, 'public/sw.js');
+    const swContent = fs.readFileSync(swPath, 'utf-8');
+    const stamp = new Date().toISOString().slice(0, 10); // e.g. 2026-05-31
+    const updated = swContent.replace(
+        /const CACHE_NAME = 'deriv-bot-v\d+-[^']+';/,
+        `const CACHE_NAME = 'deriv-bot-v${Date.now()}-${stamp}';`
+    );
+    fs.writeFileSync(swPath, updated);
+    console.log(`✅  Service worker cache version bumped → deriv-bot-v${Date.now().toString().slice(-6)}-${stamp}`);
+})();
+
 // ─── STEP 2: Build ──────────────────────────────────────────────────────────
 console.log('\n🔨  Step 2: Building Mr CharlohFX...');
 const env = { ...process.env, VERCEL_TOKEN: token, VERCEL_PROJECT_ID: projectId, VERCEL_ORG_ID: orgId, PORT: '19578' };
