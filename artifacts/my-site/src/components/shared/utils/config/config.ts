@@ -194,7 +194,11 @@ export const generateOAuthURL = () => {
             hostname === 'mrcharlohfx.site' || hostname === 'www.mrcharlohfx.site'
                 ? 'https://mrcharlohfx.site/callback'
                 : `${window.location.origin}/callback`;
-        return `https://oauth.deriv.com/oauth2/authorize?app_id=${APP_IDS.MY_SITE}&l=EN&redirect_uri=${encodeURIComponent(redirectUri)}`;
+        const state = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
+        const p = new URLSearchParams({ app_id: String(APP_IDS.MY_SITE), brand: 'deriv', l: 'EN', redirect_uri: redirectUri, state });
+        return `https://oauth.deriv.com/oauth2/authorize?${p.toString()}`;
     }
 
     // For Deriv's own domains, use the library helper and patch as needed.

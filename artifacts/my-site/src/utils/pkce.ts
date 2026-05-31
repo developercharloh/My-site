@@ -89,26 +89,32 @@ export const buildNewAuthUrl = async (): Promise<string> => {
 /**
  * Build the LEGACY Deriv OAuth URL (oauth.deriv.com).
  *
- * Unlike the new auth.deriv.com PKCE flow, the legacy flow returns account
- * tokens DIRECTLY in the redirect URL (?acct1=&token1=&cur1=...) — there is no
- * server-side token-exchange step, so it completely bypasses the Cloudflare WAF
- * that blocks https://auth.deriv.com/oauth2/token. This is the only flow that
- * works reliably on mobile browsers.
+ * Uses brand=deriv + a random state so Deriv shows the proper
+ * "Approve application" consent screen at oauth.deriv.com (for old/legacy
+ * accounts already signed in to Deriv) instead of dropping users at
+ * home.deriv.com. After the user approves, Deriv redirects back to
+ * /callback with legacy tokens (?token1=...&acct1=...&cur1=...).
  *
  * Requirements: the app's registered redirect URL must be
- * https://mrcharlohfx.site/callback. The alphanumeric app_id works here too —
- * oauth.deriv.com accepts it and redirects to the Deriv Hub login.
+ * https://mrcharlohfx.site/callback.
  *
  * callback-page.tsx reads the returned tokens via collectLegacyTokensFromQuery().
  */
 export const buildLegacyAuthUrl = (): string => {
-    // Pass redirect_uri explicitly so Deriv Hub carries it through to the login
-    // page and redirects back to mrcharlohfx.site/callback with legacy tokens
-    // (?token1=...&acct1=...&cur1=...) after the user logs in — no exchange step.
     const redirectUri = typeof window !== 'undefined'
         ? `${window.location.protocol}//${window.location.hostname.replace(/^www\./, '')}/callback`
         : 'https://mrcharlohfx.site/callback';
-    return `https://oauth.deriv.com/oauth2/authorize?app_id=${NEW_AUTH.CLIENT_ID}&l=EN&redirect_uri=${encodeURIComponent(redirectUri)}`;
+    const state = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+    const params = new URLSearchParams({
+        app_id: NEW_AUTH.CLIENT_ID,
+        brand: 'deriv',
+        l: 'EN',
+        redirect_uri: redirectUri,
+        state,
+    });
+    return `https://oauth.deriv.com/oauth2/authorize?${params.toString()}`;
 };
 
 export interface PkceTokenResponse {
