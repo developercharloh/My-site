@@ -50,24 +50,27 @@ const DropdownArrow = ({ is_disabled = false }: TDropdownArrow) =>
         </div>
     );
 
-const BalanceLabel = ({ balance, currency, is_virtual, display_code }: Partial<TBalanceLabel>) =>
-    typeof balance !== 'undefined' || !currency ? (
-        <div className='acc-info__wallets-account-type-and-balance'>
-            <Text
-                as='p'
-                data-testid='dt_balance'
-                className={classNames('acc-info__balance acc-info__wallets-balance', {
-                    'acc-info__balance--no-currency': !currency && !is_virtual,
-                })}
-            >
-                {!currency ? (
-                    <Localize i18n_default_text='No currency assigned' />
-                ) : (
-                    `${formatMoney(currency, balance ?? 0, true)} ${display_code}`
-                )}
-            </Text>
-        </div>
-    ) : null;
+const BalanceLabel = ({ balance, currency, is_virtual, display_code }: Partial<TBalanceLabel>) => (
+    <div className='acc-info__wallets-account-type-and-balance' style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', pointerEvents: 'none', minWidth: 0 }}>
+        <span style={{ fontSize: '1rem', fontWeight: 600, color: is_virtual ? 'var(--text-profit-success, #4bb4b3)' : 'var(--brand-red-coral, #ec3f3f)', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
+            {is_virtual ? 'Demo' : 'Real'}
+        </span>
+        <Text
+            as='p'
+            data-testid='dt_balance'
+            className={classNames('acc-info__balance acc-info__wallets-balance', {
+                'acc-info__balance--no-currency': !currency && !is_virtual,
+            })}
+            style={{ fontSize: '1.2rem', fontWeight: 700, lineHeight: 1.3, whiteSpace: 'nowrap', margin: 0 }}
+        >
+            {!currency ? (
+                <Localize i18n_default_text='No currency assigned' />
+            ) : (
+                `${formatMoney(currency, balance ?? 0, true)} ${display_code}`
+            )}
+        </Text>
+    </div>
+);
 
 const MobileInfoIcon = observer(({ gradients, icons, icon_type }: TInfoIcons) => {
     const {
