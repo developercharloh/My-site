@@ -19,3 +19,5 @@ Using a custom `buildNewAuthUrl()` + custom PKCE exchange bypasses step 2, resul
 **The app_id** `33bvUt0Jjt7sNGHm4kSqv` is an alphanumeric OIDC client_id registered at `developers.deriv.com`. It only works with `auth.deriv.com` (PKCE). Passing it to `oauth.deriv.com` as a legacy app_id fails — Deriv redirects to `home.deriv.com/dashboard` instead of `mrcharlohfx.site/callback`.
 
 **How to apply:** Whenever the login button or retry logic needs to trigger auth, always call `requestOidcAuthentication`. Whenever a `?code=` arrives at `/callback`, always let the auth-client `Callback` component handle it — never intercept with a custom exchange.
+
+**NEVER set `config.server_url` in localStorage for mrcharlohfx.site.** The auth-client reads `config.server_url` to decide which OAuth authority to use. Setting it to `ws.derivws.com` makes `requestOidcAuthentication` build a URL for `oauth.deriv.com` (legacy) instead of `auth.deriv.com` (OIDC), causing an `invalid_request / redirect_uri` error immediately on login. Only `config.app_id` should be seeded in `main.tsx` for third-party domains.
