@@ -26,7 +26,7 @@ export const generateState = (): string => {
 };
 
 export const NEW_AUTH = {
-    CLIENT_ID: '33bvUt0Jjt7sNGHm4kSqv',
+    CLIENT_ID: '128695',
     AUTH_ENDPOINT: 'https://auth.deriv.com/oauth2/auth',
     TOKEN_ENDPOINT: 'https://auth.deriv.com/oauth2/token',
     TOKEN_PROXY: '/api/token',

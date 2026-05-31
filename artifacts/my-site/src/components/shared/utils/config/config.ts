@@ -10,7 +10,7 @@ export const APP_IDS = {
     PRODUCTION: 65555,
     PRODUCTION_BE: 65556,
     PRODUCTION_ME: 65557,
-    MY_SITE: '33bvUt0Jjt7sNGHm4kSqv',
+    MY_SITE: 128695,
 } as const;
 
 export type AppId = (typeof APP_IDS)[keyof typeof APP_IDS];
