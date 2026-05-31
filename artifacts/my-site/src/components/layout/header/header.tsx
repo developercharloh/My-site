@@ -5,7 +5,7 @@ import PWAInstallButton from '@/components/pwa-install-button';
 import { generateOAuthURL, standalone_routes } from '@/components/shared';
 import { isThirdPartyAppDomain } from '@/components/shared/utils/config/config';
 import Button from '@/components/shared_ui/button';
-import { buildNewAuthUrl } from '@/utils/pkce';
+import { buildLegacyAuthUrl } from '@/utils/pkce';
 import useActiveAccount from '@/hooks/api/account/useActiveAccount';
 import { useOauth2 } from '@/hooks/auth/useOauth2';
 import { useFirebaseCountriesConfig } from '@/hooks/firebase/useFirebaseCountriesConfig';
@@ -212,12 +212,8 @@ const AppHeader = observer(({ isAuthenticating }: TAppHeaderProps) => {
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <Button
                         secondary
-                        onClick={async () => {
-                            // PKCE flow: auth.deriv.com handles ALL account types including
-                            // wallet accounts. Token exchange happens via /api/token (Vercel
-                            // serverless proxy) to bypass Cloudflare WAF on browser requests.
-                            const url = await buildNewAuthUrl();
-                            window.location.assign(url);
+                        onClick={() => {
+                            window.location.assign(buildLegacyAuthUrl());
                         }}
                     >
                         <Localize i18n_default_text='Log in' />

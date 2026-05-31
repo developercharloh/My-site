@@ -1,7 +1,7 @@
 import React from 'react';
 import { observer } from 'mobx-react-lite';
 import { useStore } from '@/hooks/useStore';
-import { buildNewAuthUrl } from '@/utils/pkce';
+import { buildLegacyAuthUrl } from '@/utils/pkce';
 import './login-gate.scss';
 
 const LoginGate: React.FC<{ children: React.ReactNode }> = observer(({ children }) => {
@@ -9,9 +9,8 @@ const LoginGate: React.FC<{ children: React.ReactNode }> = observer(({ children 
 
     if (client?.is_logged_in) return <>{children}</>;
 
-    const handleLogin = async () => {
-        const url = await buildNewAuthUrl();
-        window.location.href = url;
+    const handleLogin = () => {
+        window.location.href = buildLegacyAuthUrl();
     };
 
     return (

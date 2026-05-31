@@ -275,7 +275,7 @@ const AppWrapper = observer(() => {
     const { isOAuth2Enabled } = useOauth2();
     const handleLoginGeneration = async () => {
         if (!isOAuth2Enabled) {
-            window.location.replace(await buildNewAuthUrl());
+            window.location.replace(generateOAuthURL());
         } else {
             const getQueryParams = new URLSearchParams(window.location.search);
             const currency = getQueryParams.get('account') ?? '';

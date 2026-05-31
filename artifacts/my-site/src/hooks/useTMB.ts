@@ -384,7 +384,7 @@ const useTMB = (): UseTMBReturn => {
                         setIsAuthenticating(false);
                     }
                     try {
-                        window.location.replace(await buildNewAuthUrl());
+                        window.location.replace(generateOAuthURL());
                     } catch (error) {
                         console.error('Failed to redirect to OAuth:', error);
                         if (setIsAuthenticating) {
