@@ -1,7 +1,7 @@
 // Comprehensive Service Worker for Deriv Bot Offline Functionality
 // Bump CACHE_NAME version on every release to invalidate stale cached
 // HTML/static assets in returning visitors' browsers.
-const CACHE_NAME = 'deriv-bot-v1780204954863-2026-05-31';
+const CACHE_NAME = 'deriv-bot-v1780205776288-2026-05-31';
 const OFFLINE_URL = '/offline.html';
 
 // Files to cache immediately on install. We deliberately do NOT precache
